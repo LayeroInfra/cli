@@ -9,7 +9,7 @@ export async function tokenSetCmd(jwt: string): Promise<void> {
   const probe = new ApiClient(cfg);
   try {
     const me = await probe.me();
-    cfg.user = { id: me.id, handle: me.handle, email: me.email };
+    cfg.user = { id: me.id, owner_name: me.owner_name, email: me.email };
   } catch (err) {
     console.error(
       chalk.red(`token rejected by API: ${(err as Error).message}`),
@@ -20,13 +20,13 @@ export async function tokenSetCmd(jwt: string): Promise<void> {
   await saveConfig(cfg);
   console.log(
     chalk.green(
-      `saved token for ${cfg.user?.handle ?? cfg.user?.email ?? cfg.user?.id}`,
+      `saved token for ${cfg.user?.owner_name ?? cfg.user?.email ?? cfg.user?.id}`,
     ),
   );
-  if (!cfg.user?.handle) {
+  if (!cfg.user?.owner_name) {
     console.log(
       chalk.yellow(
-        "no handle set — open https://app.layero.ru/onboarding to pick one " +
+        "no Owner set — open https://app.layero.ru/onboarding to pick one " +
           "before `layero deploy`.",
       ),
     );

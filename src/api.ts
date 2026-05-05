@@ -27,7 +27,7 @@ export interface ProjectSummary {
 export interface MeOut {
   id: string;
   github_login: string | null;
-  handle: string | null;
+  owner_name: string | null;
   email: string | null;
   avatar_url: string | null;
 }
@@ -188,16 +188,16 @@ export class ApiClient {
     );
   }
 
-  setHandle(value: string): Promise<{ handle: string; owner_slug: string }> {
-    return this.request("POST", "/me/handle", { value });
+  setOwnerName(value: string): Promise<{ owner_name: string; owner_slug: string }> {
+    return this.request("POST", "/me/owner", { value });
   }
 
-  checkHandle(
+  checkOwnerName(
     value: string,
   ): Promise<{ available: boolean; normalized: string; reason: string | null }> {
     return this.request(
       "GET",
-      `/me/handle/check?value=${encodeURIComponent(value)}`,
+      `/me/owner/check?value=${encodeURIComponent(value)}`,
     );
   }
 }

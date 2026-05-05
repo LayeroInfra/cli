@@ -7,7 +7,7 @@ export interface CliConfig {
   token?: string;
   user?: {
     id: string;
-    handle: string | null;
+    owner_name: string | null;
     email?: string | null;
   };
 }

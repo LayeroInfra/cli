@@ -104,9 +104,9 @@ async function resolveOrCreateProject(
   }
 
   const me = await api.me();
-  if (!me.handle) {
+  if (!me.owner_name) {
     throw new Error(
-      "no handle set on your account. open https://app.layero.ru/onboarding " +
+      "no Owner set on your account. open https://app.layero.ru/onboarding " +
         "and pick one, then re-run.",
     );
   }
