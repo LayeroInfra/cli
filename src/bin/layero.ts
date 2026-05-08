@@ -10,6 +10,7 @@ import { projectsListCmd } from "../commands/projects.js";
 import { linkCmd } from "../commands/link.js";
 import { tokenSetCmd } from "../commands/token.js";
 import { deployCmd } from "../commands/deploy.js";
+import { deploysListCmd, rollbackCmd } from "../commands/deploys.js";
 import { loginCmd } from "../commands/login.js";
 
 // Read version from the shipped package.json (two levels up from dist/bin/).
@@ -63,6 +64,38 @@ async function main(): Promise<void> {
     .description("List your projects.")
     .action(projectsListCmd);
 
+  const deploys = program
+    .command("deploys")
+    .description("List and inspect deploys for the linked project.");
+  deploys
+    .command("list")
+    .description("List recent deploys for the project's default branch (or --branch).")
+    .option("--project <id_or_slug>", "target project (default: linked .layero/project.json)")
+    .option("--branch <name>", "branch to list deploys from (default: project's default_branch)")
+    .option("--limit <n>", "max entries to show (default 20)", (v) => Number(v))
+    .action(async (opts) => {
+      await deploysListCmd(opts);
+    });
+
+  program
+    .command("rollback")
+    .description("Re-activate the previous successful deploy on the project's default branch.")
+    .option("--project <id_or_slug>", "target project (default: linked .layero/project.json)")
+    .option("--branch <name>", "branch to roll back (default: project's default_branch)")
+    .option("--deploy <id_or_sha>", "explicit deploy id or commit sha prefix to roll back to")
+    .option("-y, --yes", "skip the confirmation prompt (CI)")
+    .addHelpText(
+      "after",
+      "\nExamples:\n" +
+        "  $ layero rollback                       # roll back default branch to previous ready deploy\n" +
+        "  $ layero rollback --branch=staging      # roll back the staging branch\n" +
+        "  $ layero rollback --deploy=a3f9c2b      # roll back to a specific commit/deploy\n" +
+        "  $ layero rollback --yes                 # CI-friendly, no prompt",
+    )
+    .action(async (opts) => {
+      await rollbackCmd(opts);
+    });
+
   program
     .command("link <id_or_slug>")
     .description("Link the current directory to an existing project.")
@@ -88,18 +121,28 @@ async function main(): Promise<void> {
     )
     .option("--name <name>", "project name (only used on first deploy)")
     .option("--project <id_or_slug>", "deploy into an existing project, ignoring local config")
-    .option("-y, --yes", "non-interactive: accept defaults, fail if anything is missing")
+    .option("-y, --yes", "non-interactive: accept defaults and skip --prod confirmation")
     .option(
       "--config",
       "use framework/build settings + env vars from .layero/project.json (skips the browser setup wizard)",
     )
+    .option(
+      "--prod",
+      "deploy to production (replaces apex_hostname's active deploy). Without this flag, deploys go to the project's CLI preview pseudo-branch.",
+    )
+    .option(
+      "--branch <name>",
+      "deploy to a specific branch's environment. Wins over --prod.",
+    )
     .addHelpText(
       "after",
       "\nExamples:\n" +
-        "  $ layero deploy                      # uploads source, opens setup wizard in the browser\n" +
+        "  $ layero deploy                      # preview on CLI pseudo-branch (never replaces prod)\n" +
+        "  $ layero deploy --prod               # production deploy (interactive confirm)\n" +
+        "  $ layero deploy --prod --yes         # production deploy, no prompt (CI)\n" +
+        "  $ layero deploy --branch=staging     # preview on a specific branch\n" +
         "  $ layero deploy --config             # uses .layero/project.json end-to-end (CI-friendly)\n" +
-        "  $ layero deploy --type vite\n" +
-        "  $ layero deploy --project my-site --yes",
+        "  $ layero deploy --type vite",
     )
     .action(async (opts) => {
       await deployCmd(opts);

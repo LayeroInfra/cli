@@ -31,7 +31,7 @@ export async function linkCmd(idOrSlug: string): Promise<void> {
     {
       project_id: proj.id,
       slug: proj.slug,
-      owner_slug: proj.owner.slug,
+      organization_slug: proj.organization.slug,
       apex_hostname: proj.apex_hostname,
     },
     proj.framework_hint ?? null,

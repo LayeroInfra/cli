@@ -5,7 +5,7 @@ export interface ProjectConfig {
   // Linking — populated by CLI on first `layero deploy`. Don't hand-edit.
   project_id: string;
   slug: string;
-  owner_slug: string;
+  organization_slug: string;
   apex_hostname: string;
   api_url?: string;
   // Setup-wizard fields. Optional for plain `layero deploy` (where the
@@ -27,7 +27,15 @@ export async function loadProjectConfig(
 ): Promise<ProjectConfig | null> {
   try {
     const raw = await fs.readFile(projectConfigPath(cwd), "utf-8");
-    return JSON.parse(raw) as ProjectConfig;
+    const parsed = JSON.parse(raw) as ProjectConfig & { owner_slug?: string };
+    // Backward-read: configs written before V050 stored the field as
+    // `owner_slug`. Promote it to `organization_slug` in-memory so the
+    // rest of the CLI doesn't have to handle both names. Disk file gets
+    // rewritten on the next persistProjectLinking() call.
+    if (!parsed.organization_slug && parsed.owner_slug) {
+      parsed.organization_slug = parsed.owner_slug;
+    }
+    return parsed;
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
       return null;
@@ -54,22 +62,23 @@ export async function saveProjectConfig(
  *
  * `layero deploy` runs every time the user ships code, but the only thing
  * it should ever write back to .layero/project.json is the linkage —
- * project_id / slug / owner_slug / apex_hostname. Hand-edited fields
- * (build_cmd, output_dir, env_vars, analytics_enabled, framework_hint)
- * and any unknown keys the user added must be preserved verbatim, or we
- * silently break the user's --config file on every interactive deploy.
+ * project_id / slug / organization_slug / apex_hostname. Hand-edited
+ * fields (build_cmd, output_dir, env_vars, analytics_enabled,
+ * framework_hint) and any unknown keys the user added must be preserved
+ * verbatim, or we silently break the user's --config file on every
+ * interactive deploy.
  *
  * Reads the file as raw JSON, overlays the linking subset, and writes it
- * back. Returns the merged config the caller should treat as the new
- * source of truth (matters for first-deploy where there's no existing
- * file).
+ * back. Drops any legacy `owner_slug` key once the new name has been
+ * written, so future reads see only `organization_slug`. Returns the
+ * merged config the caller should treat as the new source of truth.
  */
 export async function persistProjectLinking(
   cwd: string,
   linking: {
     project_id: string;
     slug: string;
-    owner_slug: string;
+    organization_slug: string;
     apex_hostname: string;
     api_url?: string;
   },
@@ -86,11 +95,14 @@ export async function persistProjectLinking(
     }
   }
 
+  // Strip the legacy owner_slug if it sneaks in from an older CLI write.
+  delete raw.owner_slug;
+
   const merged: Record<string, unknown> = {
     ...raw,
     project_id: linking.project_id,
     slug: linking.slug,
-    owner_slug: linking.owner_slug,
+    organization_slug: linking.organization_slug,
     apex_hostname: linking.apex_hostname,
   };
   if (linking.api_url !== undefined) merged.api_url = linking.api_url;

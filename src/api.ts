@@ -16,9 +16,11 @@ export interface ProjectSummary {
   slug: string;
   apex_hostname: string;
   source_type: string;
+  github_integration_enabled?: boolean;
+  cli_deploys_enabled?: boolean;
   framework_hint: string | null;
   default_branch: string;
-  owner: { id: string; github_login: string | null; slug: string };
+  organization: { id: string; github_login: string | null; slug: string };
   created_at: string;
   publish_status?: string;
   status?: "pending_setup" | "active";
@@ -27,7 +29,7 @@ export interface ProjectSummary {
 export interface MeOut {
   id: string;
   github_login: string | null;
-  owner_name: string | null;
+  username: string | null;
   email: string | null;
   avatar_url: string | null;
 }
@@ -44,8 +46,13 @@ export interface DeployOut {
   environment_id: string;
   status: string;
   commit_sha: string;
+  commit_message?: string | null;
   current_stage: string | null;
   error_message: string | null;
+  created_at?: string;
+  finished_at?: string | null;
+  source_type?: string;
+  triggered_by_user_id?: string | null;
 }
 
 export interface LogLine {
@@ -172,6 +179,13 @@ export class ApiClient {
       commit_sha: string;
       commit_message?: string;
       framework_hint?: string;
+      // 'preview' (default) or 'production'. Production replaces the apex
+      // hostname's active deploy and requires user confirmation in the CLI.
+      target?: "preview" | "production";
+      // Explicit branch override; wins over `target`. For preview deploys
+      // without a branch, the backend routes to the per-project "cli"
+      // pseudo-branch.
+      branch?: string;
     },
   ): Promise<DeployOut> {
     return this.request<DeployOut>(
@@ -188,16 +202,40 @@ export class ApiClient {
     );
   }
 
-  setOwnerName(value: string): Promise<{ owner_name: string; owner_slug: string }> {
-    return this.request("POST", "/me/owner", { value });
+  listProjectDeploys(
+    projectId: string,
+    branch?: string,
+  ): Promise<DeployOut[]> {
+    const qs = branch ? `?branch=${encodeURIComponent(branch)}` : "";
+    return this.request<DeployOut[]>(
+      "GET",
+      `/projects/${projectId}/deploys${qs}`,
+    );
   }
 
-  checkOwnerName(
+  rollbackProject(
+    projectId: string,
+    input: { branch?: string; deploy_id?: string },
+  ): Promise<DeployOut> {
+    return this.request<DeployOut>(
+      "POST",
+      `/projects/${projectId}/rollback`,
+      input,
+    );
+  }
+
+  setUsername(
+    value: string,
+  ): Promise<{ username: string; organization_slug: string }> {
+    return this.request("POST", "/auth/me/username", { value });
+  }
+
+  checkUsername(
     value: string,
   ): Promise<{ available: boolean; normalized: string; reason: string | null }> {
     return this.request(
       "GET",
-      `/me/owner/check?value=${encodeURIComponent(value)}`,
+      `/auth/me/username/check?value=${encodeURIComponent(value)}`,
     );
   }
 }

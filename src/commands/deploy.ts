@@ -21,6 +21,14 @@ interface DeployOptions {
   name?: string;
   project?: string;
   yes?: boolean;
+  // `--prod` deploys to production (replaces apex_hostname's active deploy).
+  // Without it, deploys go to the project's "cli" pseudo-branch — isolated
+  // preview that never overrides production.
+  prod?: boolean;
+  // `--branch=X` deploys to a specific branch's environment. Pairs with `--prod`
+  // only redundantly (default_branch = production). Wins over `--prod` when both
+  // present and inconsistent.
+  branch?: string;
 }
 
 const VALID_TYPES = new Set([
@@ -70,6 +78,29 @@ async function prompt(question: string, fallback: string): Promise<string> {
   }
 }
 
+async function confirm(question: string): Promise<boolean> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  try {
+    const answer = (await rl.question(`${question} [y/N]: `)).trim().toLowerCase();
+    return answer === "y" || answer === "yes";
+  } finally {
+    rl.close();
+  }
+}
+
+function deployTargeting(opts: DeployOptions): {
+  target: "preview" | "production";
+  branch?: string;
+} {
+  if (opts.branch) {
+    return { target: "preview", branch: opts.branch };
+  }
+  return { target: opts.prod ? "production" : "preview" };
+}
+
 async function resolveOrCreateProject(
   api: ApiClient,
   cwd: string,
@@ -104,9 +135,9 @@ async function resolveOrCreateProject(
   }
 
   const me = await api.me();
-  if (!me.owner_name) {
+  if (!me.username) {
     throw new Error(
-      "no Owner set on your account. open https://app.layero.ru/onboarding " +
+      "no username set on your account. open https://app.layero.ru/onboarding " +
         "and pick one, then re-run.",
     );
   }
@@ -194,24 +225,37 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
   );
   let project = created;
 
-  if (project.source_type !== "cli") {
+  if (project.cli_deploys_enabled === false) {
     throw new Error(
-      `project "${project.slug}" is a GitHub-source project; ` +
-        "use the dashboard's Deploy button or push to the linked repo.",
+      `CLI deploys are disabled on project "${project.slug}". ` +
+        "Enable them in project settings or use the dashboard's Deploy button.",
     );
+  }
+
+  // Prompt before overwriting production. CLI deploys default to a per-project
+  // "cli" pseudo-branch (preview-only); --prod is the explicit opt-in to land
+  // on apex_hostname. --yes (CI) or --branch=<default_branch> bypass.
+  if (opts.prod && !opts.yes && !opts.branch) {
+    const ok = await confirm(
+      `deploy to production (https://${project.apex_hostname})?`,
+    );
+    if (!ok) {
+      console.log(chalk.yellow("aborted."));
+      return;
+    }
   }
 
   // Persist linking metadata only — never touch hand-edited config fields
   // or unknown keys the user may have added (a --config file is the user's
   // source of truth, not ours). `persistProjectLinking` reads the file as
-  // raw JSON, overlays just project_id/slug/owner_slug/apex_hostname, and
-  // writes it back.
+  // raw JSON, overlays just project_id/slug/organization_slug/apex_hostname,
+  // and writes it back.
   const persistedCfg = await persistProjectLinking(
     cwd,
     {
       project_id: project.id,
       slug: project.slug,
-      owner_slug: project.owner.slug,
+      organization_slug: project.organization.slug,
       apex_hostname: project.apex_hostname,
     },
     opts.type ?? null,
@@ -244,11 +288,14 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       upload = await packAndUpload(api, cwd, project);
 
       console.log(chalk.cyan("triggering deploy..."));
+      const targeting = deployTargeting(opts);
       const deploy = await api.triggerDeploy(project.id, {
         source_archive_key: upload.archive_key,
         commit_sha: upload.commit_sha,
         commit_message: "CLI deploy",
         framework_hint: persistedCfg.framework_hint ?? undefined,
+        target: targeting.target,
+        branch: targeting.branch,
       });
       console.log(chalk.dim(`  deploy_id=${deploy.id}`));
 
@@ -267,11 +314,19 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       console.log(
         chalk.green(`deploy ready → ${projectUrl(cliCfg.apiUrl, project.id)}`),
       );
-      console.log(
-        chalk.dim(
-          `  site: https://${project.apex_hostname} (CDN may take ~30-60s to propagate)`,
-        ),
-      );
+      if (opts.prod && !opts.branch) {
+        console.log(
+          chalk.dim(
+            `  production: https://${project.apex_hostname} (CDN may take ~30-60s to propagate)`,
+          ),
+        );
+      } else {
+        console.log(
+          chalk.dim(
+            `  preview deploy — open the dashboard for the exact URL`,
+          ),
+        );
+      }
     } finally {
       if (upload) {
         await fs.unlink(upload.archivePath).catch(() => undefined);
@@ -315,11 +370,14 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     // Already-active project: behave like the old `layero deploy` — fire
     // a build straight from the freshly-uploaded archive.
     console.log(chalk.cyan("triggering deploy..."));
+    const targeting = deployTargeting(opts);
     const deploy = await api.triggerDeploy(project.id, {
       source_archive_key: upload.archive_key,
       commit_sha: upload.commit_sha,
       commit_message: "CLI deploy",
       framework_hint: opts.type,
+      target: targeting.target,
+      branch: targeting.branch,
     });
     console.log(chalk.dim(`  deploy_id=${deploy.id}`));
 

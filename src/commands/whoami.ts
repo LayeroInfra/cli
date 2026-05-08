@@ -12,7 +12,7 @@ export async function whoamiCmd(): Promise<void> {
   const api = new ApiClient(cfg);
   const me = await api.me();
   console.log(`id:     ${me.id}`);
-  console.log(`owner:  ${me.owner_name ?? chalk.yellow("(not set)")}`);
+  console.log(`username: ${me.username ?? chalk.yellow("(not set)")}`);
   console.log(`email:  ${me.email ?? "(none)"}`);
   if (me.github_login) {
     console.log(`github: ${me.github_login}`);

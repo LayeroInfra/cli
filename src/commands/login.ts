@@ -113,17 +113,17 @@ export async function loginCmd(opts: LoginOptions): Promise<void> {
   cfg.token = token;
   const probe = new ApiClient(cfg);
   const me = await probe.me();
-  cfg.user = { id: me.id, owner_name: me.owner_name, email: me.email };
+  cfg.user = { id: me.id, username: me.username, email: me.email };
   await saveConfig(cfg);
   console.log(
     chalk.green(
-      `logged in as ${me.owner_name ?? me.email ?? me.id}`,
+      `logged in as ${me.username ?? me.email ?? me.id}`,
     ),
   );
-  if (!me.owner_name) {
+  if (!me.username) {
     console.log(
       chalk.yellow(
-        "no Owner set — open https://app.layero.ru/onboarding to pick one.",
+        "no username set — open https://app.layero.ru/onboarding to pick one.",
       ),
     );
   }
