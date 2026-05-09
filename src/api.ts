@@ -20,7 +20,12 @@ export interface ProjectSummary {
   cli_deploys_enabled?: boolean;
   framework_hint: string | null;
   default_branch: string;
-  organization: { id: string; github_login: string | null; slug: string };
+  organization: {
+    id: string;
+    github_login: string | null;
+    slug: string;
+    kind?: "personal" | "team";
+  };
   created_at: string;
   publish_status?: string;
   status?: "pending_setup" | "active";
@@ -120,6 +125,18 @@ export class ApiClient {
     return this.request<ProjectSummary[]>("GET", "/projects");
   }
 
+  listOrganizations(): Promise<
+    Array<{
+      id: string;
+      slug: string;
+      github_login: string | null;
+      my_role: "admin" | "member";
+      kind: "personal" | "team";
+    }>
+  > {
+    return this.request("GET", "/organizations");
+  }
+
   getProject(idOrSlug: string): Promise<ProjectSummary> {
     return this.request<ProjectSummary>("GET", `/projects/${idOrSlug}`);
   }
@@ -128,12 +145,16 @@ export class ApiClient {
     name: string;
     slug?: string;
     framework_hint?: string;
+    /** Target Layero organization. When unset, backend creates the
+     * project in the caller's personal org. */
+    organization_slug?: string;
   }): Promise<ProjectSummary> {
     return this.request<ProjectSummary>("POST", "/projects", {
       name: input.name,
       slug: input.slug,
       source_type: "cli",
       framework_hint: input.framework_hint,
+      organization_slug: input.organization_slug,
     });
   }
 

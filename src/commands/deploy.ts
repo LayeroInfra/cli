@@ -29,6 +29,10 @@ interface DeployOptions {
   // only redundantly (default_branch = production). Wins over `--prod` when both
   // present and inconsistent.
   branch?: string;
+  // `--org=<slug>` targets a specific Layero organization on first-time
+  // project creation. Defaults to the user's personal org. Ignored when the
+  // current directory is already linked to a project.
+  org?: string;
 }
 
 const VALID_TYPES = new Set([
@@ -141,12 +145,53 @@ async function resolveOrCreateProject(
         "and pick one, then re-run.",
     );
   }
+  // Resolve target Layero organization. Three paths:
+  //   * --org=slug explicit  → verify membership, use it
+  //   * single org           → silent default (the personal account)
+  //   * multiple orgs        → prompt unless --yes
+  let organizationSlug: string | undefined = opts.org;
+  if (organizationSlug) {
+    const orgs = await api.listOrganizations();
+    if (!orgs.some((o) => o.slug === organizationSlug)) {
+      throw new Error(
+        `you're not a member of organization "${organizationSlug}". ` +
+          `available: ${orgs.map((o) => o.slug).join(", ") || "(none)"}`,
+      );
+    }
+  } else {
+    const orgs = await api.listOrganizations();
+    if (orgs.length === 0) {
+      throw new Error(
+        "no organization found on your account. finish onboarding at https://app.layero.ru/onboarding",
+      );
+    } else if (orgs.length === 1) {
+      organizationSlug = orgs[0]!.slug;
+    } else if (opts.yes || opts.config) {
+      // CI without --org: prefer personal, fall back to first.
+      organizationSlug =
+        orgs.find((o) => o.kind === "personal")?.slug ?? orgs[0]!.slug;
+    } else {
+      console.log(chalk.cyan("which organization?"));
+      orgs.forEach((o, i) => {
+        const tag = o.kind === "personal" ? "personal" : "team";
+        console.log(`  ${i + 1}. ${o.slug} (${tag}, ${o.my_role})`);
+      });
+      const choiceRaw = await prompt("choose number", "1");
+      const idx = Number(choiceRaw) - 1;
+      if (Number.isNaN(idx) || idx < 0 || idx >= orgs.length) {
+        throw new Error(`invalid choice "${choiceRaw}"`);
+      }
+      organizationSlug = orgs[idx]!.slug;
+    }
+  }
+
   const fallbackName = path.basename(cwd);
   const name =
     opts.name ?? (opts.yes || opts.config ? fallbackName : await prompt("project name", fallbackName));
   const project = await api.createCliProject({
     name,
     framework_hint: opts.type,
+    organization_slug: organizationSlug,
   });
   return { project, createdNow: true };
 }

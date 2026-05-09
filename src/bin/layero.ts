@@ -12,6 +12,7 @@ import { tokenSetCmd } from "../commands/token.js";
 import { deployCmd } from "../commands/deploy.js";
 import { deploysListCmd, rollbackCmd } from "../commands/deploys.js";
 import { loginCmd } from "../commands/login.js";
+import { orgsListCmd } from "../commands/orgs.js";
 
 // Read version from the shipped package.json (two levels up from dist/bin/).
 const pkgPath = path.resolve(
@@ -63,6 +64,14 @@ async function main(): Promise<void> {
     .command("list")
     .description("List your projects.")
     .action(projectsListCmd);
+
+  const orgs = program
+    .command("orgs")
+    .description("Layero organizations on your account (personal + teams).");
+  orgs
+    .command("list")
+    .description("Show every Layero organization you belong to.")
+    .action(orgsListCmd);
 
   const deploys = program
     .command("deploys")
@@ -133,6 +142,10 @@ async function main(): Promise<void> {
     .option(
       "--branch <name>",
       "deploy to a specific branch's environment. Wins over --prod.",
+    )
+    .option(
+      "--org <slug>",
+      "Layero organization slug for first-time project creation. Defaults to personal; required when you're a member of multiple orgs and want a non-personal home.",
     )
     .addHelpText(
       "after",
