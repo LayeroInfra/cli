@@ -1,0 +1,183 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import chalk from "chalk";
+import { detectProject } from "../detect.js";
+import { emit, detectMode } from "../agent.js";
+
+interface InitOptions {
+  // When set, write/overwrite files without asking. Default in
+  // non-interactive mode.
+  yes?: boolean;
+  // Skip the AGENTS.md / CLAUDE.md / .cursorrules updates.
+  skipAgentDocs?: boolean;
+}
+
+const AGENT_BLOCK_MARKER_START = "<!-- layero:start -->";
+const AGENT_BLOCK_MARKER_END = "<!-- layero:end -->";
+
+function agentDocBlock(framework: string): string {
+  return `${AGENT_BLOCK_MARKER_START}
+## Deploying with Layero
+
+This project ships to https://layero.ru. To deploy any local changes:
+
+\`\`\`bash
+npx layero deploy
+\`\`\`
+
+First-time setup:
+- The CLI prints an authorization URL on first run. Show it to the user as a clickable link; they sign in once (GitHub / Google / Yandex), and the token is cached locally.
+- Detected framework: **${framework}**.
+- No git repository or GitHub connection is required — Layero ships the local directory directly.
+
+Re-deploy after edits: run \`npx layero deploy\` again. Each run produces a new preview URL.
+
+Add \`--prod\` to publish to the project's apex hostname instead of a preview URL.
+${AGENT_BLOCK_MARKER_END}
+`;
+}
+
+async function upsertAgentDoc(
+  cwd: string,
+  filename: string,
+  content: string,
+): Promise<"created" | "updated" | "unchanged"> {
+  const filePath = path.join(cwd, filename);
+  let existing: string | null = null;
+  try {
+    existing = await fs.readFile(filePath, "utf-8");
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException)?.code !== "ENOENT") throw err;
+  }
+
+  if (existing === null) {
+    await fs.writeFile(filePath, content, "utf-8");
+    return "created";
+  }
+
+  // Already has our block — replace it in place so we can iterate
+  // safely (re-running `layero init` updates the block, doesn't append).
+  if (existing.includes(AGENT_BLOCK_MARKER_START)) {
+    const start = existing.indexOf(AGENT_BLOCK_MARKER_START);
+    const endMarker = existing.indexOf(AGENT_BLOCK_MARKER_END);
+    if (endMarker === -1) {
+      // Malformed — fall through to append.
+      const merged = existing.trimEnd() + "\n\n" + content;
+      await fs.writeFile(filePath, merged, "utf-8");
+      return "updated";
+    }
+    const newBlock = content.trimEnd() + "\n";
+    const merged =
+      existing.slice(0, start) +
+      newBlock +
+      existing.slice(endMarker + AGENT_BLOCK_MARKER_END.length).replace(/^\n+/, "\n");
+    if (merged === existing) return "unchanged";
+    await fs.writeFile(filePath, merged, "utf-8");
+    return "updated";
+  }
+
+  // Append our block to the existing file with a separating blank line.
+  const merged = existing.trimEnd() + "\n\n" + content;
+  await fs.writeFile(filePath, merged, "utf-8");
+  return "updated";
+}
+
+async function ensureProjectJson(cwd: string, framework: string, build_cmd: string, output_dir: string): Promise<"created" | "unchanged"> {
+  const dir = path.join(cwd, ".layero");
+  const file = path.join(dir, "project.json");
+  try {
+    await fs.access(file);
+    return "unchanged";
+  } catch {
+    // missing → create
+  }
+  await fs.mkdir(dir, { recursive: true });
+  const scaffold = {
+    framework_hint: framework,
+    build_cmd,
+    output_dir,
+    analytics_enabled: false,
+    env_vars: {},
+  };
+  await fs.writeFile(file, JSON.stringify(scaffold, null, 2) + "\n", "utf-8");
+  return "created";
+}
+
+async function ensureGitignore(cwd: string): Promise<void> {
+  const gi = path.join(cwd, ".gitignore");
+  let content = "";
+  try {
+    content = await fs.readFile(gi, "utf-8");
+  } catch {
+    return; // no .gitignore — leave alone, this is meant to be additive
+  }
+  // We only want to ignore the auth-state-bearing files. `project.json`
+  // itself is safe to commit (project_id is not a secret).
+  if (!content.includes(".layero/")) {
+    const append = (content.endsWith("\n") ? "" : "\n") + "\n# Layero local state\n.layero/cache/\n";
+    await fs.writeFile(gi, content + append, "utf-8");
+  }
+}
+
+export async function initCmd(opts: InitOptions): Promise<void> {
+  const cwd = process.cwd();
+  const mode = detectMode();
+  const detected = await detectProject(cwd);
+
+  emit({
+    event: "detected",
+    framework: detected.framework_hint,
+    build_cmd: detected.build_cmd,
+    output_dir: detected.output_dir,
+    confident: detected.confident,
+  });
+
+  const block = agentDocBlock(detected.framework_hint);
+
+  if (!opts.skipAgentDocs) {
+    // Touch every agent-doc convention we know about. If one already
+    // exists we update it in-place; otherwise we create only the most
+    // common one (AGENTS.md, the cross-vendor convention) so we don't
+    // litter the repo with .cursorrules / CLAUDE.md the user doesn't use.
+    const candidates = ["AGENTS.md", "CLAUDE.md", ".cursorrules"];
+    const existing: string[] = [];
+    for (const f of candidates) {
+      try {
+        await fs.access(path.join(cwd, f));
+        existing.push(f);
+      } catch {
+        // not present
+      }
+    }
+    const targets = existing.length > 0 ? existing : ["AGENTS.md"];
+    for (const f of targets) {
+      const result = await upsertAgentDoc(cwd, f, block);
+      if (mode.interactive) {
+        console.log(chalk.green(`  ${result === "created" ? "✓ created" : result === "updated" ? "✓ updated" : "= unchanged"} ${f}`));
+      }
+    }
+  }
+
+  const pjResult = await ensureProjectJson(
+    cwd,
+    detected.framework_hint,
+    detected.build_cmd,
+    detected.output_dir,
+  );
+  if (mode.interactive) {
+    console.log(
+      chalk.green(
+        `  ${pjResult === "created" ? "✓ created" : "= unchanged"} .layero/project.json`,
+      ),
+    );
+  }
+
+  await ensureGitignore(cwd);
+
+  if (mode.interactive) {
+    console.log("");
+    console.log(chalk.bold("Next:"));
+    console.log("  $ npx layero login    # one-time, in your browser");
+    console.log("  $ npx layero deploy   # ship the current directory");
+  }
+}

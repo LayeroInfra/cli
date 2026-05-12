@@ -12,27 +12,22 @@ import {
 } from "../project-config.js";
 import { packCwd } from "../pack.js";
 import { streamDeployLogs } from "../logs.js";
+import { detectProject } from "../detect.js";
+import { LayeroError, detectMode, emit } from "../agent.js";
 
 interface DeployOptions {
-  // `--config` flips the flow from "interactive (open the dashboard wizard)"
-  // to "fully scripted from .layero/project.json" — required for CI.
+  // Legacy alias of "auto-detect framework + use .layero/project.json
+  // values if present". Kept for backwards compat — auto-detect is now
+  // the default whenever a project hits pending_setup.
   config?: boolean;
   type?: string;
   name?: string;
   project?: string;
   yes?: boolean;
-  // `--prod` deploys to production (replaces apex_hostname's active deploy).
-  // Without it, deploys go to the project's "cli" pseudo-branch — isolated
-  // preview that never overrides production.
   prod?: boolean;
-  // `--branch=X` deploys to a specific branch's environment. Pairs with `--prod`
-  // only redundantly (default_branch = production). Wins over `--prod` when both
-  // present and inconsistent.
   branch?: string;
-  // `--org=<slug>` targets a specific Layero organization on first-time
-  // project creation. Defaults to the user's personal org. Ignored when the
-  // current directory is already linked to a project.
   org?: string;
+  json?: boolean;
 }
 
 const VALID_TYPES = new Set([
@@ -47,6 +42,7 @@ const VALID_TYPES = new Set([
   "gatsby",
   "static",
   "generic",
+  "docusaurus",
 ]);
 
 function dashboardOrigin(apiUrl: string): string {
@@ -59,10 +55,6 @@ function dashboardOrigin(apiUrl: string): string {
   } catch {
     return "https://app.layero.ru";
   }
-}
-
-function setupUrl(apiUrl: string, projectId: string): string {
-  return `${dashboardOrigin(apiUrl)}/projects/${projectId}/setup`;
 }
 
 function projectUrl(apiUrl: string, projectId: string): string {
@@ -111,13 +103,19 @@ async function resolveOrCreateProject(
   opts: DeployOptions,
   existing: ProjectConfig | null,
 ): Promise<{ project: ProjectSummary; createdNow: boolean }> {
+  const mode = detectMode();
+
   if (opts.project) {
     const all = await api.listProjects();
     const match =
       all.find((p) => p.id === opts.project) ??
       all.find((p) => p.slug === opts.project);
     if (!match) {
-      throw new Error(`no project with id/slug "${opts.project}"`);
+      throw new LayeroError(
+        "project_not_found",
+        `no project with id/slug "${opts.project}"`,
+        "run `layero projects list` to see available projects",
+      );
     }
     return { project: match, createdNow: false };
   }
@@ -128,10 +126,10 @@ async function resolveOrCreateProject(
       return { project, createdNow: false };
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
-        throw new Error(
-          `linked project ${existing.project_id} no longer exists or isn't on your account.\n` +
-            `  fix: delete ${projectConfigPath(cwd)} and re-run \`layero deploy\` (creates a new project),\n` +
-            `       or run \`layero link <id_or_slug>\` to point at an existing one.`,
+        throw new LayeroError(
+          "project_unlinked",
+          `linked project ${existing.project_id} no longer exists or isn't on your account`,
+          `delete ${projectConfigPath(cwd)} and re-run, or run \`layero link <id_or_slug>\``,
         );
       }
       throw err;
@@ -140,34 +138,34 @@ async function resolveOrCreateProject(
 
   const me = await api.me();
   if (!me.username) {
-    throw new Error(
-      "no username set on your account. open https://app.layero.ru/onboarding " +
-        "and pick one, then re-run.",
+    throw new LayeroError(
+      "username_missing",
+      "no username set on your account",
+      "open https://app.layero.ru/onboarding to pick one, then re-run",
     );
   }
-  // Resolve target Layero organization. Three paths:
-  //   * --org=slug explicit  → verify membership, use it
-  //   * single org           → silent default (the personal account)
-  //   * multiple orgs        → prompt unless --yes
   let organizationSlug: string | undefined = opts.org;
   if (organizationSlug) {
     const orgs = await api.listOrganizations();
     if (!orgs.some((o) => o.slug === organizationSlug)) {
-      throw new Error(
-        `you're not a member of organization "${organizationSlug}". ` +
-          `available: ${orgs.map((o) => o.slug).join(", ") || "(none)"}`,
+      throw new LayeroError(
+        "org_membership_missing",
+        `you're not a member of organization "${organizationSlug}"`,
+        `available: ${orgs.map((o) => o.slug).join(", ") || "(none)"}`,
       );
     }
   } else {
     const orgs = await api.listOrganizations();
     if (orgs.length === 0) {
-      throw new Error(
-        "no organization found on your account. finish onboarding at https://app.layero.ru/onboarding",
+      throw new LayeroError(
+        "no_organization",
+        "no organization found on your account",
+        "finish onboarding at https://app.layero.ru/onboarding",
       );
     } else if (orgs.length === 1) {
       organizationSlug = orgs[0]!.slug;
-    } else if (opts.yes || opts.config) {
-      // CI without --org: prefer personal, fall back to first.
+    } else if (opts.yes || opts.config || !mode.interactive) {
+      // Non-interactive: prefer personal, fall back to first.
       organizationSlug =
         orgs.find((o) => o.kind === "personal")?.slug ?? orgs[0]!.slug;
     } else {
@@ -179,7 +177,11 @@ async function resolveOrCreateProject(
       const choiceRaw = await prompt("choose number", "1");
       const idx = Number(choiceRaw) - 1;
       if (Number.isNaN(idx) || idx < 0 || idx >= orgs.length) {
-        throw new Error(`invalid choice "${choiceRaw}"`);
+        throw new LayeroError(
+          "invalid_choice",
+          `invalid org choice "${choiceRaw}"`,
+          "enter a number from the list",
+        );
       }
       organizationSlug = orgs[idx]!.slug;
     }
@@ -187,7 +189,10 @@ async function resolveOrCreateProject(
 
   const fallbackName = path.basename(cwd);
   const name =
-    opts.name ?? (opts.yes || opts.config ? fallbackName : await prompt("project name", fallbackName));
+    opts.name ??
+    (opts.yes || opts.config || !mode.interactive
+      ? fallbackName
+      : await prompt("project name", fallbackName));
   const project = await api.createCliProject({
     name,
     framework_hint: opts.type,
@@ -201,19 +206,18 @@ async function packAndUpload(
   cwd: string,
   project: ProjectSummary,
 ): Promise<{ archive_key: string; commit_sha: string; archivePath: string }> {
-  console.log(chalk.cyan("packing source..."));
   const pack = await packCwd(cwd, project.slug);
-  console.log(
-    chalk.dim(
-      `  ${pack.fileCount} files, ${(pack.size / (1024 * 1024)).toFixed(2)} MB, sha256=${pack.sha256.slice(0, 12)}`,
-    ),
-  );
+  emit({
+    event: "packing",
+    files: pack.fileCount,
+    bytes: pack.size,
+    sha256: pack.sha256,
+  });
 
-  console.log(chalk.cyan("requesting upload URL..."));
   const init = await api.initUpload(project.id);
-
-  console.log(chalk.cyan("uploading archive..."));
+  emit({ event: "uploading" });
   await uploadArchive(init, pack.archivePath);
+  emit({ event: "uploaded", archive_key: init.source_archive_key });
 
   return {
     archive_key: init.source_archive_key,
@@ -222,41 +226,63 @@ async function packAndUpload(
   };
 }
 
-function ensureConfigComplete(
-  cfg: ProjectConfig | null,
-): asserts cfg is ProjectConfig & {
+// Resolve the framework / build / output config to send to completeSetup.
+// Precedence: explicit CLI args > .layero/project.json > auto-detect.
+async function resolveSetupConfig(
+  cwd: string,
+  opts: DeployOptions,
+  existing: ProjectConfig | null,
+): Promise<{
   framework_hint: string;
   build_cmd: string;
   output_dir: string;
-} {
-  if (!cfg) {
-    throw new Error(
-      "no .layero/project.json found. run `layero deploy` once without --config " +
-        "to create the project, fill in framework_hint/build_cmd/output_dir there, " +
-        "then re-run with --config.",
-    );
+  source: "config" | "detected" | "hybrid";
+}> {
+  const detected = await detectProject(cwd);
+  emit({
+    event: "detected",
+    framework: detected.framework_hint,
+    build_cmd: detected.build_cmd,
+    output_dir: detected.output_dir,
+    confident: detected.confident,
+  });
+
+  const framework_hint =
+    opts.type ?? existing?.framework_hint ?? detected.framework_hint;
+  const build_cmd = existing?.build_cmd ?? detected.build_cmd;
+  const output_dir = existing?.output_dir ?? detected.output_dir;
+
+  let source: "config" | "detected" | "hybrid";
+  if (existing?.build_cmd || existing?.output_dir || existing?.framework_hint) {
+    source =
+      existing?.build_cmd && existing?.output_dir && existing?.framework_hint
+        ? "config"
+        : "hybrid";
+  } else {
+    source = "detected";
   }
-  const missing: string[] = [];
-  if (!cfg.framework_hint) missing.push("framework_hint");
-  if (!cfg.build_cmd) missing.push("build_cmd");
-  if (!cfg.output_dir) missing.push("output_dir");
-  if (missing.length > 0) {
-    throw new Error(
-      `.layero/project.json is missing required fields for --config: ${missing.join(", ")}`,
-    );
-  }
+
+  return { framework_hint, build_cmd, output_dir, source };
 }
 
 export async function deployCmd(opts: DeployOptions): Promise<void> {
+  const mode = detectMode();
+
   if (opts.type && !VALID_TYPES.has(opts.type.toLowerCase())) {
-    throw new Error(
-      `unknown --type "${opts.type}". valid: ${[...VALID_TYPES].join(", ")}`,
+    throw new LayeroError(
+      "invalid_type",
+      `unknown --type "${opts.type}"`,
+      `valid types: ${[...VALID_TYPES].join(", ")}`,
     );
   }
 
   const cliCfg = await loadConfig();
   if (!cliCfg.token) {
-    throw new Error("not logged in. run `layero login` first.");
+    throw new LayeroError(
+      "not_logged_in",
+      "not authenticated",
+      "run: layero login",
+    );
   }
   const api = new ApiClient(cliCfg);
   const cwd = process.cwd();
@@ -271,16 +297,15 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
   let project = created;
 
   if (project.cli_deploys_enabled === false) {
-    throw new Error(
-      `CLI deploys are disabled on project "${project.slug}". ` +
-        "Enable them in project settings or use the dashboard's Deploy button.",
+    throw new LayeroError(
+      "cli_deploys_disabled",
+      `CLI deploys are disabled on project "${project.slug}"`,
+      "enable them in project settings, or remove --project to use a different project",
     );
   }
 
-  // Prompt before overwriting production. CLI deploys default to a per-project
-  // "cli" pseudo-branch (preview-only); --prod is the explicit opt-in to land
-  // on apex_hostname. --yes (CI) or --branch=<default_branch> bypass.
-  if (opts.prod && !opts.yes && !opts.branch) {
+  // Prompt before overwriting production — only in interactive mode.
+  if (opts.prod && !opts.yes && !opts.branch && mode.interactive) {
     const ok = await confirm(
       `deploy to production (https://${project.apex_hostname})?`,
     );
@@ -290,11 +315,10 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     }
   }
 
-  // Persist linking metadata only — never touch hand-edited config fields
-  // or unknown keys the user may have added (a --config file is the user's
-  // source of truth, not ours). `persistProjectLinking` reads the file as
-  // raw JSON, overlays just project_id/slug/organization_slug/apex_hostname,
-  // and writes it back.
+  // Resolve setup config (auto-detect + overrides). Done eagerly so the
+  // user sees what we detected before any network I/O.
+  const setup = await resolveSetupConfig(cwd, opts, existing);
+
   const persistedCfg = await persistProjectLinking(
     cwd,
     {
@@ -303,149 +327,74 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       organization_slug: project.organization.slug,
       apex_hostname: project.apex_hostname,
     },
-    opts.type ?? null,
+    setup.framework_hint,
   );
 
   if (createdNow) {
-    console.log(chalk.green(`created project ${project.slug}`));
+    emit({
+      event: "project_created",
+      project_id: project.id,
+      slug: project.slug,
+      organization: project.organization.slug,
+    });
+  } else {
+    emit({
+      event: "project_linked",
+      project_id: project.id,
+      slug: project.slug,
+    });
   }
 
-  // ─────────────────────────────────────────────────────────────────────
-  // Path A: --config — fully scripted, runs the setup endpoint with
-  //                     fields from .layero/project.json, then deploys.
-  // ─────────────────────────────────────────────────────────────────────
-  if (opts.config) {
-    ensureConfigComplete(persistedCfg);
-
-    if (project.status === "pending_setup") {
-      console.log(chalk.cyan("applying config..."));
-      project = await api.completeSetup(project.id, {
-        framework_hint: persistedCfg.framework_hint!,
-        build_cmd: persistedCfg.build_cmd!,
-        output_dir: persistedCfg.output_dir!,
-        analytics_enabled: persistedCfg.analytics_enabled ?? false,
-        env_vars: persistedCfg.env_vars ?? {},
-      });
-    }
-
-    let upload: Awaited<ReturnType<typeof packAndUpload>> | null = null;
-    try {
-      upload = await packAndUpload(api, cwd, project);
-
-      console.log(chalk.cyan("triggering deploy..."));
-      const targeting = deployTargeting(opts);
-      const deploy = await api.triggerDeploy(project.id, {
-        source_archive_key: upload.archive_key,
-        commit_sha: upload.commit_sha,
-        commit_message: "CLI deploy",
-        framework_hint: persistedCfg.framework_hint ?? undefined,
-        target: targeting.target,
-        branch: targeting.branch,
-      });
-      console.log(chalk.dim(`  deploy_id=${deploy.id}`));
-
-      const final = await streamDeployLogs(api, deploy.id);
-      if (final.status !== "ready") {
-        console.error(
-          chalk.red(
-            `deploy failed (${final.status})${
-              final.error_message ? `: ${final.error_message}` : ""
-            }`,
-          ),
-        );
-        process.exitCode = 1;
-        return;
-      }
-      console.log(
-        chalk.green(`deploy ready → ${projectUrl(cliCfg.apiUrl, project.id)}`),
-      );
-      if (opts.prod && !opts.branch) {
-        console.log(
-          chalk.dim(
-            `  production: https://${project.apex_hostname} (CDN may take ~30-60s to propagate)`,
-          ),
-        );
-      } else {
-        console.log(
-          chalk.dim(
-            `  preview deploy — open the dashboard for the exact URL`,
-          ),
-        );
-      }
-    } finally {
-      if (upload) {
-        await fs.unlink(upload.archivePath).catch(() => undefined);
-      }
-    }
-    return;
+  // Apply setup if the project is still in pending_setup. After first
+  // run, subsequent deploys reuse whatever was set then — the user can
+  // edit .layero/project.json or use the dashboard to change it.
+  if (project.status === "pending_setup") {
+    project = await api.completeSetup(project.id, {
+      framework_hint: setup.framework_hint,
+      build_cmd: setup.build_cmd,
+      output_dir: setup.output_dir,
+      analytics_enabled: persistedCfg.analytics_enabled ?? false,
+      env_vars: persistedCfg.env_vars ?? {},
+    });
+    emit({ event: "setup_applied" });
   }
 
-  // ─────────────────────────────────────────────────────────────────────
-  // Path B: no flag — upload the source, stash it on the project row,
-  //                    print the setup URL. The user finishes the flow
-  //                    in the browser, exactly like a GitHub import.
-  // ─────────────────────────────────────────────────────────────────────
   let upload: Awaited<ReturnType<typeof packAndUpload>> | null = null;
   try {
     upload = await packAndUpload(api, cwd, project);
-    await api.finalizeUpload(project.id, {
-      source_archive_key: upload.archive_key,
-      commit_sha: upload.commit_sha,
-    });
 
-    if (project.status === "pending_setup") {
-      const url = setupUrl(cliCfg.apiUrl, project.id);
-      console.log("");
-      console.log(chalk.green("source uploaded — finish setup in the browser:"));
-      console.log(`  ${chalk.bold(url)}`);
-      console.log("");
-      console.log(
-        chalk.dim(
-          "  pick framework, build command, output dir, env vars and click Deploy.",
-        ),
-      );
-      console.log(
-        chalk.dim(
-          "  to skip the browser next time, fill .layero/project.json and run `layero deploy --config`.",
-        ),
-      );
-      return;
-    }
-
-    // Already-active project: behave like the old `layero deploy` — fire
-    // a build straight from the freshly-uploaded archive.
-    console.log(chalk.cyan("triggering deploy..."));
     const targeting = deployTargeting(opts);
     const deploy = await api.triggerDeploy(project.id, {
       source_archive_key: upload.archive_key,
       commit_sha: upload.commit_sha,
       commit_message: "CLI deploy",
-      framework_hint: opts.type,
+      framework_hint: setup.framework_hint,
       target: targeting.target,
       branch: targeting.branch,
     });
-    console.log(chalk.dim(`  deploy_id=${deploy.id}`));
+    emit({ event: "deploy_started", deploy_id: deploy.id });
 
     const final = await streamDeployLogs(api, deploy.id);
     if (final.status !== "ready") {
-      console.error(
-        chalk.red(
-          `deploy failed (${final.status})${
-            final.error_message ? `: ${final.error_message}` : ""
-          }`,
-        ),
+      throw new LayeroError(
+        `deploy_${final.status}`,
+        `deploy failed (${final.status})${
+          final.error_message ? `: ${final.error_message}` : ""
+        }`,
+        `inspect logs at ${projectUrl(cliCfg.apiUrl, project.id)}`,
       );
-      process.exitCode = 1;
-      return;
     }
-    console.log(
-      chalk.green(`deploy ready → ${projectUrl(cliCfg.apiUrl, project.id)}`),
-    );
-    console.log(
-      chalk.dim(
-        `  site: https://${project.apex_hostname} (CDN may take ~30-60s to propagate)`,
-      ),
-    );
+    const liveUrl =
+      opts.prod && !opts.branch
+        ? `https://${project.apex_hostname}`
+        : projectUrl(cliCfg.apiUrl, project.id);
+    emit({
+      event: "ready",
+      url: liveUrl,
+      deploy_id: deploy.id,
+      preview_url:
+        opts.prod && !opts.branch ? undefined : projectUrl(cliCfg.apiUrl, project.id),
+    });
   } finally {
     if (upload) {
       await fs.unlink(upload.archivePath).catch(() => undefined);

@@ -13,6 +13,8 @@ import { deployCmd } from "../commands/deploy.js";
 import { deploysListCmd, rollbackCmd } from "../commands/deploys.js";
 import { loginCmd } from "../commands/login.js";
 import { orgsListCmd } from "../commands/orgs.js";
+import { initCmd } from "../commands/init.js";
+import { LayeroError, detectMode, emit } from "../agent.js";
 
 // Read version from the shipped package.json (two levels up from dist/bin/).
 const pkgPath = path.resolve(
@@ -27,15 +29,18 @@ async function main(): Promise<void> {
   const program = new Command();
   program
     .name("layero")
-    .description("Layero CLI — publish a local site with one command.")
-    .version(VERSION);
+    .description(
+      "Layero CLI — publish a local directory with one command. No git required.",
+    )
+    .version(VERSION)
+    .option("--json", "emit machine-readable JSON-lines on stdout (for agents and CI)");
 
   program
     .command("login")
     .description("Authenticate via browser (GitHub / Google / Yandex).")
     .option(
       "-p, --provider <provider>",
-      "OAuth provider to use (github | google | yandex)",
+      "OAuth provider hint (github | google | yandex)",
       "github",
     )
     .option("--port <port>", "fixed loopback port (default: random)", (v) => Number(v))
@@ -56,6 +61,17 @@ async function main(): Promise<void> {
     .command("whoami")
     .description("Show the currently logged-in account.")
     .action(whoamiCmd);
+
+  program
+    .command("init")
+    .description(
+      "Scaffold .layero/project.json from auto-detected framework, and write a Layero deployment block into AGENTS.md / CLAUDE.md / .cursorrules so future chat sessions know how to deploy.",
+    )
+    .option("-y, --yes", "non-interactive: accept all defaults")
+    .option("--skip-agent-docs", "do not touch AGENTS.md/CLAUDE.md/.cursorrules")
+    .action(async (opts) => {
+      await initCmd({ yes: opts.yes, skipAgentDocs: opts.skipAgentDocs });
+    });
 
   const projects = program
     .command("projects")
@@ -123,17 +139,19 @@ async function main(): Promise<void> {
 
   program
     .command("deploy")
-    .description("Pack the current directory and deploy it.")
+    .description(
+      "Pack the current directory and deploy it. Framework, build command and output directory are auto-detected.",
+    )
     .option(
       "-t, --type <preset>",
-      "framework hint (vite | next | astro | cra | sveltekit | nuxt | gatsby | static)",
+      "framework override (vite | next | astro | cra | sveltekit | nuxt | gatsby | docusaurus | static)",
     )
     .option("--name <name>", "project name (only used on first deploy)")
     .option("--project <id_or_slug>", "deploy into an existing project, ignoring local config")
     .option("-y, --yes", "non-interactive: accept defaults and skip --prod confirmation")
     .option(
       "--config",
-      "use framework/build settings + env vars from .layero/project.json (skips the browser setup wizard)",
+      "(legacy alias of the default behaviour — auto-detect + .layero/project.json values)",
     )
     .option(
       "--prod",
@@ -150,12 +168,12 @@ async function main(): Promise<void> {
     .addHelpText(
       "after",
       "\nExamples:\n" +
-        "  $ layero deploy                      # preview on CLI pseudo-branch (never replaces prod)\n" +
+        "  $ layero deploy                      # preview deploy (CLI pseudo-branch), auto-detect framework\n" +
         "  $ layero deploy --prod               # production deploy (interactive confirm)\n" +
         "  $ layero deploy --prod --yes         # production deploy, no prompt (CI)\n" +
         "  $ layero deploy --branch=staging     # preview on a specific branch\n" +
-        "  $ layero deploy --config             # uses .layero/project.json end-to-end (CI-friendly)\n" +
-        "  $ layero deploy --type vite",
+        "  $ layero deploy --type vite          # force a framework preset\n" +
+        "  $ layero deploy --json               # machine-readable output for agents",
     )
     .action(async (opts) => {
       await deployCmd(opts);
@@ -165,6 +183,28 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error(chalk.red(err.message ?? String(err)));
+  const mode = detectMode();
+  if (err instanceof LayeroError) {
+    emit({
+      event: "error",
+      code: err.code,
+      next_action: err.next_action,
+      message: err.message,
+    });
+  } else {
+    // Anything else (network error, unexpected exception) — still emit
+    // a structured error so agents have a consistent format to parse.
+    const message = err?.message ?? String(err);
+    if (mode.json) {
+      emit({
+        event: "error",
+        code: "internal",
+        next_action: "re-run with --debug for a stack trace, or report at https://github.com/layero/layero/issues",
+        message,
+      });
+    } else {
+      console.error(chalk.red(message));
+    }
+  }
   process.exit(1);
 });
