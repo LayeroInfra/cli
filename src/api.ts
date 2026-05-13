@@ -245,6 +245,23 @@ export class ApiClient {
     );
   }
 
+  startDeviceAuth(): Promise<{
+    device_code: string;
+    user_code: string;
+    verification_url: string;
+    expires_in: number;
+    poll_interval: number;
+  }> {
+    return this.request("POST", "/auth/cli/device");
+  }
+
+  pollDeviceAuth(device_code: string): Promise<{
+    status: "pending" | "approved" | "expired";
+    token?: string;
+  }> {
+    return this.request("POST", "/auth/cli/device/poll", { device_code });
+  }
+
   setUsername(
     value: string,
   ): Promise<{ username: string; organization_slug: string }> {

@@ -37,19 +37,12 @@ async function main(): Promise<void> {
 
   program
     .command("login")
-    .description("Authenticate via browser (GitHub / Google / Yandex).")
-    .option(
-      "-p, --provider <provider>",
-      "OAuth provider hint (github | google | yandex)",
-      "github",
+    .description(
+      "Authenticate via browser (GitHub / Yandex). Opens a one-time URL — no localhost server required.",
     )
-    .option("--port <port>", "fixed loopback port (default: random)", (v) => Number(v))
-    .addHelpText(
-      "after",
-      "\nExamples:\n  $ layero login\n  $ layero login --provider google",
-    )
+    .addHelpText("after", "\nExamples:\n  $ layero login\n  $ npx layero login")
     .action(async (opts) => {
-      await loginCmd({ provider: opts.provider, port: opts.port });
+      await loginCmd(opts);
     });
 
   program
