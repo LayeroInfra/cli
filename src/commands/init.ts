@@ -19,20 +19,60 @@ function agentDocBlock(framework: string): string {
   return `${AGENT_BLOCK_MARKER_START}
 ## Deploying with Layero
 
-This project ships to https://layero.ru. To deploy any local changes:
+This project deploys to https://layero.ru. To ship local changes:
 
 \`\`\`bash
-npx layero deploy
+npx layero@latest deploy
 \`\`\`
 
-First-time setup:
-- The CLI prints an authorization URL on first run. Show it to the user as a clickable link; they sign in once (GitHub / Google / Yandex), and the token is cached locally.
-- Detected framework: **${framework}**.
-- No git repository or GitHub connection is required — Layero ships the local directory directly.
+Detected framework: **${framework}**. No git repository or GitHub connection
+is required — Layero packs and uploads the local directory directly.
 
-Re-deploy after edits: run \`npx layero deploy\` again. Each run produces a new preview URL.
+### First-time auth (one-click device flow)
 
-Add \`--prod\` to publish to the project's apex hostname instead of a preview URL.
+The first run emits a JSON line:
+
+\`\`\`json
+{"event":"auth_required","url":"https://app.layero.ru/cli?code=ABCD-1234","user_code":"ABCD-1234"}
+\`\`\`
+
+Render the \`url\` as a clickable link in chat. The user opens it, signs in
+(GitHub or Yandex — Layero creates the account automatically on first OAuth),
+clicks "Разрешить доступ", and the CLI's poll loop picks up the token within
+2 seconds. No localhost server is involved — the browser can be on a
+different machine than the CLI.
+
+### JSON-lines events
+
+When run inside an agent (\`CURSOR_AGENT\`, \`CLAUDECODE\`, or any non-TTY
+stdout), the CLI auto-switches to JSON-lines. Key events to watch:
+
+| event | meaning |
+|---|---|
+| \`auth_required\` | render \`url\` as a link, keep waiting |
+| \`detected\` | framework auto-detection result |
+| \`project_created\` / \`project_linked\` | project bound for this directory |
+| \`build_log\` | forward only if it contains errors |
+| \`ready\` | \`url\` field is the live site — show to user, stop |
+| \`error\` | follow \`next_action\` field verbatim |
+
+Common error codes and remediation:
+
+- \`not_logged_in\` → run \`npx layero@latest login\`
+- \`auth_expired\` / \`auth_timeout\` → user did not approve in time, re-run login
+- \`invalid_type\` → drop \`--type\`, rely on auto-detect
+- \`cli_deploys_disabled\` → user must enable CLI deploys in project settings
+- \`deploy_failed\` / \`deploy_error\` → check the dashboard URL in the message
+
+### Re-deploys and production
+
+Each \`npx layero deploy\` produces a new preview URL like
+\`https://<org>-<project>-cli.layero.ru\` — safe to run repeatedly.
+
+Add \`--prod\` only when the user explicitly asks; without it, deploys go to
+an isolated preview branch and never replace the apex domain.
+
+Full reference: https://docs.layero.ru/cli/agents
 ${AGENT_BLOCK_MARKER_END}
 `;
 }

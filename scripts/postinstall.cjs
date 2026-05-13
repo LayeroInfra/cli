@@ -28,16 +28,22 @@ const c = {
   green: "\x1b[32m",
 };
 
+// Whether the user installed globally (-g). With local/-D installs the
+// `layero` binary isn't on PATH, so we prefix every command with `npx`
+// in the banner so it copy-pastes correctly in both modes.
+const useNpx = !isGlobal;
+const cmd = (s) => (useNpx ? `npx ${s}` : s);
+
 const lines = [
   "",
   `${c.green}${c.bold}✨ Layero CLI installed${c.reset}`,
   "",
-  `  ${c.cyan}layero login${c.reset}    ${c.dim}authenticate via browser${c.reset}`,
-  `  ${c.cyan}layero init${c.reset}     ${c.dim}scaffold .layero/ + agent docs (recommended)${c.reset}`,
-  `  ${c.cyan}layero deploy${c.reset}   ${c.dim}publish current dir${c.reset}`,
+  `  ${c.cyan}${cmd("layero login")}${c.reset}    ${c.dim}sign in (GitHub or Yandex)${c.reset}`,
+  `  ${c.cyan}${cmd("layero init")}${c.reset}     ${c.dim}scaffold .layero/ + agent docs${c.reset}`,
+  `  ${c.cyan}${cmd("layero deploy")}${c.reset}   ${c.dim}ship the current directory${c.reset}`,
   "",
-  `  ${c.dim}Docs:  https://docs.layero.ru${c.reset}`,
-  `  ${c.dim}Help:  layero --help${c.reset}`,
+  `  ${c.dim}Docs:    https://docs.layero.ru${c.reset}`,
+  `  ${c.dim}Agents:  https://docs.layero.ru/cli/agents${c.reset}`,
   "",
 ];
 const banner = lines.join("\n");

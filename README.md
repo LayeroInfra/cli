@@ -31,7 +31,7 @@ Requires Node.js ≥ 20.
 ## Quick start
 
 ```bash
-layero login          # opens browser for OAuth (GitHub / Google / Yandex)
+layero login          # device-flow: prints a URL + code, you sign in once (GitHub / Yandex)
 cd my-site
 layero deploy         # auto-detects framework, packs, uploads, builds, ships
 ```
