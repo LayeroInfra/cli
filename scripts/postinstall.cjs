@@ -32,11 +32,12 @@ const lines = [
   "",
   `${c.green}${c.bold}✨ Layero CLI installed${c.reset}`,
   "",
-  `  ${c.cyan}layero login${c.reset}              ${c.dim}authenticate via browser${c.reset}`,
-  `  ${c.cyan}cd your-site && layero deploy${c.reset}  ${c.dim}publish current dir${c.reset}`,
-  `  ${c.cyan}layero --help${c.reset}             ${c.dim}all commands${c.reset}`,
+  `  ${c.cyan}layero login${c.reset}    ${c.dim}authenticate via browser${c.reset}`,
+  `  ${c.cyan}layero init${c.reset}     ${c.dim}scaffold .layero/ + agent docs (recommended)${c.reset}`,
+  `  ${c.cyan}layero deploy${c.reset}   ${c.dim}publish current dir${c.reset}`,
   "",
-  `  ${c.dim}Docs: https://layero.ru${c.reset}`,
+  `  ${c.dim}Docs:  https://docs.layero.ru${c.reset}`,
+  `  ${c.dim}Help:  layero --help${c.reset}`,
   "",
 ];
 const banner = lines.join("\n");
