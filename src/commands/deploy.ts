@@ -44,6 +44,9 @@ const VALID_TYPES = new Set([
   "generic",
   "docusaurus",
   "hugo",
+  "eleventy",
+  "11ty",
+  "vitepress",
 ]);
 
 function dashboardOrigin(apiUrl: string): string {

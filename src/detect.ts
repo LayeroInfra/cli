@@ -132,6 +132,23 @@ export async function detectProject(cwd: string): Promise<Detected> {
         confident: true,
       };
     }
+    // VitePress before generic Vite: VitePress repos often pull `vite`
+    // transitively, and the SPA Vite path would set output_dir=dist —
+    // wrong for VitePress, which writes to `.vitepress/dist/` (or
+    // `docs/.vitepress/dist/` when the config lives under docs/).
+    if (hasDep(pkg, "vitepress") || (await hasVitepressConfig(cwd))) {
+      const docsLayout = await hasVitepressConfig(cwd, "docs/.vitepress");
+      const outputDir = docsLayout ? "docs/.vitepress/dist" : ".vitepress/dist";
+      const cmd = pkg.scripts?.["docs:build"]
+        ? "npm run docs:build"
+        : buildCmd(pkg, "npx vitepress build");
+      return {
+        framework_hint: "vitepress",
+        build_cmd: cmd,
+        output_dir: outputDir,
+        confident: true,
+      };
+    }
     if (hasDep(pkg, "vite") || (await fileExists(cwd, "vite.config.ts", "vite.config.js", "vite.config.mjs"))) {
       return {
         framework_hint: "vite",
@@ -145,6 +162,23 @@ export async function detectProject(cwd: string): Promise<Detected> {
         framework_hint: "cra",
         build_cmd: buildCmd(pkg, "npx react-scripts build"),
         output_dir: "build",
+        confident: true,
+      };
+    }
+    // Eleventy late in the package.json branch — `@11ty/eleventy` is
+    // unique enough not to collide with other frameworks, but Vite /
+    // CRA / etc. should win if both are present (a project that pulls
+    // both is probably using Vite as the runtime and 11ty just for one
+    // build step).
+    if (
+      hasDep(pkg, "@11ty/eleventy") ||
+      hasDep(pkg, "eleventy") ||
+      (await fileExists(cwd, ".eleventy.js", "eleventy.config.js", "eleventy.config.mjs", "eleventy.config.cjs"))
+    ) {
+      return {
+        framework_hint: "eleventy",
+        build_cmd: buildCmd(pkg, "npx @11ty/eleventy"),
+        output_dir: "_site",
         confident: true,
       };
     }
@@ -193,6 +227,18 @@ const HUGO_CONFIG_TOKENS = [
   "minVersion",
   "theme",
 ];
+
+async function hasVitepressConfig(cwd: string, prefix = ".vitepress"): Promise<boolean> {
+  for (const name of ["config.ts", "config.js", "config.mts", "config.mjs"]) {
+    try {
+      await fs.access(path.join(cwd, prefix, name));
+      return true;
+    } catch {
+      // try next
+    }
+  }
+  return false;
+}
 
 async function hasHugoConfigMarker(cwd: string): Promise<boolean> {
   for (const fn of ["config.toml", "config.yaml", "config.json"]) {
