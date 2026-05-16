@@ -43,6 +43,7 @@ const VALID_TYPES = new Set([
   "static",
   "generic",
   "docusaurus",
+  "hugo",
 ]);
 
 function dashboardOrigin(apiUrl: string): string {

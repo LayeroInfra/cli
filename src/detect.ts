@@ -150,6 +150,23 @@ export async function detectProject(cwd: string): Promise<Detected> {
     }
   }
 
+  // Non-Node SSGs (Hugo today). Recognise repos without package.json
+  // before we fall back to "static" with a no-op build command — Hugo
+  // needs `hugo --gc --minify` and writes to `public/`, the static
+  // fallback would just upload the raw .md sources.
+  if (
+    (await fileExists(cwd, "hugo.toml", "hugo.yaml", "hugo.json")) ||
+    ((await fileExists(cwd, "config.toml", "config.yaml", "config.json")) &&
+      (await hasHugoConfigMarker(cwd)))
+  ) {
+    return {
+      framework_hint: "hugo",
+      build_cmd: "hugo --gc --minify",
+      output_dir: "public",
+      confident: true,
+    };
+  }
+
   // No (or unrecognised) package.json. If there's HTML on disk we treat
   // the current directory as a static site. Otherwise we still fall back
   // to static — it's the most permissive option and the builder will
@@ -161,4 +178,30 @@ export async function detectProject(cwd: string): Promise<Detected> {
     output_dir: ".",
     confident: _staticHtml,
   };
+}
+
+const HUGO_CONFIG_TOKENS = [
+  "baseURL",
+  "baseurl",
+  "languageCode",
+  "languagecode",
+  "[params]",
+  "[markup]",
+  "[menu",
+  "[taxonomies]",
+  "hugoVersion",
+  "minVersion",
+  "theme",
+];
+
+async function hasHugoConfigMarker(cwd: string): Promise<boolean> {
+  for (const fn of ["config.toml", "config.yaml", "config.json"]) {
+    try {
+      const head = await fs.readFile(path.join(cwd, fn), "utf-8");
+      if (HUGO_CONFIG_TOKENS.some((t) => head.includes(t))) return true;
+    } catch {
+      // try next
+    }
+  }
+  return false;
 }

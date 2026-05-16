@@ -137,7 +137,7 @@ async function main(): Promise<void> {
     )
     .option(
       "-t, --type <preset>",
-      "framework override (vite | next | astro | cra | sveltekit | nuxt | gatsby | docusaurus | static)",
+      "framework override (vite | next | astro | cra | sveltekit | nuxt | gatsby | docusaurus | hugo | static)",
     )
     .option("--name <name>", "project name (only used on first deploy)")
     .option("--project <id_or_slug>", "deploy into an existing project, ignoring local config")
