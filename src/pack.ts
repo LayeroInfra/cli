@@ -90,6 +90,69 @@ export interface PackResult {
   fileCount: number;
 }
 
+/** Pack only the contents of an already-built artifact directory.
+ *
+ * Used by `layero deploy --prebuilt`. We deliberately bypass DEFAULT_IGNORE
+ * (no `dist`/`build`/`.next` filtering — those names might appear *inside*
+ * a built artifact and they're now meaningful files, not source-tree
+ * leftovers). We still apply a minimal safety filter so accidental clutter
+ * doesn't blow up the archive: `.git/`, `node_modules/`, `.DS_Store`,
+ * `.env*`. The caller resolves the directory; the archive's internal layout
+ * is content-only (no source-tree prefix).
+ */
+export async function packDirectory(
+  targetDir: string,
+  projectName: string,
+): Promise<PackResult> {
+  const stat = await fs.stat(targetDir);
+  if (!stat.isDirectory()) {
+    throw new Error(`prebuilt path is not a directory: ${targetDir}`);
+  }
+  const minimalIgnore = ignore();
+  minimalIgnore.add([
+    "node_modules",
+    ".git",
+    ".svn",
+    ".hg",
+    ".env",
+    ".env.*",
+    "*.log",
+    ".DS_Store",
+    "Thumbs.db",
+    ".layero",
+  ]);
+  const files = await walk(targetDir, minimalIgnore);
+  if (files.length === 0) {
+    throw new Error(
+      `no files to upload in ${targetDir} — check that the build produced output`,
+    );
+  }
+  const stamp = Date.now();
+  const safeName = projectName.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const archivePath = path.join(tmpdir(), `layero-${safeName}-prebuilt-${stamp}.tgz`);
+  const rootName = `layero-${safeName}-prebuilt-${stamp}`;
+  await tarCreate(
+    {
+      file: archivePath,
+      gzip: { level: 6 },
+      cwd: targetDir,
+      portable: true,
+      prefix: rootName,
+    },
+    files,
+  );
+  const fst = await fs.stat(archivePath);
+  if (fst.size > MAX_BYTES) {
+    await fs.unlink(archivePath).catch(() => undefined);
+    throw new Error(
+      `archive is ${(fst.size / (1024 * 1024)).toFixed(1)}MB — over the 200MB limit. ` +
+        "Trim the build output or skip large files (`.layeroignore`).",
+    );
+  }
+  const sha256 = await sha256OfFile(archivePath);
+  return { archivePath, sha256, size: fst.size, fileCount: files.length };
+}
+
 export async function packCwd(
   cwd: string,
   projectName: string,

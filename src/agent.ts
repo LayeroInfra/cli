@@ -106,7 +106,8 @@ export type Event =
   | ({ event: "project_created"; project_id: string; slug: string; organization: string } & EventCommon)
   | ({ event: "project_linked"; project_id: string; slug: string } & EventCommon)
   | ({ event: "detected"; framework: string; build_cmd: string; output_dir: string; confident: boolean } & EventCommon)
-  | ({ event: "packing"; files: number; bytes: number; sha256: string } & EventCommon)
+  | ({ event: "prebuilt"; dir: string } & EventCommon)
+  | ({ event: "packing"; files: number; bytes: number; sha256: string; prebuilt_dir?: string } & EventCommon)
   | ({ event: "uploading" } & EventCommon)
   | ({ event: "uploaded"; archive_key: string } & EventCommon)
   | ({ event: "setup_applied" } & EventCommon)
@@ -148,6 +149,9 @@ function renderHuman(event: Event): void {
       process.stdout.write(
         `→ Detected ${event.framework} (build: ${event.build_cmd}, output: ${event.output_dir})\n`,
       );
+      break;
+    case "prebuilt":
+      process.stdout.write(`→ Prebuilt mode: shipping ${event.dir}\n`);
       break;
     case "packing":
       process.stdout.write(

@@ -207,6 +207,9 @@ export class ApiClient {
       // without a branch, the backend routes to the per-project "cli"
       // pseudo-branch.
       branch?: string;
+      // `--prebuilt`: archive contains the already-built artifact (dist/
+      // contents, not source tree). Builder skips detect/install/build.
+      prebuilt?: boolean;
     },
   ): Promise<DeployOut> {
     return this.request<DeployOut>(

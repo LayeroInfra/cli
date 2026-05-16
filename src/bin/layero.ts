@@ -147,6 +147,10 @@ async function main(): Promise<void> {
       "(legacy alias of the default behaviour — auto-detect + .layero/project.json values)",
     )
     .option(
+      "--prebuilt [dir]",
+      "ship an already-built artifact directory (default auto-pick: dist/build/public/out/_site/...)",
+    )
+    .option(
       "--prod",
       "deploy to production (replaces apex_hostname's active deploy). Without this flag, deploys go to the project's CLI preview pseudo-branch.",
     )

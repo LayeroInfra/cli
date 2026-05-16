@@ -10,7 +10,7 @@ import {
   persistProjectLinking,
   projectConfigPath,
 } from "../project-config.js";
-import { packCwd } from "../pack.js";
+import { packCwd, packDirectory } from "../pack.js";
 import { streamDeployLogs } from "../logs.js";
 import { detectProject } from "../detect.js";
 import { LayeroError, detectMode, emit } from "../agent.js";
@@ -28,6 +28,11 @@ interface DeployOptions {
   branch?: string;
   org?: string;
   json?: boolean;
+  // --prebuilt [dir]: ship an already-built artifact directory (dist/,
+  // build/, public/, _site/, ...). CLI packs only that directory, backend
+  // skips clone/detect/install/build. `true` (no arg) auto-picks the
+  // first existing common output dir; a string path overrides explicitly.
+  prebuilt?: boolean | string;
 }
 
 const VALID_TYPES = new Set([
@@ -209,13 +214,17 @@ async function packAndUpload(
   api: ApiClient,
   cwd: string,
   project: ProjectSummary,
+  prebuiltDir: string | null,
 ): Promise<{ archive_key: string; commit_sha: string; archivePath: string }> {
-  const pack = await packCwd(cwd, project.slug);
+  const pack = prebuiltDir
+    ? await packDirectory(path.resolve(cwd, prebuiltDir), project.slug)
+    : await packCwd(cwd, project.slug);
   emit({
     event: "packing",
     files: pack.fileCount,
     bytes: pack.size,
     sha256: pack.sha256,
+    ...(prebuiltDir ? { prebuilt_dir: prebuiltDir } : {}),
   });
 
   const init = await api.initUpload(project.id);
@@ -228,6 +237,41 @@ async function packAndUpload(
     commit_sha: pack.sha256,
     archivePath: pack.archivePath,
   };
+}
+
+const PREBUILT_AUTO_DIRS = [
+  "dist",
+  "build",
+  "public",
+  "out",
+  "_site",
+  ".output/public",
+  "docs/.vitepress/dist",
+  ".vitepress/dist",
+];
+
+async function resolvePrebuiltDir(
+  cwd: string,
+  raw: boolean | string | undefined,
+): Promise<string | null> {
+  if (raw === undefined || raw === false) return null;
+  if (typeof raw === "string" && raw.length > 0) {
+    return raw;
+  }
+  // No explicit dir — pick the first existing common output directory.
+  for (const candidate of PREBUILT_AUTO_DIRS) {
+    try {
+      const stat = await fs.stat(path.join(cwd, candidate));
+      if (stat.isDirectory()) return candidate;
+    } catch {
+      // try next
+    }
+  }
+  throw new LayeroError(
+    "prebuilt_no_dir",
+    "could not auto-detect a built artifact directory",
+    `pass it explicitly: --prebuilt ./dist  (tried: ${PREBUILT_AUTO_DIRS.join(", ")})`,
+  );
 }
 
 // Resolve the framework / build / output config to send to completeSetup.
@@ -319,9 +363,26 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     }
   }
 
+  // Prebuilt deploys: caller has already built the artifact and points at
+  // its directory. Setup-config detection is skipped (we report a synthetic
+  // static setup so completeSetup gets *some* values and the dashboard
+  // shows the project is configured).
+  const prebuiltDir = await resolvePrebuiltDir(cwd, opts.prebuilt);
+
   // Resolve setup config (auto-detect + overrides). Done eagerly so the
   // user sees what we detected before any network I/O.
-  const setup = await resolveSetupConfig(cwd, opts, existing);
+  const setup = prebuiltDir
+    ? {
+        framework_hint: "static",
+        build_cmd: "true",
+        output_dir: ".",
+        source: "prebuilt" as const,
+      }
+    : await resolveSetupConfig(cwd, opts, existing);
+
+  if (prebuiltDir) {
+    emit({ event: "prebuilt", dir: prebuiltDir });
+  }
 
   const persistedCfg = await persistProjectLinking(
     cwd,
@@ -365,16 +426,17 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
 
   let upload: Awaited<ReturnType<typeof packAndUpload>> | null = null;
   try {
-    upload = await packAndUpload(api, cwd, project);
+    upload = await packAndUpload(api, cwd, project, prebuiltDir);
 
     const targeting = deployTargeting(opts);
     const deploy = await api.triggerDeploy(project.id, {
       source_archive_key: upload.archive_key,
       commit_sha: upload.commit_sha,
-      commit_message: "CLI deploy",
+      commit_message: prebuiltDir ? `CLI prebuilt deploy (${prebuiltDir})` : "CLI deploy",
       framework_hint: setup.framework_hint,
       target: targeting.target,
       branch: targeting.branch,
+      prebuilt: prebuiltDir !== null,
     });
     emit({ event: "deploy_started", deploy_id: deploy.id });
 
