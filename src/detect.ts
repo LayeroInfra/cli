@@ -132,6 +132,50 @@ export async function detectProject(cwd: string): Promise<Detected> {
         confident: true,
       };
     }
+    // Storybook before Vite/CRA: Storybook 7+ uses Vite or webpack
+    // internally, so `vite` / `react-scripts` is in deps. Without
+    // listing it first the SPA Vite path would output_dir=dist, which
+    // doesn't exist after `build-storybook`.
+    const storybookDeps = [
+      "@storybook/cli",
+      "@storybook/react",
+      "@storybook/react-vite",
+      "@storybook/react-webpack5",
+      "@storybook/vue",
+      "@storybook/vue3",
+      "@storybook/vue3-vite",
+      "@storybook/svelte",
+      "@storybook/svelte-vite",
+      "@storybook/web-components",
+      "@storybook/web-components-vite",
+      "@storybook/preact",
+      "@storybook/angular",
+      "@storybook/nextjs",
+      "@storybook/html",
+      "@storybook/html-vite",
+      "storybook",
+    ];
+    const hasStorybookDep = storybookDeps.some((d) => hasDep(pkg, d));
+    const hasStorybookScript =
+      pkg.scripts?.["build-storybook"] !== undefined
+      || Object.values(pkg.scripts ?? {}).some(
+        (s) => typeof s === "string" && s.includes("storybook build"),
+      );
+    const hasStorybookDir = await fileExists(cwd, ".storybook/main.js", ".storybook/main.ts", ".storybook/main.cjs", ".storybook/main.mjs");
+    if (hasStorybookDep || hasStorybookScript || hasStorybookDir) {
+      const cmd = pkg.scripts?.["build-storybook"]
+        ? "npm run build-storybook"
+        : (pkg.scripts?.build && pkg.scripts.build.includes("storybook"))
+          ? "npm run build"
+          : "npx storybook build";
+      return {
+        framework_hint: "storybook",
+        build_cmd: cmd,
+        output_dir: "storybook-static",
+        confident: true,
+      };
+    }
+
     // VitePress before generic Vite: VitePress repos often pull `vite`
     // transitively, and the SPA Vite path would set output_dir=dist —
     // wrong for VitePress, which writes to `.vitepress/dist/` (or
