@@ -53,6 +53,7 @@ re-run `layero deploy`, get a new preview URL each time.
 | `layero deploy` | Auto-detect framework, pack cwd, build, ship. |
 | `layero deploys list` | List recent deploys. |
 | `layero rollback` | Re-activate the previous successful deploy. |
+| `layero hooks list/create/delete` | Manage deploy hooks (URL tokens that trigger builds from CMS / cron / external CI). |
 | `layero token` | Manage the auth token directly. |
 
 Run `layero <cmd> --help` for full options.
@@ -97,6 +98,29 @@ Run `layero <cmd> --help` for full options.
 | `@11ty/eleventy` dep / `.eleventy.js` / `eleventy.config.*` | eleventy | `npm run build` (or `npx @11ty/eleventy`) | `_site` |
 | `hugo.{toml,yaml,json}` or `config.*` with Hugo markers (`baseURL`, `[markup]`, …) | hugo | `hugo --gc --minify` (no install needed) | `public` |
 | any `.html` at root, no `package.json` | static | `true` (no-op) | `.` |
+
+## Deploy hooks — webhook URLs that trigger builds
+
+When something *other than you* should kick a build — a headless CMS
+publishing content, a cron job, an external CI pipeline — create a
+deploy hook. You get back an opaque URL; whoever POSTs to it fires a
+deploy.
+
+```bash
+# Inside a linked project directory:
+layero hooks create strapi-content          # preview-target, default branch
+layero hooks create publish --prod          # production-target hook
+layero hooks create staging --branch=dev    # explicit branch
+layero hooks list
+layero hooks delete <id>                    # revoke immediately
+```
+
+The created URL looks like `https://api.layero.ru/hooks/<token>`. Paste
+it into Strapi / Sanity / Contentful / Decap CMS / GitHub Actions / a
+cron job — any tool that can POST to a URL. Token = credential; rotate
+by `delete` + `create`. There is no per-token rate limit yet; rely on
+the platform's natural in-flight-commit dedup if the same commit gets
+fired more than once.
 
 ## Bring-your-own-build (`--prebuilt`)
 

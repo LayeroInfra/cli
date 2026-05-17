@@ -46,6 +46,16 @@ export interface UploadInit {
   expires_in: number;
 }
 
+export interface DeployHookOut {
+  id: string;
+  name: string;
+  branch: string | null;
+  target: "preview" | "production";
+  url: string;
+  created_at: string;
+  last_triggered_at: string | null;
+}
+
 export interface DeployOut {
   id: string;
   environment_id: string;
@@ -245,6 +255,31 @@ export class ApiClient {
       "POST",
       `/projects/${projectId}/rollback`,
       input,
+    );
+  }
+
+  listDeployHooks(projectId: string): Promise<DeployHookOut[]> {
+    return this.request<DeployHookOut[]>(
+      "GET",
+      `/projects/${projectId}/deploy-hooks`,
+    );
+  }
+
+  createDeployHook(
+    projectId: string,
+    input: { name: string; branch?: string | null; target?: "preview" | "production" },
+  ): Promise<DeployHookOut> {
+    return this.request<DeployHookOut>(
+      "POST",
+      `/projects/${projectId}/deploy-hooks`,
+      input,
+    );
+  }
+
+  deleteDeployHook(projectId: string, hookId: string): Promise<void> {
+    return this.request<void>(
+      "DELETE",
+      `/projects/${projectId}/deploy-hooks/${hookId}`,
     );
   }
 

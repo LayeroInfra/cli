@@ -11,6 +11,7 @@ import { linkCmd } from "../commands/link.js";
 import { tokenSetCmd } from "../commands/token.js";
 import { deployCmd } from "../commands/deploy.js";
 import { deploysListCmd, rollbackCmd } from "../commands/deploys.js";
+import { hooksCreateCmd, hooksDeleteCmd, hooksListCmd } from "../commands/hooks.js";
 import { loginCmd } from "../commands/login.js";
 import { orgsListCmd } from "../commands/orgs.js";
 import { initCmd } from "../commands/init.js";
@@ -93,6 +94,63 @@ async function main(): Promise<void> {
     .option("--limit <n>", "max entries to show (default 20)", (v) => Number(v))
     .action(async (opts) => {
       await deploysListCmd(opts);
+    });
+
+  const hooks = program
+    .command("hooks")
+    .description(
+      "Manage deploy hooks — URL tokens that trigger builds from CMS / cron / external CI.",
+    );
+  hooks
+    .command("list")
+    .description("List deploy hooks for the linked project.")
+    .option("--project <id>", "target project id (default: linked .layero/project.json)")
+    .action(async (opts) => {
+      try {
+        await hooksListCmd(opts);
+      } catch (err) {
+        console.error(String((err as Error)?.message ?? err));
+        process.exitCode = 1;
+      }
+    });
+  hooks
+    .command("create <name>")
+    .description(
+      "Create a new deploy hook. Prints a URL — paste it into Strapi / Sanity / "
+        + "Contentful / GitHub Actions / cron as a POST webhook.",
+    )
+    .option("--project <id>", "target project id (default: linked .layero/project.json)")
+    .option(
+      "--branch <name>",
+      "branch to deploy when fired (default: project default_branch, evaluated at fire time)",
+    )
+    .option("--prod", "fire the hook against the production environment (default: preview)")
+    .addHelpText(
+      "after",
+      "\nExamples:\n"
+        + "  $ layero hooks create strapi-content        # preview-target hook for default branch\n"
+        + "  $ layero hooks create publish --prod        # production-target hook for default branch\n"
+        + "  $ layero hooks create staging --branch=dev  # any branch, preview environment",
+    )
+    .action(async (name: string, opts) => {
+      try {
+        await hooksCreateCmd(name, opts);
+      } catch (err) {
+        console.error(String((err as Error)?.message ?? err));
+        process.exitCode = 1;
+      }
+    });
+  hooks
+    .command("delete <id>")
+    .description("Revoke a deploy hook. The URL stops working immediately.")
+    .option("--project <id>", "target project id (default: linked .layero/project.json)")
+    .action(async (id: string, opts) => {
+      try {
+        await hooksDeleteCmd(id, opts);
+      } catch (err) {
+        console.error(String((err as Error)?.message ?? err));
+        process.exitCode = 1;
+      }
     });
 
   program
