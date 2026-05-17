@@ -71,6 +71,12 @@ Run `layero <cmd> --help` for full options.
   uses that explicit path. Use this for CI flows that build in the
   pipeline, Webflow / Framer exports, or whenever you don't want the
   platform to run install/build for you.
+- `--root <dir>` — monorepo: tell the builder the app lives in a
+  subdirectory of the repo (e.g. `--root apps/web`). Saved on the
+  project; future GitHub-push and hook triggers use the same value.
+  CLI auto-detect honours it: framework signals are looked up inside
+  `<cwd>/<root>` so a `package.json` workspace at the repo root
+  doesn't shadow the real app's stack.
 - `--name <name>` — project name (only on first deploy).
 - `--project <id_or_slug>` — deploy into an existing project, ignoring
   `./.layero/project.json` (useful for CI).
@@ -92,6 +98,7 @@ Run `layero <cmd> --help` for full options.
 | `gatsby` dep | gatsby | `npm run build` | `public` |
 | `astro` dep / `astro.config.*` | astro | `npm run build` | `dist` |
 | `@docusaurus/core` dep / `docusaurus.config.*` | docusaurus | `npm run build` | `build` |
+| `@storybook/*` dep / `scripts.build-storybook` / `.storybook/main.*` | storybook | `npm run build-storybook` (or `npx storybook build`) | `storybook-static` |
 | `vitepress` dep / `.vitepress/config.*` / `docs/.vitepress/config.*` | vitepress | `npm run docs:build` (or `npx vitepress build`) | `.vitepress/dist` or `docs/.vitepress/dist` |
 | `vite` dep / `vite.config.*` | vite | `npm run build` | `dist` |
 | `react-scripts` dep | cra | `npm run build` | `build` |
