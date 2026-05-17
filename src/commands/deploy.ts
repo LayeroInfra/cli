@@ -33,6 +33,10 @@ interface DeployOptions {
   // skips clone/detect/install/build. `true` (no arg) auto-picks the
   // first existing common output dir; a string path overrides explicitly.
   prebuilt?: boolean | string;
+  // --root <dir>: monorepo support. Passed to backend's completeSetup as
+  // the project's `root_directory`. Saved on the project row so a later
+  // GitHub-push trigger or hook trigger uses the same subdir.
+  root?: string;
 }
 
 const VALID_TYPES = new Set([
@@ -52,6 +56,7 @@ const VALID_TYPES = new Set([
   "eleventy",
   "11ty",
   "vitepress",
+  "storybook",
 ]);
 
 function dashboardOrigin(apiUrl: string): string {
@@ -286,7 +291,11 @@ async function resolveSetupConfig(
   output_dir: string;
   source: "config" | "detected" | "hybrid";
 }> {
-  const detected = await detectProject(cwd);
+  // Honour --root when auto-detecting: the framework signals live in the
+  // monorepo subdir, not the repo root. Without this the detector sees
+  // a bare workspace package.json and falls through to "static".
+  const detectCwd = opts.root ? path.join(cwd, opts.root) : cwd;
+  const detected = await detectProject(detectCwd);
   emit({
     event: "detected",
     framework: detected.framework_hint,
@@ -420,8 +429,13 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       output_dir: setup.output_dir,
       analytics_enabled: persistedCfg.analytics_enabled ?? false,
       env_vars: persistedCfg.env_vars ?? {},
+      root_directory: opts.root ?? null,
     });
     emit({ event: "setup_applied" });
+  } else if (opts.root !== undefined) {
+    // Active project: --root patches the existing row so the *next*
+    // GitHub-pushed or hook-triggered build uses the new subdir.
+    project = await api.updateProject(project.id, { root_directory: opts.root });
   }
 
   let upload: Awaited<ReturnType<typeof packAndUpload>> | null = null;

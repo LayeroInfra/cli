@@ -195,7 +195,7 @@ async function main(): Promise<void> {
     )
     .option(
       "-t, --type <preset>",
-      "framework override (vite | vitepress | next | astro | cra | sveltekit | nuxt | gatsby | docusaurus | eleventy | hugo | static)",
+      "framework override (vite | vitepress | next | astro | cra | sveltekit | nuxt | gatsby | docusaurus | storybook | eleventy | hugo | static)",
     )
     .option("--name <name>", "project name (only used on first deploy)")
     .option("--project <id_or_slug>", "deploy into an existing project, ignoring local config")
@@ -207,6 +207,10 @@ async function main(): Promise<void> {
     .option(
       "--prebuilt [dir]",
       "ship an already-built artifact directory (default auto-pick: dist/build/public/out/_site/...)",
+    )
+    .option(
+      "--root <dir>",
+      "monorepo: subdirectory inside the repo that the builder treats as the app root (saved on the project; future GitHub-push and hook triggers use the same value)",
     )
     .option(
       "--prod",

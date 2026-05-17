@@ -194,11 +194,24 @@ export class ApiClient {
       output_dir: string;
       analytics_enabled: boolean;
       env_vars: Record<string, string>;
+      // Monorepo subdir; empty / null → repo root.
+      root_directory?: string | null;
     },
   ): Promise<ProjectSummary> {
     return this.request<ProjectSummary>(
       "POST",
       `/projects/${projectId}/setup`,
+      input,
+    );
+  }
+
+  updateProject(
+    projectId: string,
+    input: { root_directory?: string | null },
+  ): Promise<ProjectSummary> {
+    return this.request<ProjectSummary>(
+      "PATCH",
+      `/projects/${projectId}`,
       input,
     );
   }
