@@ -59,8 +59,17 @@ Run `layero <cmd> --help` for full options.
 
 ## `layero deploy` flags
 
-- `--type <preset>` — framework override: `vite`, `next`, `astro`, `cra`,
-  `sveltekit`, `nuxt`, `gatsby`, `docusaurus`, `static`. **Optional** — auto-detected from `package.json` and config files when omitted.
+- `--type <preset>` — framework override: `vite`, `vitepress`, `next`,
+  `astro`, `cra`, `sveltekit`, `nuxt`, `gatsby`, `docusaurus`, `eleventy`
+  (alias `11ty`), `hugo`, `static`. **Optional** — auto-detected from
+  `package.json` and config files when omitted.
+- `--prebuilt [dir]` — ship an already-built artifact instead of building
+  remotely. Without an argument, picks the first existing of
+  `dist/`, `build/`, `public/`, `out/`, `_site/`, `.output/public/`,
+  `docs/.vitepress/dist/`, `.vitepress/dist/`. With `--prebuilt ./my-out`
+  uses that explicit path. Use this for CI flows that build in the
+  pipeline, Webflow / Framer exports, or whenever you don't want the
+  platform to run install/build for you.
 - `--name <name>` — project name (only on first deploy).
 - `--project <id_or_slug>` — deploy into an existing project, ignoring
   `./.layero/project.json` (useful for CI).
@@ -82,9 +91,32 @@ Run `layero <cmd> --help` for full options.
 | `gatsby` dep | gatsby | `npm run build` | `public` |
 | `astro` dep / `astro.config.*` | astro | `npm run build` | `dist` |
 | `@docusaurus/core` dep / `docusaurus.config.*` | docusaurus | `npm run build` | `build` |
+| `vitepress` dep / `.vitepress/config.*` / `docs/.vitepress/config.*` | vitepress | `npm run docs:build` (or `npx vitepress build`) | `.vitepress/dist` or `docs/.vitepress/dist` |
 | `vite` dep / `vite.config.*` | vite | `npm run build` | `dist` |
 | `react-scripts` dep | cra | `npm run build` | `build` |
+| `@11ty/eleventy` dep / `.eleventy.js` / `eleventy.config.*` | eleventy | `npm run build` (or `npx @11ty/eleventy`) | `_site` |
+| `hugo.{toml,yaml,json}` or `config.*` with Hugo markers (`baseURL`, `[markup]`, …) | hugo | `hugo --gc --minify` (no install needed) | `public` |
 | any `.html` at root, no `package.json` | static | `true` (no-op) | `.` |
+
+## Bring-your-own-build (`--prebuilt`)
+
+If you already build your site yourself — in CI, via a desktop tool like
+Webflow/Framer, or because you want a guaranteed deterministic artifact —
+skip the platform's install/build entirely:
+
+```bash
+# Auto-pick the output directory:
+layero deploy --prebuilt
+
+# Or point at a specific one:
+layero deploy --prebuilt ./dist
+layero deploy --prebuilt ./build/static
+```
+
+What changes: only the files inside the directory you point at are
+uploaded (no source-tree filters like `.gitignore` apply). The platform
+ships them verbatim — no detect, no install, no build. Smaller archive,
+faster deploys, no surprises from the platform's package-manager defaults.
 
 Override anything by editing `.layero/project.json` after the first `layero init`.
 
