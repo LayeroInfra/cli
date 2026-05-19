@@ -25,6 +25,11 @@ interface DeployOptions {
   project?: string;
   yes?: boolean;
   prod?: boolean;
+  // V071: promote the resulting deploy to production after a successful
+  // build. Distinct from --prod (which targets the default branch and
+  // relies on auto_promote_default_branch on the backend). --promote
+  // explicitly pins the apex regardless of branch / auto-promote setting.
+  promote?: boolean;
   branch?: string;
   org?: string;
   json?: boolean;
@@ -464,16 +469,38 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
         `inspect logs at ${projectUrl(cliCfg.apiUrl, project.id)}`,
       );
     }
+
+    // --promote: pin apex_hostname to this deploy after a successful
+    // build. Independent of --prod; --promote lets the typical "CLI
+    // preview branch" deploy publish straight to production in one
+    // command. Best-effort: a failure here doesn't fail the deploy
+    // (the artifact is good; promote can be retried via `layero promote`).
+    let promoted = false;
+    if (opts.promote) {
+      try {
+        await api.promoteDeploy(project.id, deploy.id);
+        promoted = true;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(
+          chalk.yellow(
+            `warning: deploy succeeded but promote failed — ${msg}.\n` +
+              `  retry with: layero promote ${deploy.id.slice(0, 8)}`,
+          ),
+        );
+      }
+    }
+
+    const apexUrl = `https://${project.apex_hostname}`;
+    const previewUrl = projectUrl(cliCfg.apiUrl, project.id);
     const liveUrl =
-      opts.prod && !opts.branch
-        ? `https://${project.apex_hostname}`
-        : projectUrl(cliCfg.apiUrl, project.id);
+      promoted || (opts.prod && !opts.branch) ? apexUrl : previewUrl;
     emit({
       event: "ready",
       url: liveUrl,
       deploy_id: deploy.id,
       preview_url:
-        opts.prod && !opts.branch ? undefined : projectUrl(cliCfg.apiUrl, project.id),
+        promoted || (opts.prod && !opts.branch) ? undefined : previewUrl,
     });
   } finally {
     if (upload) {

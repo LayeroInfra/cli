@@ -29,6 +29,11 @@ export interface ProjectSummary {
   created_at: string;
   publish_status?: string;
   status?: "pending_setup" | "active";
+  // V071 production-pointer.
+  production_deploy_id?: string | null;
+  auto_promote_default_branch?: boolean;
+  preview_ttl_hours?: number | null;
+  production_pointer_enabled?: boolean;
 }
 
 export interface MeOut {
@@ -268,6 +273,28 @@ export class ApiClient {
       "POST",
       `/projects/${projectId}/rollback`,
       input,
+    );
+  }
+
+  // V071 production-pointer: pin apex to a specific deploy. `source` is
+  // recorded in promote_events and lets us split CLI vs UI adoption later.
+  promoteDeploy(
+    projectId: string,
+    deployId: string,
+  ): Promise<ProjectSummary> {
+    return this.request<ProjectSummary>(
+      "POST",
+      `/projects/${projectId}/promote`,
+      { deploy_id: deployId, source: "cli" },
+    );
+  }
+
+  // Clear projects.production_deploy_id — apex resumes following latest
+  // ready deploy of default_branch (or sole-env, see V071 host_resolver).
+  unpinProduction(projectId: string): Promise<ProjectSummary> {
+    return this.request<ProjectSummary>(
+      "POST",
+      `/projects/${projectId}/unpin`,
     );
   }
 

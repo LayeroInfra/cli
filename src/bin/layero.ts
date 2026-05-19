@@ -11,6 +11,7 @@ import { linkCmd } from "../commands/link.js";
 import { tokenSetCmd } from "../commands/token.js";
 import { deployCmd } from "../commands/deploy.js";
 import { deploysListCmd, rollbackCmd } from "../commands/deploys.js";
+import { promoteCmd } from "../commands/promote.js";
 import { hooksCreateCmd, hooksDeleteCmd, hooksListCmd } from "../commands/hooks.js";
 import { loginCmd } from "../commands/login.js";
 import { orgsListCmd } from "../commands/orgs.js";
@@ -154,6 +155,27 @@ async function main(): Promise<void> {
     });
 
   program
+    .command("promote [deploy]")
+    .description(
+      "Pin the project apex to a specific deploy (V071 production-pointer). " +
+        "Without [deploy] picks the latest ready build on --branch (defaults to the 'cli' pseudo-branch).",
+    )
+    .option("--project <id_or_slug>", "target project (default: linked .layero/project.json)")
+    .option("--branch <name>", "branch to pick latest ready deploy from (default: cli)")
+    .option("-y, --yes", "skip the confirmation prompt (CI)")
+    .addHelpText(
+      "after",
+      "\nExamples:\n" +
+        "  $ layero promote                      # pin apex to latest ready deploy on `cli` branch\n" +
+        "  $ layero promote --branch=main        # pin apex to latest ready deploy on main\n" +
+        "  $ layero promote a3f9c2b              # pin apex to a specific commit sha\n" +
+        "  $ layero promote --yes                # CI-friendly, no prompt",
+    )
+    .action(async (deploy, opts) => {
+      await promoteCmd(deploy, opts);
+    });
+
+  program
     .command("rollback")
     .description("Re-activate the previous successful deploy on the project's default branch.")
     .option("--project <id_or_slug>", "target project (default: linked .layero/project.json)")
@@ -217,6 +239,10 @@ async function main(): Promise<void> {
       "deploy to production (replaces apex_hostname's active deploy). Without this flag, deploys go to the project's CLI preview pseudo-branch.",
     )
     .option(
+      "--promote",
+      "pin the project apex to this deploy after a successful build (V071). Works for any branch — e.g. `--promote` without --prod publishes a CLI preview straight to production.",
+    )
+    .option(
       "--branch <name>",
       "deploy to a specific branch's environment. Wins over --prod.",
     )
@@ -230,6 +256,7 @@ async function main(): Promise<void> {
         "  $ layero deploy                      # preview deploy (CLI pseudo-branch), auto-detect framework\n" +
         "  $ layero deploy --prod               # production deploy (interactive confirm)\n" +
         "  $ layero deploy --prod --yes         # production deploy, no prompt (CI)\n" +
+        "  $ layero deploy --promote            # preview deploy + pin apex (one-shot publish)\n" +
         "  $ layero deploy --branch=staging     # preview on a specific branch\n" +
         "  $ layero deploy --type vite          # force a framework preset\n" +
         "  $ layero deploy --json               # machine-readable output for agents",
