@@ -32,7 +32,6 @@ export interface ProjectSummary {
   // V071 production-pointer.
   production_deploy_id?: string | null;
   auto_promote_default_branch?: boolean;
-  preview_ttl_hours?: number | null;
   production_pointer_enabled?: boolean;
 }
 
