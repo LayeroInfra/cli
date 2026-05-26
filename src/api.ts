@@ -209,6 +209,17 @@ export class ApiClient {
     );
   }
 
+  setRuntimeType(
+    projectId: string,
+    projectType: "ssr_next" | "streamlit" | "gradio" | "flask" | "spa",
+  ): Promise<ProjectSummary> {
+    return this.request<ProjectSummary>(
+      "POST",
+      `/projects/${projectId}/runtime-type`,
+      { project_type: projectType },
+    );
+  }
+
   updateProject(
     projectId: string,
     input: { root_directory?: string | null },

@@ -105,12 +105,14 @@ export type Event =
   | ({ event: "authorized"; user: string } & EventCommon)
   | ({ event: "project_created"; project_id: string; slug: string; organization: string } & EventCommon)
   | ({ event: "project_linked"; project_id: string; slug: string } & EventCommon)
-  | ({ event: "detected"; framework: string; build_cmd: string; output_dir: string; confident: boolean } & EventCommon)
+  | ({ event: "detected"; framework: string; build_cmd: string; output_dir: string; confident: boolean; runtime_kind?: "ssr_next" } & EventCommon)
   | ({ event: "prebuilt"; dir: string } & EventCommon)
   | ({ event: "packing"; files: number; bytes: number; sha256: string; prebuilt_dir?: string } & EventCommon)
   | ({ event: "uploading" } & EventCommon)
   | ({ event: "uploaded"; archive_key: string } & EventCommon)
   | ({ event: "setup_applied" } & EventCommon)
+  | ({ event: "runtime_type_applied"; project_type: "ssr_next" } & EventCommon)
+  | ({ event: "runtime_type_apply_failed"; error: string } & EventCommon)
   | ({ event: "deploy_started"; deploy_id: string } & EventCommon)
   | ({ event: "build_log"; line: string; stream: string } & EventCommon)
   | ({ event: "stage"; name: string } & EventCommon)
@@ -166,6 +168,17 @@ function renderHuman(event: Event): void {
       break;
     case "setup_applied":
       process.stdout.write(`✓ Setup applied\n`);
+      break;
+    case "runtime_type_applied":
+      process.stdout.write(`✓ Project type set to ${event.project_type}\n`);
+      break;
+    case "runtime_type_apply_failed":
+      process.stdout.write(
+        `! Failed to set project_type automatically: ${event.error}\n`,
+      );
+      process.stdout.write(
+        `  Build may fail at detect; accept the suggestion in the dashboard if so.\n`,
+      );
       break;
     case "deploy_started":
       process.stdout.write(`→ Building...\n`);

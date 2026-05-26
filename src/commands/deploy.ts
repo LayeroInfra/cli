@@ -295,6 +295,13 @@ async function resolveSetupConfig(
   build_cmd: string;
   output_dir: string;
   source: "config" | "detected" | "hybrid";
+  // Auto-detected runtime kind (currently only `ssr_next`). When set,
+  // deploy.ts flips the project's project_type before triggering the
+  // first build so the platform routes it through runtime-builder
+  // instead of crashing in detect with "looks like ssr_next but
+  // configured as spa". Honoured only on first setup; on already-active
+  // projects the existing project_type wins.
+  runtime_kind?: "ssr_next";
 }> {
   // Honour --root when auto-detecting: the framework signals live in the
   // monorepo subdir, not the repo root. Without this the detector sees
@@ -307,6 +314,7 @@ async function resolveSetupConfig(
     build_cmd: detected.build_cmd,
     output_dir: detected.output_dir,
     confident: detected.confident,
+    ...(detected.runtime_kind ? { runtime_kind: detected.runtime_kind } : {}),
   });
 
   const framework_hint =
@@ -324,7 +332,13 @@ async function resolveSetupConfig(
     source = "detected";
   }
 
-  return { framework_hint, build_cmd, output_dir, source };
+  return {
+    framework_hint,
+    build_cmd,
+    output_dir,
+    source,
+    ...(detected.runtime_kind ? { runtime_kind: detected.runtime_kind } : {}),
+  };
 }
 
 export async function deployCmd(opts: DeployOptions): Promise<void> {
@@ -385,12 +399,18 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
 
   // Resolve setup config (auto-detect + overrides). Done eagerly so the
   // user sees what we detected before any network I/O.
-  const setup = prebuiltDir
+  const setup: {
+    framework_hint: string;
+    build_cmd: string;
+    output_dir: string;
+    source: "config" | "detected" | "hybrid" | "prebuilt";
+    runtime_kind?: "ssr_next";
+  } = prebuiltDir
     ? {
         framework_hint: "static",
         build_cmd: "true",
         output_dir: ".",
-        source: "prebuilt" as const,
+        source: "prebuilt",
       }
     : await resolveSetupConfig(cwd, opts, existing);
 
@@ -437,6 +457,25 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       root_directory: opts.root ?? null,
     });
     emit({ event: "setup_applied" });
+    // Newly-created projects default to project_type='spa'. If detect
+    // says the repo is SSR (Next.js without `output: 'export'`), flip
+    // the type now — otherwise the first build crashes at the detect
+    // stage with "looks like ssr_next but configured as spa", forcing
+    // the user to open the dashboard and accept the suggestion. Only
+    // applied on first setup; an explicitly-configured spa project
+    // that drops a next.config later keeps user's choice.
+    if (setup.runtime_kind) {
+      try {
+        project = await api.setRuntimeType(project.id, setup.runtime_kind);
+        emit({ event: "runtime_type_applied", project_type: setup.runtime_kind });
+      } catch (err) {
+        // Non-fatal: the build will fall back to the dashboard suggestion
+        // flow exactly as it did before this CLI fix. Tell the user what
+        // happened so they don't burn a deploy on a surprise crash.
+        const msg = err instanceof Error ? err.message : String(err);
+        emit({ event: "runtime_type_apply_failed", error: msg });
+      }
+    }
   } else if (opts.root !== undefined) {
     // Active project: --root patches the existing row so the *next*
     // GitHub-pushed or hook-triggered build uses the new subdir.

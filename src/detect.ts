@@ -8,6 +8,13 @@ export interface Detected {
   // True when we matched a known framework signal. False means we fell
   // back to "static" or "generic" because nothing recognisable was found.
   confident: boolean;
+  // Set when the repo is a runtime app (SSR/Streamlit/Gradio/Flask) and
+  // the platform must route it through the runtime-builder pipeline
+  // instead of the SPA static path. Mirrors `runtime_detect.py` on the
+  // builder side; undefined / absent for plain static SPAs. Today only
+  // `ssr_next` is detected here — the others come from `layero.json` if
+  // at all.
+  runtime_kind?: "ssr_next";
 }
 
 interface PackageJson {
@@ -40,6 +47,34 @@ async function fileExists(cwd: string, ...candidates: string[]): Promise<boolean
     }
   }
   return false;
+}
+
+// Mirrors `frameworks/nextjs.py:_NEXT_STATIC_EXPORT_RE` and
+// `next_config_static_export()` so CLI and builder can't disagree on
+// what counts as a static-export Next.js project. The class-of-bug we
+// hit on 2026-05-22 (builder detector v72 fix) and 2026-05-26 (CLI side)
+// was exactly this kind of dual detector drift.
+const NEXT_STATIC_EXPORT_RE = /output\s*:\s*['"]export['"]/m;
+
+async function readNextConfigText(cwd: string): Promise<string | null> {
+  for (const name of ["next.config.mjs", "next.config.ts", "next.config.js", "next.config.cjs"]) {
+    try {
+      return await fs.readFile(path.join(cwd, name), "utf-8");
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException)?.code === "ENOENT") continue;
+      return null;
+    }
+  }
+  return null;
+}
+
+// True  -> config has `output: 'export'` (static-export SPA).
+// False -> config exists but no export marker (SSR Next.js).
+// null  -> no next.config file at all; caller treats as static-default.
+async function nextConfigStaticExport(cwd: string): Promise<boolean | null> {
+  const text = await readNextConfigText(cwd);
+  if (text === null) return null;
+  return NEXT_STATIC_EXPORT_RE.test(text);
 }
 
 async function hasAnyHtml(cwd: string): Promise<boolean> {
@@ -77,12 +112,20 @@ export async function detectProject(cwd: string): Promise<Detected> {
   const pkg = await readPkg(cwd);
 
   if (pkg) {
-    if (hasDep(pkg, "next") || (await fileExists(cwd, "next.config.js", "next.config.mjs", "next.config.ts"))) {
+    if (hasDep(pkg, "next") || (await fileExists(cwd, "next.config.js", "next.config.mjs", "next.config.ts", "next.config.cjs"))) {
+      // A Next.js repo is SSR unless next.config explicitly declares
+      // `output: 'export'`. We only flag ssr_next when the config file
+      // exists AND lacks the export marker — same rule the builder uses
+      // in `runtime_detect.py:46`. Without a next.config file at all we
+      // err on the side of static (legacy `next export` workflow).
+      const exportFlag = await nextConfigStaticExport(cwd);
+      const isSsr = exportFlag === false;
       return {
         framework_hint: "nextjs",
         build_cmd: buildCmd(pkg, "npx next build"),
-        output_dir: "out",
+        output_dir: isSsr ? ".next" : "out",
         confident: true,
+        ...(isSsr ? { runtime_kind: "ssr_next" as const } : {}),
       };
     }
     if (hasDep(pkg, "nuxt") || hasDep(pkg, "nuxt3") || (await fileExists(cwd, "nuxt.config.ts", "nuxt.config.js", "nuxt.config.mjs"))) {
