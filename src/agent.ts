@@ -105,7 +105,7 @@ export type Event =
   | ({ event: "authorized"; user: string } & EventCommon)
   | ({ event: "project_created"; project_id: string; slug: string; organization: string } & EventCommon)
   | ({ event: "project_linked"; project_id: string; slug: string } & EventCommon)
-  | ({ event: "detected"; framework: string; build_cmd: string; output_dir: string; confident: boolean; runtime_kind?: "ssr_next" } & EventCommon)
+  | ({ event: "detected"; framework: string; build_cmd: string; output_dir: string; confident: boolean; runtime_kind?: "ssr_next"; ssr_warning?: string } & EventCommon)
   | ({ event: "prebuilt"; dir: string } & EventCommon)
   | ({ event: "packing"; files: number; bytes: number; sha256: string; prebuilt_dir?: string } & EventCommon)
   | ({ event: "uploading" } & EventCommon)

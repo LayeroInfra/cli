@@ -315,6 +315,7 @@ async function resolveSetupConfig(
     output_dir: detected.output_dir,
     confident: detected.confident,
     ...(detected.runtime_kind ? { runtime_kind: detected.runtime_kind } : {}),
+    ...(detected.ssr_warning ? { ssr_warning: detected.ssr_warning } : {}),
   });
 
   const framework_hint =

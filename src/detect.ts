@@ -15,6 +15,12 @@ export interface Detected {
   // `ssr_next` is detected here — the others come from `layero.json` if
   // at all.
   runtime_kind?: "ssr_next";
+  // Pre-flight warning for repos the platform won't host as-is. Today
+  // covers Nuxt without `nuxt generate`/static config + SvelteKit with
+  // a server adapter. Mirrors `frameworks/nuxt.py` + `frameworks/svelte.py`
+  // .validate_static on the builder side — the goal is to surface the
+  // same diagnostic before upload instead of after a failed build.
+  ssr_warning?: string;
 }
 
 interface PackageJson {
@@ -56,6 +62,14 @@ async function fileExists(cwd: string, ...candidates: string[]): Promise<boolean
 // was exactly this kind of dual detector drift.
 const NEXT_STATIC_EXPORT_RE = /output\s*:\s*['"]export['"]/m;
 
+// Strip JS line and block comments before regex matching. Without this,
+// a comment like `// see output: 'export'` falsely matches as
+// static-export — observed 2026-05-26 on the SSR smoke canary fixture.
+// Naive (does not understand strings that contain comment-like tokens),
+// but real next.config files don't have that shape.
+const JS_COMMENT_RE = /\/\/[^\n]*|\/\*[\s\S]*?\*\//gm;
+const stripJsComments = (text: string): string => text.replace(JS_COMMENT_RE, "");
+
 async function readNextConfigText(cwd: string): Promise<string | null> {
   for (const name of ["next.config.mjs", "next.config.ts", "next.config.js", "next.config.cjs"]) {
     try {
@@ -74,7 +88,7 @@ async function readNextConfigText(cwd: string): Promise<string | null> {
 async function nextConfigStaticExport(cwd: string): Promise<boolean | null> {
   const text = await readNextConfigText(cwd);
   if (text === null) return null;
-  return NEXT_STATIC_EXPORT_RE.test(text);
+  return NEXT_STATIC_EXPORT_RE.test(stripJsComments(text));
 }
 
 async function hasAnyHtml(cwd: string): Promise<boolean> {
@@ -136,19 +150,50 @@ export async function detectProject(cwd: string): Promise<Detected> {
         : buildScript
         ? "npm run build"
         : "npx nuxt generate";
+      // Nuxt defaults to SSR. Layero hosts only static for Nuxt today,
+      // so a project without an explicit static signal (`nuxt generate`
+      // script, or `ssr: false` / `nitro.preset='static'` in config)
+      // will build but the resulting `.output/server/` is useless to us.
+      // Mirrors builder's `frameworks/nuxt.py` SSR hint.
+      const nuxtStatic = !!generateScript || (await nuxtConfigDeclaresStatic(cwd));
       return {
         framework_hint: "nuxt",
         build_cmd: cmd,
         output_dir: ".output/public",
         confident: true,
+        ...(nuxtStatic ? {} : {
+          ssr_warning:
+            "Nuxt без `nuxt generate` или `ssr: false` собирается как SSR-сервер; " +
+            "Layero хостит только статику Nuxt. Добавьте `\"generate\": \"nuxt generate\"` " +
+            "в scripts или поставьте `ssr: false` в nuxt.config.",
+        }),
       };
     }
     if (hasDep(pkg, "@sveltejs/kit") || (await fileExists(cwd, "svelte.config.js"))) {
+      // SvelteKit needs an adapter. adapter-static = SPA path; anything
+      // else (adapter-node, adapter-auto, …) is server-side. Mirrors
+      // builder's `frameworks/svelte.py:validate_static`.
+      const hasStaticAdapter = hasDep(pkg, "@sveltejs/adapter-static");
+      const serverAdapter = !hasStaticAdapter
+        ? Object.keys({ ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) })
+            .find((d) => d.startsWith("@sveltejs/adapter-") && d !== "@sveltejs/adapter-static")
+        : undefined;
+      let ssrWarning: string | undefined;
+      if (serverAdapter) {
+        ssrWarning =
+          `SvelteKit использует ${serverAdapter} (серверный адаптер). ` +
+          "Layero хостит только статику — поставьте `@sveltejs/adapter-static`.";
+      } else if (!hasStaticAdapter) {
+        ssrWarning =
+          "SvelteKit без явного адаптера — поставьте `@sveltejs/adapter-static` " +
+          "для статического хостинга на Layero.";
+      }
       return {
         framework_hint: "sveltekit",
         build_cmd: buildCmd(pkg, "npx vite build"),
         output_dir: "build",
         confident: true,
+        ...(ssrWarning ? { ssr_warning: ssrWarning } : {}),
       };
     }
     if (hasDep(pkg, "gatsby") || (await fileExists(cwd, "gatsby-config.js", "gatsby-config.ts"))) {
@@ -314,6 +359,26 @@ const HUGO_CONFIG_TOKENS = [
   "minVersion",
   "theme",
 ];
+
+// Match `ssr: false` or `nitro: { preset: 'static' }` in nuxt.config —
+// either marker keeps the project on the SPA pipeline. Mirrors the same
+// "string-search before AST" approach used for Next.js.
+const NUXT_STATIC_SSR_RE = /\bssr\s*:\s*false\b/m;
+const NUXT_STATIC_PRESET_RE = /preset\s*:\s*['"]static['"]/m;
+
+async function nuxtConfigDeclaresStatic(cwd: string): Promise<boolean> {
+  for (const name of ["nuxt.config.mjs", "nuxt.config.ts", "nuxt.config.js"]) {
+    try {
+      const txt = stripJsComments(await fs.readFile(path.join(cwd, name), "utf-8"));
+      if (NUXT_STATIC_SSR_RE.test(txt) || NUXT_STATIC_PRESET_RE.test(txt)) return true;
+      return false;  // config found, no static marker → SSR
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException)?.code === "ENOENT") continue;
+      return false;
+    }
+  }
+  return false;  // no config at all → defaults to SSR
+}
 
 async function hasVitepressConfig(cwd: string, prefix = ".vitepress"): Promise<boolean> {
   for (const name of ["config.ts", "config.js", "config.mts", "config.mjs"]) {

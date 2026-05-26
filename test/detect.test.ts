@@ -58,3 +58,33 @@ describe("Next.js detect parity (CLI side)", () => {
     expect(r.output_dir).toBe(".next");
   });
 });
+
+describe("Nuxt SSR-warning parity (CLI side)", () => {
+  it("flags Nuxt without `nuxt generate` or static marker", async () => {
+    const r = await detectProject(path.join(FIXTURES, "nuxt-ssr"));
+    expect(r.framework_hint).toBe("nuxt");
+    expect(r.ssr_warning).toBeDefined();
+    expect(r.ssr_warning).toMatch(/nuxt generate|ssr: false/);
+  });
+
+  it("does not warn when `generate` script is present", async () => {
+    const r = await detectProject(path.join(FIXTURES, "nuxt-static"));
+    expect(r.framework_hint).toBe("nuxt");
+    expect(r.ssr_warning).toBeUndefined();
+  });
+});
+
+describe("SvelteKit SSR-warning parity (CLI side)", () => {
+  it("flags SvelteKit with a non-static adapter", async () => {
+    const r = await detectProject(path.join(FIXTURES, "sveltekit-ssr"));
+    expect(r.framework_hint).toBe("sveltekit");
+    expect(r.ssr_warning).toBeDefined();
+    expect(r.ssr_warning).toMatch(/adapter-node|серверный адаптер/);
+  });
+
+  it("does not warn when adapter-static is present", async () => {
+    const r = await detectProject(path.join(FIXTURES, "sveltekit-static"));
+    expect(r.framework_hint).toBe("sveltekit");
+    expect(r.ssr_warning).toBeUndefined();
+  });
+});
