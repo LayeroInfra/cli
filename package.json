@@ -41,6 +41,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepublishOnly": "npm run build",
+    "test": "vitest run",
     "dev": "tsc -p tsconfig.json --watch",
     "postinstall": "node scripts/postinstall.cjs || true"
   },
@@ -53,6 +54,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.14.10",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^4.1.7"
   }
 }
