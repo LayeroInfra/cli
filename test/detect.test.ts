@@ -74,6 +74,31 @@ describe("Nuxt SSR-warning parity (CLI side)", () => {
   });
 });
 
+describe("Angular output_dir parity (CLI side)", () => {
+  it("appends /browser for the Angular 17+ `application` builder (no outputPath)", async () => {
+    // angular.json: application builder, no explicit outputPath →
+    // dist/{projectName}/browser. Before this branch existed the CLI fell
+    // through to static (output_dir='.') and shipped raw sources.
+    const r = await detectProject(path.join(FIXTURES, "angular-application-builder"));
+    expect(r.framework_hint).toBe("angular");
+    expect(r.runtime_kind).toBeUndefined();
+    expect(r.build_cmd).toBe("npm run build");
+    expect(r.output_dir).toBe("dist/ng-app/browser");
+  });
+
+  it("honours an explicit outputPath on the classic browser builder (no /browser suffix)", async () => {
+    const r = await detectProject(path.join(FIXTURES, "angular-explicit-output"));
+    expect(r.framework_hint).toBe("angular");
+    expect(r.output_dir).toBe("dist/web");
+  });
+
+  it("falls back to `dist` when @angular/core is present but angular.json is missing", async () => {
+    const r = await detectProject(path.join(FIXTURES, "angular-no-config"));
+    expect(r.framework_hint).toBe("angular");
+    expect(r.output_dir).toBe("dist");
+  });
+});
+
 describe("SvelteKit SSR-warning parity (CLI side)", () => {
   it("flags SvelteKit with a non-static adapter", async () => {
     const r = await detectProject(path.join(FIXTURES, "sveltekit-ssr"));

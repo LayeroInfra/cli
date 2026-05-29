@@ -289,6 +289,22 @@ export async function detectProject(cwd: string): Promise<Detected> {
         confident: true,
       };
     }
+    // Angular after Vite — mirrors builder ALL order. Angular ships its
+    // own CLI (`ng build`) and writes to `dist/{project}/` (Angular <17)
+    // or `dist/{project}/browser/` (17+ `application` builder), NOT bare
+    // `dist`. Until this branch existed the CLI fell through to the
+    // static fallback (`output_dir='.'`), so the first deploy of an
+    // Angular repo shipped the raw sources — the dist/<project> S3 404
+    // incident. `angularOutputDir` parses angular.json to pin the path
+    // (lockstep with `frameworks/angular.py:extract_output_dir`).
+    if (hasDep(pkg, "@angular/core") || (await fileExists(cwd, "angular.json"))) {
+      return {
+        framework_hint: "angular",
+        build_cmd: buildCmd(pkg, "npx ng build"),
+        output_dir: await angularOutputDir(cwd),
+        confident: true,
+      };
+    }
     if (hasDep(pkg, "react-scripts")) {
       return {
         framework_hint: "cra",
@@ -402,4 +418,67 @@ async function hasHugoConfigMarker(cwd: string): Promise<boolean> {
     }
   }
   return false;
+}
+
+interface AngularBuildCfg {
+  builder?: unknown;
+  options?: { outputPath?: unknown } | unknown;
+}
+interface AngularProject {
+  architect?: { build?: AngularBuildCfg };
+}
+interface AngularJson {
+  defaultProject?: string;
+  projects?: Record<string, AngularProject>;
+}
+
+// Resolve Angular's real build output directory from angular.json.
+// Lockstep with `core/builder/src/frameworks/angular.py:extract_output_dir`
+// — same dual-detector-drift class as Next.js static-export, so the two
+// implementations must agree (parity fixtures in
+// core/tests/fixtures/framework-detect/angular-*).
+//
+// Resolution:
+//   1. defaultProject if set & present, else first project in `projects`
+//   2. project.architect.build.options.outputPath, else the CLI default
+//      `dist/{projectName}`
+//   3. strip leading `./`
+//   4. append `/browser` for the Angular 17+ `application` builder
+//      (builder id ends with `:application`) — it writes the served
+//      assets one level deeper. We also probe disk in case the repo was
+//      built locally before `layero deploy`.
+// Returns the framework default `dist` on any parse error — matches
+// AngularFramework.default_output_dir, and the builder re-derives the
+// exact path at upload time anyway.
+async function angularOutputDir(cwd: string): Promise<string> {
+  const FALLBACK = "dist";
+  let cfg: AngularJson;
+  try {
+    cfg = JSON.parse(await fs.readFile(path.join(cwd, "angular.json"), "utf-8")) as AngularJson;
+  } catch {
+    return FALLBACK;
+  }
+  const projects = cfg?.projects;
+  if (!projects || typeof projects !== "object") return FALLBACK;
+  const firstName = Object.keys(projects)[0];
+  if (!firstName) return FALLBACK;
+  const defaultName = cfg.defaultProject;
+  const projectName = defaultName && projects[defaultName] ? defaultName : firstName;
+  const buildCfg = projects[projectName]?.architect?.build;
+  if (!buildCfg || typeof buildCfg !== "object") return FALLBACK;
+
+  const opts = (buildCfg.options ?? {}) as { outputPath?: unknown };
+  const rawOut = typeof opts === "object" && opts ? opts.outputPath : undefined;
+  let out = typeof rawOut === "string" && rawOut.trim() ? rawOut.trim() : `dist/${projectName}`;
+  if (out.startsWith("./")) out = out.slice(2);
+
+  const builderId = typeof buildCfg.builder === "string" ? buildCfg.builder : "";
+  const isApplicationBuilder = builderId.endsWith(":application");
+  let browserExists = false;
+  try {
+    browserExists = (await fs.stat(path.join(cwd, out, "browser"))).isDirectory();
+  } catch {
+    // not built locally — rely on the builder-id signal below
+  }
+  return browserExists || isApplicationBuilder ? `${out}/browser` : out;
 }
