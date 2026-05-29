@@ -74,6 +74,15 @@ describe("Nuxt SSR-warning parity (CLI side)", () => {
   });
 });
 
+describe("Remix / React Router v7 parity (CLI side)", () => {
+  it("detects RR7 via @react-router/dev + react-router.config.ts → build/client", async () => {
+    const r = await detectProject(path.join(FIXTURES, "remix-rr7"));
+    expect(r.framework_hint).toBe("remix");
+    expect(r.output_dir).toBe("build/client");
+    expect(r.build_cmd).toBe("npm run build");
+  });
+});
+
 describe("Angular output_dir parity (CLI side)", () => {
   it("appends /browser for the Angular 17+ `application` builder (no outputPath)", async () => {
     // angular.json: application builder, no explicit outputPath →

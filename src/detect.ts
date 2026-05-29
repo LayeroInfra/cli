@@ -169,6 +169,27 @@ export async function detectProject(cwd: string): Promise<Detected> {
         }),
       };
     }
+    // Remix / React Router v7 before SvelteKit/Vite — RR7 ships Vite
+    // internally, so the Vite-dep check would otherwise win. Mirrors the
+    // builder's RemixFramework + backend `remix` table entry (output
+    // build/client). Was missing from the CLI entirely — same dual-detector
+    // gap class as Angular: a Remix repo deployed via the CLI fell through
+    // to the static fallback and shipped raw sources.
+    if (
+      hasDep(pkg, "@remix-run/dev") ||
+      hasDep(pkg, "@remix-run/react") ||
+      hasDep(pkg, "@remix-run/node") ||
+      hasDep(pkg, "@react-router/dev") ||
+      hasDep(pkg, "@react-router/node") ||
+      (await fileExists(cwd, "react-router.config.ts", "react-router.config.js"))
+    ) {
+      return {
+        framework_hint: "remix",
+        build_cmd: buildCmd(pkg, "npx react-router build"),
+        output_dir: "build/client",
+        confident: true,
+      };
+    }
     if (hasDep(pkg, "@sveltejs/kit") || (await fileExists(cwd, "svelte.config.js"))) {
       // SvelteKit needs an adapter. adapter-static = SPA path; anything
       // else (adapter-node, adapter-auto, …) is server-side. Mirrors
