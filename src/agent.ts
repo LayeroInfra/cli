@@ -105,13 +105,13 @@ export type Event =
   | ({ event: "authorized"; user: string } & EventCommon)
   | ({ event: "project_created"; project_id: string; slug: string; organization: string } & EventCommon)
   | ({ event: "project_linked"; project_id: string; slug: string } & EventCommon)
-  | ({ event: "detected"; framework: string; build_cmd: string; output_dir: string; confident: boolean; runtime_kind?: "ssr_next"; ssr_warning?: string } & EventCommon)
+  | ({ event: "detected"; framework: string; build_cmd: string; output_dir: string; confident: boolean; runtime_kind?: "ssr_next" | "streamlit" | "gradio" | "flask"; ssr_warning?: string } & EventCommon)
   | ({ event: "prebuilt"; dir: string } & EventCommon)
   | ({ event: "packing"; files: number; bytes: number; sha256: string; prebuilt_dir?: string } & EventCommon)
   | ({ event: "uploading" } & EventCommon)
   | ({ event: "uploaded"; archive_key: string } & EventCommon)
   | ({ event: "setup_applied" } & EventCommon)
-  | ({ event: "runtime_type_applied"; project_type: "ssr_next" } & EventCommon)
+  | ({ event: "runtime_type_applied"; project_type: "ssr_next" | "streamlit" | "gradio" | "flask" } & EventCommon)
   | ({ event: "runtime_type_apply_failed"; error: string } & EventCommon)
   | ({ event: "deploy_started"; deploy_id: string } & EventCommon)
   | ({ event: "build_log"; line: string; stream: string } & EventCommon)
@@ -149,7 +149,9 @@ function renderHuman(event: Event): void {
       break;
     case "detected":
       process.stdout.write(
-        `→ Detected ${event.framework} (build: ${event.build_cmd}, output: ${event.output_dir})\n`,
+        event.runtime_kind
+          ? `→ Detected ${event.runtime_kind} runtime app — will deploy as a scale-to-zero container\n`
+          : `→ Detected ${event.framework} (build: ${event.build_cmd}, output: ${event.output_dir})\n`,
       );
       break;
     case "prebuilt":

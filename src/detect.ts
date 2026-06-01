@@ -1,6 +1,10 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
+// Runtime apps route through the runtime-builder (container) pipeline, not
+// the SPA static path. Mirrors detect_runtime() / runtime_detect.py.
+export type RuntimeKind = "ssr_next" | "streamlit" | "gradio" | "flask";
+
 export interface Detected {
   framework_hint: string;
   build_cmd: string;
@@ -8,13 +12,11 @@ export interface Detected {
   // True when we matched a known framework signal. False means we fell
   // back to "static" or "generic" because nothing recognisable was found.
   confident: boolean;
-  // Set when the repo is a runtime app (SSR/Streamlit/Gradio/Flask) and
-  // the platform must route it through the runtime-builder pipeline
-  // instead of the SPA static path. Mirrors `runtime_detect.py` on the
-  // builder side; undefined / absent for plain static SPAs. Today only
-  // `ssr_next` is detected here — the others come from `layero.json` if
-  // at all.
-  runtime_kind?: "ssr_next";
+  // Set when the repo is a runtime app (SSR Next / Streamlit / Gradio /
+  // Flask) and the platform must route it through the runtime-builder
+  // pipeline instead of the SPA static path. Mirrors detect_runtime() on the
+  // backend + runtime_detect.py on the builder; absent for plain static SPAs.
+  runtime_kind?: RuntimeKind;
   // Pre-flight warning for repos the platform won't host as-is. Today
   // covers Nuxt without `nuxt generate`/static config + SvelteKit with
   // a server adapter. Mirrors `frameworks/nuxt.py` + `frameworks/svelte.py`
@@ -53,6 +55,23 @@ async function fileExists(cwd: string, ...candidates: string[]): Promise<boolean
     }
   }
   return false;
+}
+
+// Python runtime: `app.py` entry + a runtime lib in requirements.txt.
+// Lockstep with detect_runtime() (backend) / runtime_detect.py (builder):
+// app.py + requirements.txt mentioning streamlit | gradio | flask.
+async function detectPythonRuntime(cwd: string): Promise<RuntimeKind | null> {
+  if (!(await fileExists(cwd, "app.py"))) return null;
+  let reqs: string;
+  try {
+    reqs = (await fs.readFile(path.join(cwd, "requirements.txt"), "utf-8")).toLowerCase();
+  } catch {
+    return null;
+  }
+  for (const lib of ["streamlit", "gradio", "flask"] as const) {
+    if (reqs.includes(lib)) return lib;
+  }
+  return null;
 }
 
 // Mirrors `frameworks/nextjs.py:_NEXT_STATIC_EXPORT_RE` and
@@ -351,6 +370,33 @@ export async function detectProject(cwd: string): Promise<Detected> {
         confident: true,
       };
     }
+    // package.json present but no framework matched → a custom Node build,
+    // NOT a static site. Mirrors the backend's detect(): `pkg is None →
+    // _STATIC`, otherwise `_GENERIC` (npm run build → dist). Falling through
+    // to the static fallback here shipped the unbuilt sources — exactly the
+    // `diplomtest` case (Express app + custom build script detected as static
+    // by the CLI but `generic` by the backend).
+    return {
+      framework_hint: "generic",
+      build_cmd: buildCmd(pkg, "npm run build"),
+      output_dir: "dist",
+      confident: false,
+    };
+  }
+
+  // Python runtimes (Streamlit / Gradio / Flask): an `app.py` entry plus a
+  // runtime lib in requirements.txt. Mirrors detect_runtime() / runtime_detect.py.
+  // No package.json, so without this they fall to the static fallback and ship
+  // `app.py` as a static file (never runs) — the `streamlit-hello` case.
+  const pyRuntime = await detectPythonRuntime(cwd);
+  if (pyRuntime) {
+    return {
+      framework_hint: "static",
+      build_cmd: "true",
+      output_dir: ".",
+      confident: true,
+      runtime_kind: pyRuntime,
+    };
   }
 
   // Non-Node SSGs (Hugo today). Recognise repos without package.json
