@@ -3,7 +3,7 @@ import path from "node:path";
 
 // Runtime apps route through the runtime-builder (container) pipeline, not
 // the SPA static path. Mirrors detect_runtime() / runtime_detect.py.
-export type RuntimeKind = "ssr_next" | "streamlit" | "gradio" | "flask";
+export type RuntimeKind = "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web";
 
 export interface Detected {
   framework_hint: string;
@@ -57,19 +57,24 @@ async function fileExists(cwd: string, ...candidates: string[]): Promise<boolean
   return false;
 }
 
-// Python runtime: `app.py` entry + a runtime lib in requirements.txt.
+// Python runtime: `app.py`/`main.py` entry + a runtime lib in requirements.txt.
 // Lockstep with detect_runtime() (backend) / runtime_detect.py (builder):
-// app.py + requirements.txt mentioning streamlit | gradio | flask.
+// Streamlit/Gradio keep their self-contained runtimes; Flask/FastAPI and any
+// WSGI|ASGI server route to the generic python_web runtime.
 async function detectPythonRuntime(cwd: string): Promise<RuntimeKind | null> {
-  if (!(await fileExists(cwd, "app.py"))) return null;
+  const appPy = await fileExists(cwd, "app.py");
+  const mainPy = await fileExists(cwd, "main.py");
+  if (!appPy && !mainPy) return null;
   let reqs: string;
   try {
     reqs = (await fs.readFile(path.join(cwd, "requirements.txt"), "utf-8")).toLowerCase();
   } catch {
     return null;
   }
-  for (const lib of ["streamlit", "gradio", "flask"] as const) {
-    if (reqs.includes(lib)) return lib;
+  if (reqs.includes("streamlit") && appPy) return "streamlit";
+  if (reqs.includes("gradio") && appPy) return "gradio";
+  if (["fastapi", "flask", "starlette", "uvicorn", "gunicorn"].some((s) => reqs.includes(s))) {
+    return "python_web";
   }
   return null;
 }

@@ -301,7 +301,7 @@ async function resolveSetupConfig(
   // instead of crashing in detect with "looks like ssr_next but
   // configured as spa". Honoured only on first setup; on already-active
   // projects the existing project_type wins.
-  runtime_kind?: "ssr_next" | "streamlit" | "gradio" | "flask";
+  runtime_kind?: "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web";
 }> {
   // Honour --root when auto-detecting: the framework signals live in the
   // monorepo subdir, not the repo root. Without this the detector sees
@@ -405,7 +405,7 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     build_cmd: string;
     output_dir: string;
     source: "config" | "detected" | "hybrid" | "prebuilt";
-    runtime_kind?: "ssr_next" | "streamlit" | "gradio" | "flask";
+    runtime_kind?: "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web";
   } = prebuiltDir
     ? {
         framework_hint: "static",

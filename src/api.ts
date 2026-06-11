@@ -211,7 +211,7 @@ export class ApiClient {
 
   setRuntimeType(
     projectId: string,
-    projectType: "ssr_next" | "streamlit" | "gradio" | "flask" | "spa",
+    projectType: "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "spa",
   ): Promise<ProjectSummary> {
     return this.request<ProjectSummary>(
       "POST",

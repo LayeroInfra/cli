@@ -122,3 +122,15 @@ describe("SvelteKit SSR-warning parity (CLI side)", () => {
     expect(r.ssr_warning).toBeUndefined();
   });
 });
+
+describe("Python backend (python_web) parity (CLI side)", () => {
+  it("detects Flask (app.py + flask in requirements) as python_web", async () => {
+    const r = await detectProject(path.join(FIXTURES, "flask-app"));
+    expect(r.runtime_kind).toBe("python_web");
+  });
+
+  it("detects FastAPI (main.py + fastapi in requirements) as python_web", async () => {
+    const r = await detectProject(path.join(FIXTURES, "fastapi-app"));
+    expect(r.runtime_kind).toBe("python_web");
+  });
+});
