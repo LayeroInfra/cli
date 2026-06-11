@@ -133,4 +133,36 @@ describe("Python backend (python_web) parity (CLI side)", () => {
     const r = await detectProject(path.join(FIXTURES, "fastapi-app"));
     expect(r.runtime_kind).toBe("python_web");
   });
+
+  it("detects Starlette (ASGI) as python_web", async () => {
+    const r = await detectProject(path.join(FIXTURES, "py-starlette"));
+    expect(r.runtime_kind).toBe("python_web");
+  });
+
+  it("detects Django (manage.py + django) as python_web", async () => {
+    const r = await detectProject(path.join(FIXTURES, "py-django"));
+    expect(r.runtime_kind).toBe("python_web");
+  });
+});
+
+describe("Node backend (node_web) parity (CLI side)", () => {
+  it("detects Express as node_web", async () => {
+    const r = await detectProject(path.join(FIXTURES, "node-express"));
+    expect(r.runtime_kind).toBe("node_web");
+  });
+
+  it("detects Fastify as node_web", async () => {
+    const r = await detectProject(path.join(FIXTURES, "node-fastify"));
+    expect(r.runtime_kind).toBe("node_web");
+  });
+
+  it("detects NestJS as node_web", async () => {
+    const r = await detectProject(path.join(FIXTURES, "node-nestjs"));
+    expect(r.runtime_kind).toBe("node_web");
+  });
+
+  it("does NOT flag a Vite frontend with express as node_web", async () => {
+    const r = await detectProject(path.join(FIXTURES, "vite-with-express"));
+    expect(r.runtime_kind).toBeUndefined();
+  });
 });

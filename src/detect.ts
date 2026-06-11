@@ -3,7 +3,28 @@ import path from "node:path";
 
 // Runtime apps route through the runtime-builder (container) pipeline, not
 // the SPA static path. Mirrors detect_runtime() / runtime_detect.py.
-export type RuntimeKind = "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web";
+export type RuntimeKind = "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web";
+
+// package.json deps marking a Node web backend → node_web. Lockstep with
+// builder/src/runtime_detect.py NODE_WEB_SIGNALS / NODE_FRONTEND_DEPS.
+const NODE_WEB_SIGNALS = [
+  "express", "fastify", "koa", "@nestjs/core", "@hapi/hapi", "hapi",
+  "hono", "@adonisjs/core", "restify", "polka", "@feathersjs/feathers",
+  "sails", "h3",
+];
+const NODE_FRONTEND_DEPS = [
+  "next", "nuxt", "vite", "react-scripts", "@angular/core", "@sveltejs/kit",
+  "gatsby", "astro", "@docusaurus/core", "@11ty/eleventy", "vitepress",
+];
+
+// A Node backend: a server framework AND no frontend/SSG framework (which
+// would build to static and belong to the SPA pipeline instead).
+function detectNodeRuntime(pkg: PackageJson): boolean {
+  return (
+    NODE_WEB_SIGNALS.some((d) => hasDep(pkg, d)) &&
+    !NODE_FRONTEND_DEPS.some((d) => hasDep(pkg, d))
+  );
+}
 
 export interface Detected {
   framework_hint: string;
@@ -61,10 +82,20 @@ async function fileExists(cwd: string, ...candidates: string[]): Promise<boolean
 // Lockstep with detect_runtime() (backend) / runtime_detect.py (builder):
 // Streamlit/Gradio keep their self-contained runtimes; Flask/FastAPI and any
 // WSGI|ASGI server route to the generic python_web runtime.
+// Lockstep with builder/src/runtime_detect.py PY_WEB_SIGNALS + framework_detector.py.
+const PY_WEB_SIGNALS = [
+  "fastapi", "starlette", "litestar", "starlite", "quart", "sanic",
+  "blacksheep", "hypercorn", "daphne", "uvicorn",
+  "flask", "falcon", "bottle", "pyramid", "cherrypy", "werkzeug", "gunicorn",
+  "aiohttp", "tornado", "django",
+];
+
 async function detectPythonRuntime(cwd: string): Promise<RuntimeKind | null> {
   const appPy = await fileExists(cwd, "app.py");
   const mainPy = await fileExists(cwd, "main.py");
-  if (!appPy && !mainPy) return null;
+  // Django's entrypoint is manage.py (no app.py/main.py at the root).
+  const managePy = await fileExists(cwd, "manage.py");
+  if (!appPy && !mainPy && !managePy) return null;
   let reqs: string;
   try {
     reqs = (await fs.readFile(path.join(cwd, "requirements.txt"), "utf-8")).toLowerCase();
@@ -73,9 +104,7 @@ async function detectPythonRuntime(cwd: string): Promise<RuntimeKind | null> {
   }
   if (reqs.includes("streamlit") && appPy) return "streamlit";
   if (reqs.includes("gradio") && appPy) return "gradio";
-  if (["fastapi", "flask", "starlette", "uvicorn", "gunicorn"].some((s) => reqs.includes(s))) {
-    return "python_web";
-  }
+  if (PY_WEB_SIGNALS.some((s) => reqs.includes(s))) return "python_web";
   return null;
 }
 
@@ -164,6 +193,18 @@ export async function detectProject(cwd: string): Promise<Detected> {
         output_dir: isSsr ? ".next" : "out",
         confident: true,
         ...(isSsr ? { runtime_kind: "ssr_next" as const } : {}),
+      };
+    }
+    // Node web backend (Express/Fastify/Koa/NestJS/Hapi/Hono/…) → node_web.
+    // Build (TypeScript compile) runs inside the container image, so the SPA
+    // pipeline is a no-op here.
+    if (detectNodeRuntime(pkg)) {
+      return {
+        framework_hint: "static",
+        build_cmd: "true",
+        output_dir: ".",
+        confident: true,
+        runtime_kind: "node_web",
       };
     }
     if (hasDep(pkg, "nuxt") || hasDep(pkg, "nuxt3") || (await fileExists(cwd, "nuxt.config.ts", "nuxt.config.js", "nuxt.config.mjs"))) {
