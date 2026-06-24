@@ -10,7 +10,7 @@ export type RuntimeKind = "ssr_next" | "streamlit" | "gradio" | "flask" | "pytho
 const NODE_WEB_SIGNALS = [
   "express", "fastify", "koa", "@nestjs/core", "@hapi/hapi", "hapi",
   "hono", "@adonisjs/core", "restify", "polka", "@feathersjs/feathers",
-  "sails", "h3",
+  "sails", "h3", "json-server",
 ];
 const NODE_FRONTEND_DEPS = [
   "next", "nuxt", "vite", "react-scripts", "@angular/core", "@sveltejs/kit",
