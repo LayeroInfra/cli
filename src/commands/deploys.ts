@@ -3,6 +3,7 @@ import chalk from "chalk";
 import { ApiClient, ApiError, DeployOut } from "../api.js";
 import { loadConfig } from "../config.js";
 import { loadProjectConfig } from "../project-config.js";
+import { detectMode } from "../agent.js";
 
 interface ListOptions {
   project?: string;
@@ -80,6 +81,29 @@ export async function deploysListCmd(opts: ListOptions): Promise<void> {
   const deploys = await api.listProjectDeploys(projectId, opts.branch);
   const limit = opts.limit ?? 20;
   const rows = deploys.slice(0, limit);
+
+  // JSON mode (B6): emit one structured object per deploy on stdout instead
+  // of the coloured human one-liner. One JSON object per line keeps it
+  // consistent with the rest of the CLI's JSON-lines protocol.
+  if (detectMode().json) {
+    for (const d of rows) {
+      process.stdout.write(
+        JSON.stringify({
+          event: "deploy",
+          id: d.id,
+          environment_id: d.environment_id,
+          status: d.status,
+          commit_sha: d.commit_sha,
+          commit_message: (d.commit_message ?? "").split("\n")[0] ?? "",
+          source_type: d.source_type ?? "github",
+          created_at: d.created_at ?? null,
+          finished_at: d.finished_at ?? null,
+        }) + "\n",
+      );
+    }
+    return;
+  }
+
   if (rows.length === 0) {
     console.log(chalk.dim("no deploys yet."));
     return;

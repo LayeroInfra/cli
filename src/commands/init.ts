@@ -30,7 +30,8 @@ is required — Layero packs and uploads the local directory directly.
 
 ### First-time auth (one-click device flow)
 
-The first run emits a JSON line:
+If you're not logged in yet, \`deploy\` (or \`login\`) starts the browser
+device-flow automatically and emits a JSON line:
 
 \`\`\`json
 {"event":"auth_required","url":"https://app.layero.ru/cli?code=ABCD-1234","user_code":"ABCD-1234"}
@@ -53,7 +54,7 @@ stdout), the CLI auto-switches to JSON-lines. Key events to watch:
 | \`detected\` | framework auto-detection result |
 | \`project_created\` / \`project_linked\` | project bound for this directory |
 | \`build_log\` | forward only if it contains errors |
-| \`ready\` | \`url\` field is the live site — show to user, stop |
+| \`ready\` | \`url\` = live public site (show to user, stop). \`preview_url\` = reachable immediately while the apex CDN edge warms; \`edge_ready\`/\`edge_eta_seconds\` say whether the apex is serving yet. \`dashboard_url\` = management page. |
 | \`error\` | follow \`next_action\` field verbatim |
 
 Common error codes and remediation:
@@ -66,11 +67,32 @@ Common error codes and remediation:
 
 ### Re-deploys and production
 
-Each \`npx layero deploy\` produces a new preview URL like
-\`https://<org>-<project>-cli.layero.ru\` — safe to run repeatedly.
+A plain \`npx layero deploy\` of a CLI project **publishes to the apex**
+\`https://<org>-<project>.layero.ru\` — direct uploads auto-promote, so you do
+**not** need \`--prod\` or a separate \`promote\` step. Safe to run repeatedly;
+each run replaces what the apex serves.
 
-Add \`--prod\` only when the user explicitly asks; without it, deploys go to
-an isolated preview branch and never replace the apex domain.
+Every deploy also gets a per-deploy preview at
+\`https://<org>-<project>-<sha>.preview.layero.ru\` (read it from \`ready.preview_url\`).
+The preview is reachable **immediately**; the apex can take a few minutes to
+serve on the **first** deploy of a project while the CDN edge issues its cert
+and propagates (\`ready.edge_ready=false\` with an \`edge_eta_seconds\` estimate).
+Hand the user \`ready.url\` (the apex); if \`edge_ready\` is false, also offer
+\`preview_url\` so they can see it right away.
+
+Use \`--branch <name>\` to deploy to an isolated preview environment that does
+**not** touch the apex. (\`--prod\` exists for git-connected projects; for
+direct CLI uploads it's redundant.)
+
+### Already built? Skip the server build
+
+If the site is already built locally (e.g. a Next.js static export in \`out/\`,
+or a \`dist/\`), ship the artifact directly and skip the server-side
+\`npm install\` + build:
+
+\`\`\`bash
+npx layero@latest deploy --prebuilt out
+\`\`\`
 
 Full reference: https://docs.layero.ru/cli/agents
 ${AGENT_BLOCK_MARKER_END}

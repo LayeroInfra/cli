@@ -116,7 +116,27 @@ export type Event =
   | ({ event: "deploy_started"; deploy_id: string } & EventCommon)
   | ({ event: "build_log"; line: string; stream: string } & EventCommon)
   | ({ event: "stage"; name: string } & EventCommon)
-  | ({ event: "ready"; url: string; preview_url?: string; deploy_id: string } & EventCommon)
+  // `ready`:
+  //   url           — the LIVE PUBLIC site (apex when published, else the
+  //                    reachable preview host). NOT the dashboard. This is
+  //                    the link to hand the user. (B3)
+  //   preview_url   — a per-deploy preview host that is reachable *now* via
+  //                    the VM-edge (NLB) wildcard cert, even while the apex's
+  //                    YC-CDN cert/route is still propagating. (B4/B7)
+  //   dashboard_url — the control-plane management page for the project.
+  //   edge_ready    — true once the canonical (apex) host serves over CDN;
+  //                    false while CDN propagation is still in flight.
+  //   edge_eta_seconds — rough remaining CDN-warmup seconds when !edge_ready.
+  | ({
+      event: "ready";
+      url: string;
+      preview_url?: string;
+      dashboard_url?: string;
+      edge_ready?: boolean;
+      edge_eta_seconds?: number;
+      deploy_id: string;
+    } & EventCommon)
+  | ({ event: "promoted"; url: string; deploy_id: string } & EventCommon)
   | ({ event: "error"; code: string; next_action: string; message: string } & EventCommon);
 
 export function emit(event: Event): void {
@@ -192,7 +212,24 @@ function renderHuman(event: Event): void {
       process.stdout.write(`${event.line}\n`);
       break;
     case "ready":
-      process.stdout.write(`✓ Live at ${event.url}\n`);
+      if (event.edge_ready === false) {
+        // Built & published, but the CDN edge for the apex is still
+        // propagating (first deploy of a new hostname can take a few
+        // minutes on YC CDN). The preview host is reachable immediately.
+        const eta =
+          typeof event.edge_eta_seconds === "number" && event.edge_eta_seconds > 0
+            ? ` (edge propagating, ~${event.edge_eta_seconds}s)`
+            : " (edge propagating)";
+        process.stdout.write(`✓ Built. Live at ${event.url}${eta}\n`);
+        if (event.preview_url) {
+          process.stdout.write(`  Reachable now: ${event.preview_url}\n`);
+        }
+      } else {
+        process.stdout.write(`✓ Live at ${event.url}\n`);
+      }
+      break;
+    case "promoted":
+      process.stdout.write(`✓ Published apex → ${event.url}\n`);
       break;
     case "error":
       process.stderr.write(`Error: ${event.code}\n`);

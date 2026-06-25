@@ -3,6 +3,7 @@ import chalk from "chalk";
 import { ApiClient, ApiError, DeployOut } from "../api.js";
 import { loadConfig } from "../config.js";
 import { loadProjectConfig } from "../project-config.js";
+import { detectMode, emit } from "../agent.js";
 
 interface PromoteOptions {
   project?: string;
@@ -63,6 +64,7 @@ export async function promoteCmd(
   deployArg: string | undefined,
   opts: PromoteOptions,
 ): Promise<void> {
+  const mode = detectMode();
   const cliCfg = await loadConfig();
   if (!cliCfg.token) {
     throw new Error("not logged in. run `layero login` first.");
@@ -100,21 +102,28 @@ export async function promoteCmd(
   }
 
   const apex = project.apex_hostname;
-  console.log(chalk.cyan("promote plan:"));
-  console.log(`  project: ${project.slug}`);
-  console.log(`  apex:    https://${apex}`);
-  console.log(
-    `  deploy:  ${shortSha(target.commit_sha)}  ${chalk.dim(
-      (target.commit_message ?? "").split("\n")[0] ?? "",
-    )}`,
-  );
-  if (project.production_deploy_id) {
+  // Human-only plan. In JSON mode we skip the chatter and emit a single
+  // structured `promoted` event below.
+  if (!mode.json) {
+    console.log(chalk.cyan("promote plan:"));
+    console.log(`  project: ${project.slug}`);
+    console.log(`  apex:    https://${apex}`);
     console.log(
-      chalk.dim(`  current: ${project.production_deploy_id.slice(0, 8)}  (will be replaceable via re-promote)`),
+      `  deploy:  ${shortSha(target.commit_sha)}  ${chalk.dim(
+        (target.commit_message ?? "").split("\n")[0] ?? "",
+      )}`,
     );
+    if (project.production_deploy_id) {
+      console.log(
+        chalk.dim(`  current: ${project.production_deploy_id.slice(0, 8)}  (will be replaceable via re-promote)`),
+      );
+    }
   }
 
-  if (!opts.yes) {
+  // Confirm only when there's a human at a TTY. In --json / agent / CI /
+  // non-interactive mode, never block on a prompt (B6) — proceed, matching
+  // `deploy --prod`'s non-interactive behaviour. `--yes` forces it anywhere.
+  if (!opts.yes && mode.interactive) {
     const ok = await confirm("publish this build to production?");
     if (!ok) {
       console.log(chalk.yellow("aborted."));
@@ -125,16 +134,24 @@ export async function promoteCmd(
   try {
     const updated = await api.promoteDeploy(projectId, target.id);
     const newPin = updated.production_deploy_id ?? target.id;
-    console.log(
-      chalk.green(
-        `published. https://${updated.apex_hostname} now serves deploy ${newPin.slice(0, 8)}.`,
-      ),
-    );
-    console.log(
-      chalk.dim(
-        "  edge cache flushes within a few seconds; visitors see the new build immediately.",
-      ),
-    );
+    if (mode.json) {
+      emit({
+        event: "promoted",
+        url: `https://${updated.apex_hostname}`,
+        deploy_id: target.id,
+      });
+    } else {
+      console.log(
+        chalk.green(
+          `published. https://${updated.apex_hostname} now serves deploy ${newPin.slice(0, 8)}.`,
+        ),
+      );
+      console.log(
+        chalk.dim(
+          "  edge cache flushes within a few seconds; visitors see the new build immediately.",
+        ),
+      );
+    }
   } catch (err) {
     if (err instanceof ApiError) {
       throw new Error(`promote failed (${err.status}): ${err.body.slice(0, 200)}`);

@@ -35,7 +35,8 @@ async function main(): Promise<void> {
       "Layero CLI — publish a local directory with one command. No git required.",
     )
     .version(VERSION)
-    .option("--json", "emit machine-readable JSON-lines on stdout (for agents and CI)");
+    .option("--json", "emit machine-readable JSON-lines on stdout (for agents and CI)")
+    .option("--debug", "print a full stack trace when a command errors");
 
   program
     .command("login")
@@ -60,10 +61,10 @@ async function main(): Promise<void> {
   program
     .command("init")
     .description(
-      "Scaffold .layero/project.json from auto-detected framework, and write a Layero deployment block into AGENTS.md / CLAUDE.md / .cursorrules so future chat sessions know how to deploy.",
+      "Scaffold .layero/project.json from the auto-detected framework, and write a Layero deployment block into your agent-instructions file so future chat sessions know how to deploy. Updates whichever of AGENTS.md / CLAUDE.md / .cursorrules already exist; if none do, creates AGENTS.md.",
     )
     .option("-y, --yes", "non-interactive: accept all defaults")
-    .option("--skip-agent-docs", "do not touch AGENTS.md/CLAUDE.md/.cursorrules")
+    .option("--skip-agent-docs", "do not touch AGENTS.md / CLAUDE.md / .cursorrules")
     .action(async (opts) => {
       await initCmd({ yes: opts.yes, skipAgentDocs: opts.skipAgentDocs });
     });
@@ -270,6 +271,12 @@ async function main(): Promise<void> {
 
 main().catch((err) => {
   const mode = detectMode();
+  // `--debug` (real global flag) prints the full stack trace for any error,
+  // structured or not, so the next_action hint that mentions it is honest.
+  const debug = process.argv.includes("--debug") || process.env.LAYERO_DEBUG === "1";
+  if (debug && err instanceof Error && err.stack) {
+    console.error(chalk.dim(err.stack));
+  }
   if (err instanceof LayeroError) {
     emit({
       event: "error",
@@ -285,11 +292,16 @@ main().catch((err) => {
       emit({
         event: "error",
         code: "internal",
-        next_action: "re-run with --debug for a stack trace, or report at https://github.com/layero/layero/issues",
+        next_action: debug
+          ? "report at https://github.com/LayeroInfra/core/issues"
+          : "re-run with --debug for a stack trace, or report at https://github.com/LayeroInfra/core/issues",
         message,
       });
     } else {
       console.error(chalk.red(message));
+      if (!debug) {
+        console.error(chalk.dim("  (re-run with --debug for a stack trace)"));
+      }
     }
   }
   process.exit(1);

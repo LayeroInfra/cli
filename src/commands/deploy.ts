@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 import chalk from "chalk";
-import { ApiClient, ApiError, ProjectSummary, uploadArchive } from "../api.js";
+import { ApiClient, ApiError, ProbeOut, ProjectSummary, uploadArchive } from "../api.js";
 import { loadConfig } from "../config.js";
 import {
   ProjectConfig,
@@ -13,6 +13,7 @@ import {
 import { packCwd, packDirectory } from "../pack.js";
 import { streamDeployLogs } from "../logs.js";
 import { detectProject } from "../detect.js";
+import { runDeviceLogin } from "../auth.js";
 import { LayeroError, detectMode, emit } from "../agent.js";
 
 interface DeployOptions {
@@ -80,6 +81,35 @@ function projectUrl(apiUrl: string, projectId: string): string {
   return `${dashboardOrigin(apiUrl)}/projects/${projectId}`;
 }
 
+/**
+ * After a deploy reaches `ready`, ask the backend where it's actually
+ * reachable. The builder marks status=ready *before* calling /activate
+ * (which runs auto-promote + schedules CDN warmup), so a probe fired the
+ * instant we see `ready` can race ahead of the apex pointer being set.
+ *
+ * Poll the probe briefly (bounded) and return as soon as the env is
+ * reachable (`available` — the preview host is up) or we learn the CDN
+ * edge is already warm. Best-effort: any error returns null and the caller
+ * falls back to apex/dashboard URLs.
+ */
+async function resolveReachability(
+  api: ApiClient,
+  environmentId: string,
+): Promise<ProbeOut | null> {
+  const deadline = Date.now() + 15_000;
+  let last: ProbeOut | null = null;
+  while (Date.now() < deadline) {
+    try {
+      last = await api.probeEnvironment(environmentId);
+    } catch {
+      return last; // permission/network — caller falls back
+    }
+    if (last.available || last.cdn_ready) return last;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  return last;
+}
+
 async function prompt(question: string, fallback: string): Promise<string> {
   const rl = readline.createInterface({
     input: process.stdin,
@@ -139,7 +169,15 @@ async function resolveOrCreateProject(
     return { project: match, createdNow: false };
   }
 
-  if (existing) {
+  // Treat the local config as a real link only if it actually carries a
+  // project_id. `layero init` scaffolds .layero/project.json with the
+  // detected framework/build/output but NO project_id (the project isn't
+  // created until the first deploy). Without this guard, deploy would treat
+  // that scaffold as an existing link and call GET /projects/undefined → 422
+  // (B1 — the documented init→deploy path was broken). When there's no id,
+  // fall through to the create path below, which preserves the scaffold's
+  // setup fields via persistProjectLinking().
+  if (existing && existing.project_id) {
     try {
       const project = await api.getProject(existing.project_id);
       return { project, createdNow: false };
@@ -353,13 +391,13 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     );
   }
 
-  const cliCfg = await loadConfig();
+  let cliCfg = await loadConfig();
   if (!cliCfg.token) {
-    throw new LayeroError(
-      "not_logged_in",
-      "not authenticated",
-      "run: layero login",
-    );
+    // Not authenticated yet. Kick off the browser device-login flow inline
+    // and poll, exactly as the docs describe (B5/I4) — no separate `layero
+    // login` step required. In JSON/agent mode this emits `auth_required`
+    // so the caller can render the link and keep waiting.
+    cliCfg = await runDeviceLogin(cliCfg);
   }
   const api = new ApiClient(cliCfg);
   const cwd = process.cwd();
@@ -531,16 +569,33 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       }
     }
 
+    // Where is this build actually reachable? Ask the backend rather than
+    // guessing — it knows the live public URL (apex once it's the production
+    // pointer), the off-CDN preview URL that's reachable immediately, and
+    // how far along CDN propagation is. Note: a plain `layero deploy` of a
+    // CLI project auto-promotes to the apex on activate (no `--prod` /
+    // `promote` needed), so the apex IS the destination for the common case.
+    const dashboardUrl = projectUrl(cliCfg.apiUrl, project.id);
     const apexUrl = `https://${project.apex_hostname}`;
-    const previewUrl = projectUrl(cliCfg.apiUrl, project.id);
+    const probe = await resolveReachability(api, deploy.environment_id);
+
+    // Public site URL: prefer the backend's canonical_url; fall back to the
+    // apex for the no-branch case (CLI auto-promote), else the dashboard.
     const liveUrl =
-      promoted || (opts.prod && !opts.branch) ? apexUrl : previewUrl;
+      probe?.canonical_url ??
+      (promoted || !opts.branch ? apexUrl : dashboardUrl);
+
     emit({
       event: "ready",
       url: liveUrl,
       deploy_id: deploy.id,
-      preview_url:
-        promoted || (opts.prod && !opts.branch) ? undefined : previewUrl,
+      preview_url: probe?.preview_url ?? undefined,
+      dashboard_url: dashboardUrl,
+      edge_ready: probe ? probe.cdn_ready : undefined,
+      edge_eta_seconds:
+        probe && !probe.cdn_ready && probe.cdn_eta_seconds != null
+          ? probe.cdn_eta_seconds
+          : undefined,
     });
   } finally {
     if (upload) {

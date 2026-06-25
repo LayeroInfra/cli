@@ -74,6 +74,25 @@ export interface DeployOut {
   triggered_by_user_id?: string | null;
 }
 
+// Subset of the backend's ProbeOut (GET /environments/{id}/probe) that the
+// CLI cares about. The backend already knows the live public URL, the
+// immediately-reachable preview URL, and how far along CDN propagation is —
+// so the CLI doesn't have to guess hostnames or assume promote semantics.
+export interface ProbeOut {
+  available: boolean;
+  // The canonical public URL — apex (`https://<org>-<project>.layero.ru/`)
+  // once the deploy is the project's production pointer, else the env's
+  // canonical host.
+  canonical_url: string | null;
+  // Reachable-now preview host (`https://<label>.preview.layero.ru/`), served
+  // off-CDN behind the VM-edge wildcard cert. None for custom domains.
+  preview_url: string | null;
+  // CDN edge state for the canonical host.
+  cdn_ready: boolean;
+  cdn_eta_seconds: number | null;
+  reason: string;
+}
+
 export interface LogLine {
   id: number;
   stream: string;
@@ -254,6 +273,16 @@ export class ApiClient {
       "POST",
       `/projects/${projectId}/deploy`,
       input,
+    );
+  }
+
+  // Edge/URL readiness for an environment. Used after a deploy reaches
+  // `ready` to report the real public URL + a reachable preview link
+  // instead of the management dashboard.
+  probeEnvironment(environmentId: string): Promise<ProbeOut> {
+    return this.request<ProbeOut>(
+      "GET",
+      `/environments/${environmentId}/probe`,
     );
   }
 
