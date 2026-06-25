@@ -176,9 +176,15 @@ Event types emitted on stdout:
 {"event":"deploy_started","deploy_id":"…"}
 {"event":"build_log","line":"…","stream":"…"}
 {"event":"stage","name":"…"}
-{"event":"ready","url":"…","deploy_id":"…"}
+{"event":"ready","url":"…","preview_url":"…","dashboard_url":"…","edge_ready":false,"edge_eta_seconds":N,"deploy_id":"…"}
+{"event":"promoted","url":"…","deploy_id":"…"}
 {"event":"error","code":"…","next_action":"…","message":"…"}
 ```
+
+On `ready`, `url` is the **live public site** (the apex — CLI uploads
+auto-promote to it), `preview_url` is reachable immediately while the apex CDN
+edge warms (`edge_ready=false`), and `dashboard_url` is the management page (not
+the site). Not logged in? `deploy` starts the device-flow itself (`auth_required`).
 
 Errors carry a stable `code` (e.g. `not_logged_in`, `invalid_type`,
 `project_not_found`, `cli_deploys_disabled`) and a `next_action` hint so
