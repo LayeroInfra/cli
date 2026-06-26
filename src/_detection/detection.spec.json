@@ -1,0 +1,153 @@
+{
+  "$schema": "./schema.json",
+  "spec_version": 1,
+  "_doc": "SINGLE SOURCE OF TRUTH for Layero framework/build/output/runtime detection. Transcribed from the canonical builder classes (core/builder/src/frameworks/*.py + runtime_detect.py + pkg_manager.py). Consumed by detect_core.py (backend + builder + runtime-builder) and detect_core.ts (CLI + control-plane). DATA ONLY — disk-aware refinement (discover_served_root, start-command entry probing) lives in builder code keyed by the identity this spec produces. See core/detection/README.md.",
+
+  "frameworks": [
+    {
+      "name": "nextjs", "label": "Next.js", "order": 10,
+      "aliases": ["next", "next.js"],
+      "signals": { "deps": ["next"], "config_files": ["next.config.js", "next.config.mjs", "next.config.ts", "next.config.cjs"] },
+      "build": { "scripts": [{ "name": "build" }], "fallback": "next build" },
+      "output_dir": { "default": "out", "extract": "next_distdir", "reject_root_override": true },
+      "ssr": { "rule": "next_no_export", "runtime_kind": "ssr_node" }
+    },
+    {
+      "name": "nuxt", "label": "Nuxt", "order": 20,
+      "aliases": ["nuxtjs", "nuxt3", "nuxt2"],
+      "signals": { "deps": ["nuxt", "nuxt3"], "config_files": ["nuxt.config.ts", "nuxt.config.js", "nuxt.config.mjs"] },
+      "build": { "scripts": [{ "name": "generate" }], "fallback": "nuxt generate" },
+      "output_dir": { "default": ".output/public" }
+    },
+    {
+      "name": "remix", "label": "Remix / React Router v7", "order": 30,
+      "aliases": ["react-router", "react-router-v7", "rrv7", "rr7", "remix-run"],
+      "signals": { "deps": ["@remix-run/dev", "@remix-run/react", "@remix-run/node", "@remix-run/serve", "@react-router/dev", "@react-router/node", "@react-router/serve"], "config_files": ["react-router.config.ts", "react-router.config.js"] },
+      "build": { "scripts": [{ "name": "build" }], "fallback": "react-router build" },
+      "output_dir": { "default": "build/client" }
+    },
+    {
+      "name": "sveltekit", "label": "SvelteKit", "order": 40,
+      "aliases": ["svelte", "svelte-kit", "kit"],
+      "signals": { "deps": ["@sveltejs/kit"], "config_files": ["svelte.config.js", "svelte.config.ts"] },
+      "build": { "scripts": [{ "name": "build" }], "fallback": "vite build" },
+      "output_dir": { "default": "build" }
+    },
+    {
+      "name": "gatsby", "label": "Gatsby", "order": 50,
+      "aliases": ["gatsbyjs"],
+      "signals": { "deps": ["gatsby"], "config_files": ["gatsby-config.js", "gatsby-config.ts"] },
+      "build": { "scripts": [{ "name": "build" }], "fallback": "gatsby build" },
+      "output_dir": { "default": "public" }
+    },
+    {
+      "name": "astro", "label": "Astro", "order": 60,
+      "aliases": ["astrojs", "astro.build"],
+      "signals": { "deps": ["astro"], "config_basename": "astro.config" },
+      "build": { "scripts": [{ "name": "build" }], "fallback": "astro build" },
+      "output_dir": { "default": "dist", "extract": "outkey", "extract_config_basename": "astro.config" }
+    },
+    {
+      "name": "docusaurus", "label": "Docusaurus", "order": 70,
+      "aliases": ["docusaurus2", "docusaurus3"],
+      "signals": { "deps": ["@docusaurus/core"], "config_files": ["docusaurus.config.js", "docusaurus.config.ts", "docusaurus.config.mjs"] },
+      "build": { "scripts": [{ "name": "build" }], "fallback": "docusaurus build" },
+      "output_dir": { "default": "build" }
+    },
+    {
+      "name": "storybook", "label": "Storybook", "order": 80,
+      "aliases": [],
+      "signals": {
+        "deps": ["@storybook/cli", "@storybook/react", "@storybook/react-vite", "@storybook/react-webpack5", "@storybook/vue", "@storybook/vue3", "@storybook/vue3-vite", "@storybook/svelte", "@storybook/svelte-vite", "@storybook/web-components", "@storybook/web-components-vite", "@storybook/preact", "@storybook/angular", "@storybook/nextjs", "@storybook/html", "@storybook/html-vite", "storybook"],
+        "script_names": ["build-storybook"],
+        "script_contains": ["storybook build"],
+        "dir_markers": [".storybook"]
+      },
+      "build": { "scripts": [{ "name": "build-storybook" }, { "name": "build", "contains": "storybook" }], "fallback": "storybook build" },
+      "output_dir": { "default": "storybook-static" }
+    },
+    {
+      "name": "vitepress", "label": "VitePress", "order": 90,
+      "aliases": [],
+      "signals": { "deps": ["vitepress"], "config_files": [".vitepress/config.ts", ".vitepress/config.js", ".vitepress/config.mts", ".vitepress/config.mjs", "docs/.vitepress/config.ts", "docs/.vitepress/config.js", "docs/.vitepress/config.mts", "docs/.vitepress/config.mjs"] },
+      "build": { "scripts": [{ "name": "docs:build" }, { "name": "build" }], "fallback": "vitepress build" },
+      "output_dir": { "default": ".vitepress/dist", "extract": "vitepress_docs" }
+    },
+    {
+      "name": "vite", "label": "Vite", "order": 100,
+      "aliases": ["vitejs"],
+      "signals": { "deps": ["vite"], "config_basename": "vite.config" },
+      "build": { "scripts": [{ "name": "build" }], "fallback": "vite build" },
+      "output_dir": { "default": "dist", "extract": "outkey", "extract_config_basename": "vite.config" }
+    },
+    {
+      "name": "angular", "label": "Angular", "order": 110,
+      "aliases": ["ng", "angularjs"],
+      "signals": { "deps": ["@angular/core"], "config_files": ["angular.json"] },
+      "build": { "scripts": [{ "name": "build" }], "fallback": "ng build" },
+      "output_dir": { "default": "dist", "extract": "angular", "extract_config_basename": "angular.json" }
+    },
+    {
+      "name": "cra", "label": "Create React App", "order": 120,
+      "aliases": ["create-react-app", "react-scripts"],
+      "signals": { "deps": ["react-scripts"] },
+      "build": { "scripts": [{ "name": "build" }], "fallback": "react-scripts build" },
+      "output_dir": { "default": "build" }
+    },
+    {
+      "name": "eleventy", "label": "Eleventy (11ty)", "order": 130,
+      "aliases": ["11ty"],
+      "signals": { "deps": ["@11ty/eleventy", "eleventy"], "config_files": [".eleventy.js", "eleventy.config.js", "eleventy.config.mjs", "eleventy.config.cjs"] },
+      "build": { "scripts": [{ "name": "build" }], "fallback": "@11ty/eleventy" },
+      "output_dir": { "default": "_site" }
+    },
+    {
+      "name": "hugo", "label": "Hugo", "order": 140,
+      "aliases": [],
+      "signals": { "config_files": ["hugo.toml", "hugo.yaml", "hugo.json"], "config_token_files": ["config.toml", "config.yaml", "config.json"], "config_tokens": ["baseURL", "baseurl", "languageCode", "languagecode", "[params]", "[markup]", "[menu", "[taxonomies]", "hugoVersion", "minVersion", "theme"] },
+      "build": { "scripts": [], "fallback": "hugo --gc --minify", "npx": false }, "skip_install": true,
+      "output_dir": { "default": "public" }
+    },
+    {
+      "name": "static", "label": "Static (no build)", "order": 150,
+      "aliases": ["html", "plain"],
+      "signals": { "html_when_no_spa_deps": true, "spa_hint_deps": ["next", "react-scripts", "vite", "astro", "nuxt", "@sveltejs/kit", "gatsby"] },
+      "build": { "no_build": true },
+      "output_dir": { "default": "." }
+    },
+    {
+      "name": "generic", "label": "Other", "order": 160,
+      "aliases": ["manual", "other", "custom"],
+      "signals": { "always": true },
+      "build": { "scripts": [{ "name": "build" }], "fallback": null },
+      "output_dir": { "default": "dist" }
+    }
+  ],
+
+  "runtime": {
+    "_doc": "Runtime app routing. project_type (user-facing) ↔ runtime_kind (internal/Activator) differ for Next: project_type=ssr_next → runtime_kind=ssr_node. flask is legacy → python_web.",
+    "py_web_signals": ["fastapi", "starlette", "litestar", "starlite", "quart", "sanic", "blacksheep", "hypercorn", "daphne", "uvicorn", "flask", "falcon", "bottle", "pyramid", "cherrypy", "werkzeug", "gunicorn", "aiohttp", "tornado", "django"],
+    "node_web_signals": ["express", "fastify", "koa", "@nestjs/core", "@hapi/hapi", "hapi", "hono", "@adonisjs/core", "restify", "polka", "@feathersjs/feathers", "sails", "h3", "json-server"],
+    "node_frontend_deps": ["next", "nuxt", "vite", "react-scripts", "@angular/core", "@sveltejs/kit", "gatsby", "astro", "@docusaurus/core", "@11ty/eleventy", "vitepress"],
+    "python_entrypoints": ["app.py", "main.py", "manage.py"],
+    "kinds": {
+      "ssr_next":   { "project_type": "ssr_next",   "runtime_kind": "ssr_node",   "port": 8080 },
+      "node_web":   { "project_type": "node_web",   "runtime_kind": "node_web",   "port": 3000 },
+      "python_web": { "project_type": "python_web", "runtime_kind": "python_web", "port": 8000 },
+      "streamlit":  { "project_type": "streamlit",  "runtime_kind": "streamlit",  "port": 8501, "requires_files": ["app.py"] },
+      "gradio":     { "project_type": "gradio",     "runtime_kind": "gradio",     "port": 7860, "requires_files": ["app.py"] }
+    },
+    "layero_runtime_aliases": { "ssr_node": "ssr_next", "flask": "python_web" }
+  },
+
+  "package_managers": {
+    "_doc": "Lockfile → package manager. install_cmd uses the frozen-lockfile form; install_fallback when no lockfile. run = `<run> <script>`. Mirrors builder/src/pkg_manager.py.",
+    "order": ["bun", "pnpm", "yarn", "npm"],
+    "managers": {
+      "bun":  { "lockfiles": ["bun.lockb", "bun.lock"], "run": "bun run",  "install": "bun install --frozen-lockfile --ignore-scripts --no-save", "install_fallback": "bun install --ignore-scripts --no-save" },
+      "pnpm": { "lockfiles": ["pnpm-lock.yaml"],         "run": "pnpm run", "install": "pnpm install --frozen-lockfile --reporter=append-only --ignore-scripts", "install_fallback": "pnpm install --reporter=append-only --ignore-scripts" },
+      "yarn": { "lockfiles": ["yarn.lock"],              "run": "yarn",     "install": "yarn install --frozen-lockfile --non-interactive --no-progress --ignore-scripts", "install_fallback": "yarn install --non-interactive --no-progress --ignore-scripts" },
+      "npm":  { "lockfiles": ["package-lock.json", "npm-shrinkwrap.json"], "run": "npm run", "install": "npm ci --no-audit --no-fund --ignore-scripts", "install_fallback": "npm install --no-audit --no-fund --ignore-scripts" }
+    }
+  }
+}
