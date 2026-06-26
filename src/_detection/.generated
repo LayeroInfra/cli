@@ -1,2 +1,0 @@
-source=core/detection
-files=detect_core.ts,spec.ts
