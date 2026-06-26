@@ -328,7 +328,7 @@ function runtimePlan(snap: Snapshot, pm: any, projectType: string): BuildPlan {
   };
 }
 
-function fullstackPlan(snap: Snapshot, pm: any, layero: Record<string, unknown>, beProjectType: string): BuildPlan {
+function fullstackPlan(_snap: Snapshot, pm: any, layero: Record<string, unknown>, beProjectType: string): BuildPlan {
   const meta = SPEC.runtime.kinds[beProjectType];
   const fe = (layero.frontend ?? {}) as any;
   const be = (layero.backend ?? {}) as any;
