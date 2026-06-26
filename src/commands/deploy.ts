@@ -579,11 +579,20 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     const apexUrl = `https://${project.apex_hostname}`;
     const probe = await resolveReachability(api, deploy.environment_id);
 
-    // Public site URL: prefer the backend's canonical_url; fall back to the
-    // apex for the no-branch case (CLI auto-promote), else the dashboard.
-    const liveUrl =
-      probe?.canonical_url ??
-      (promoted || !opts.branch ? apexUrl : dashboardUrl);
+    // Public site URL — honour the preview-first contract the dashboard uses
+    // (probe states B/C): until the CDN apex is verified live (`cdn_ready`),
+    // the reachable address is the off-CDN preview domain. A fresh apex
+    // 404/000s for ~10-15min while CDN propagates, and for runtime apps the
+    // preview domain is the *permanent* address (the CDN apex can't serve
+    // POST/WebSocket). So only surface the canonical apex once it's warm;
+    // before that, hand back the preview. `edge_ready` / `edge_eta_seconds`
+    // below tell the caller the apex is on its way.
+    const cdnWarm = probe?.cdn_ready === true;
+    const liveUrl = cdnWarm
+      ? probe?.canonical_url ?? apexUrl
+      : probe?.preview_url ??
+        probe?.canonical_url ??
+        (promoted || !opts.branch ? apexUrl : dashboardUrl);
 
     emit({
       event: "ready",

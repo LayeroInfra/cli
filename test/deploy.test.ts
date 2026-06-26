@@ -7,9 +7,9 @@
  * old code called GET /projects/undefined → 422 and the documented init→deploy
  * path was broken.
  *
- * B3/B4: the `ready` event's `url` must be the live PUBLIC site (from the
- * backend probe's canonical_url / the apex), never the dashboard, and it must
- * carry a reachable `preview_url`.
+ * B3/B4: the `ready` event's `url` must be the live, REACHABLE public site —
+ * never the dashboard. Preview-first contract: the off-CDN preview while the
+ * apex is still CDN-warming (cdn_ready=false), the canonical apex once it's warm.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
@@ -172,7 +172,23 @@ describe("B1: real link (project_id present)", () => {
 });
 
 describe("B3/B4: ready event carries the public URL + preview", () => {
-  it("emits canonical_url as url (not the dashboard) and a preview_url", async () => {
+  function readyEventOf(lines: string[]): any {
+    return lines
+      .map((l) => {
+        try {
+          return JSON.parse(l);
+        } catch {
+          return null;
+        }
+      })
+      .find((e) => e && e.event === "ready");
+  }
+
+  it("emits the preview_url as url until CDN is warm (never the dashboard)", async () => {
+    // Preview-first contract: the mock probe reports cdn_ready=false, so the
+    // reachable address is the off-CDN preview — the fresh apex 404/000s during
+    // CDN propagation. `url` must be the preview, with edge_ready=false +
+    // edge_eta_seconds telling the caller the apex is on its way.
     loadProjectConfig.mockResolvedValue(null);
     const lines: string[] = [];
     const spy = vi.spyOn(process.stdout, "write").mockImplementation((s: any) => {
@@ -184,21 +200,39 @@ describe("B3/B4: ready event carries the public URL + preview", () => {
     } finally {
       spy.mockRestore();
     }
-    const ready = lines
-      .map((l) => {
-        try {
-          return JSON.parse(l);
-        } catch {
-          return null;
-        }
-      })
-      .find((e) => e && e.event === "ready");
+    const ready = readyEventOf(lines);
     expect(ready).toBeTruthy();
-    expect(ready.url).toBe("https://valya-smoke.layero.ru/");
+    expect(ready.url).toBe("https://valya-smoke-deadbee.preview.layero.ru/");
     expect(ready.url).not.toContain("app.layero.ru");
+    expect(ready.edge_ready).toBe(false);
     expect(ready.preview_url).toBe("https://valya-smoke-deadbee.preview.layero.ru/");
     expect(ready.dashboard_url).toContain("app.layero.ru/projects/");
     expect(ready.edge_ready).toBe(false);
     expect(ready.edge_eta_seconds).toBe(300);
+  });
+
+  it("switches url to the canonical apex once CDN is ready", async () => {
+    loadProjectConfig.mockResolvedValue(null);
+    probeEnvironment.mockResolvedValue({
+      available: true,
+      canonical_url: "https://valya-smoke.layero.ru/",
+      preview_url: "https://valya-smoke-deadbee.preview.layero.ru/",
+      cdn_ready: true,
+    });
+    const lines: string[] = [];
+    const spy = vi.spyOn(process.stdout, "write").mockImplementation((s: any) => {
+      lines.push(String(s));
+      return true;
+    });
+    try {
+      await deployCmd({ name: "smoke", json: true });
+    } finally {
+      spy.mockRestore();
+    }
+    const ready = readyEventOf(lines);
+    expect(ready).toBeTruthy();
+    expect(ready.url).toBe("https://valya-smoke.layero.ru/");
+    expect(ready.edge_ready).toBe(true);
+    expect(ready.edge_eta_seconds).toBeUndefined();
   });
 });
