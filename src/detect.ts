@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-import * as dc from "./_detection/detect_core.js";
+import * as dc from "layero-detection";
 
 // Runtime apps route through the runtime-builder (container) pipeline, not the
 // SPA static path. Mirrors detect_core (the unified spec) — kept in lockstep.

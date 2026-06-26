@@ -5,7 +5,7 @@
 // same scenarios as core/detection/test_parity.py, so TS↔Python drift fails CI.
 import { describe, expect, it } from "vitest";
 
-import * as dc from "../src/_detection/detect_core.js";
+import * as dc from "layero-detection";
 
 function snap(opts: Parameters<typeof dc.snapshotFromInputs>[0]) {
   return dc.snapshotFromInputs(opts);
