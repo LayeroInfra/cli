@@ -1,2 +1,2 @@
 source=core/detection
-files=detection.spec.json
+files=detect_core.ts,spec.ts
