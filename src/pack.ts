@@ -43,11 +43,27 @@ async function readIgnoreFile(filePath: string): Promise<string[]> {
   }
 }
 
+// Lockfiles the server needs for a frozen/reproducible install. A gitignored
+// (or .layeroignore'd) lockfile would otherwise be dropped from the upload →
+// the builder falls back to a non-frozen install (re-resolves deps). Force them
+// back in with negation patterns applied AFTER the ignore layers. They live at
+// repo root, so no ignored parent dir can block the re-include.
+const FORCE_INCLUDE_LOCKFILES = [
+  "bun.lockb",
+  "bun.lock",
+  "package-lock.json",
+  "yarn.lock",
+  "pnpm-lock.yaml",
+  "npm-shrinkwrap.json",
+];
+
 async function buildIgnore(cwd: string): Promise<Ignore> {
   const ig = ignore();
   ig.add(DEFAULT_IGNORE);
   ig.add(await readIgnoreFile(path.join(cwd, ".gitignore")));
   ig.add(await readIgnoreFile(path.join(cwd, ".layeroignore")));
+  // Negations last so they win over any ignore rule above.
+  ig.add(FORCE_INCLUDE_LOCKFILES.map((f) => `!/${f}`));
   return ig;
 }
 
@@ -88,6 +104,32 @@ export interface PackResult {
   sha256: string;
   size: number;
   fileCount: number;
+  /** Lockfiles that exist on disk but were gitignored/.layeroignore'd — we
+   * force-include them anyway (a frozen install needs them); the caller may
+   * surface this so the user knows their ignore rule was overridden. */
+  forcedLockfiles?: string[];
+}
+
+/** Lockfiles present on disk that WOULD have been dropped by the ignore rules
+ * if not force-included. Built from the same ignore layers minus the lockfile
+ * negations, so it reflects exactly what the user's .gitignore/.layeroignore
+ * would have excluded. */
+async function detectForcedLockfiles(cwd: string): Promise<string[]> {
+  const probe = ignore();
+  probe.add(DEFAULT_IGNORE);
+  probe.add(await readIgnoreFile(path.join(cwd, ".gitignore")));
+  probe.add(await readIgnoreFile(path.join(cwd, ".layeroignore")));
+  const forced: string[] = [];
+  for (const lf of FORCE_INCLUDE_LOCKFILES) {
+    if (!probe.ignores(lf)) continue; // not ignored → nothing forced
+    try {
+      const st = await fs.stat(path.join(cwd, lf));
+      if (st.isFile()) forced.push(lf);
+    } catch {
+      // absent on disk — nothing to force-include
+    }
+  }
+  return forced;
 }
 
 /** Pack only the contents of an already-built artifact directory.
@@ -165,6 +207,7 @@ export async function packCwd(
         "check that you're in the right directory",
     );
   }
+  const forcedLockfiles = await detectForcedLockfiles(cwd);
 
   const stamp = Date.now();
   const safeName = projectName.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -194,5 +237,11 @@ export async function packCwd(
   }
 
   const sha256 = await sha256OfFile(archivePath);
-  return { archivePath, sha256, size: stat.size, fileCount: files.length };
+  return {
+    archivePath,
+    sha256,
+    size: stat.size,
+    fileCount: files.length,
+    ...(forcedLockfiles.length ? { forcedLockfiles } : {}),
+  };
 }

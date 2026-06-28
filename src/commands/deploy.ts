@@ -274,6 +274,17 @@ async function packAndUpload(
     sha256: pack.sha256,
     ...(prebuiltDir ? { prebuilt_dir: prebuiltDir } : {}),
   });
+  // A gitignored lockfile is force-included so the build can do a frozen
+  // install; warn (to stderr, off the --json stdout stream) that the ignore
+  // rule was overridden for it.
+  if (pack.forcedLockfiles?.length) {
+    process.stderr.write(
+      chalk.yellow(
+        `! including gitignored lockfile(s) so the build uses a frozen install: ` +
+          `${pack.forcedLockfiles.join(", ")}\n`,
+      ),
+    );
+  }
 
   const init = await api.initUpload(project.id);
   emit({ event: "uploading" });
