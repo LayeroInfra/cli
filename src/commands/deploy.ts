@@ -314,23 +314,49 @@ async function resolvePrebuiltDir(
   raw: boolean | string | undefined,
 ): Promise<string | null> {
   if (raw === undefined || raw === false) return null;
+  let dir: string | null = null;
   if (typeof raw === "string" && raw.length > 0) {
-    return raw;
-  }
-  // No explicit dir — pick the first existing common output directory.
-  for (const candidate of PREBUILT_AUTO_DIRS) {
-    try {
-      const stat = await fs.stat(path.join(cwd, candidate));
-      if (stat.isDirectory()) return candidate;
-    } catch {
-      // try next
+    dir = raw;
+  } else {
+    // No explicit dir — pick the first existing common output directory.
+    for (const candidate of PREBUILT_AUTO_DIRS) {
+      try {
+        const stat = await fs.stat(path.join(cwd, candidate));
+        if (stat.isDirectory()) {
+          dir = candidate;
+          break;
+        }
+      } catch {
+        // try next
+      }
+    }
+    if (dir === null) {
+      throw new LayeroError(
+        "prebuilt_no_dir",
+        "could not auto-detect a built artifact directory",
+        `pass it explicitly: --prebuilt ./dist  (tried: ${PREBUILT_AUTO_DIRS.join(", ")})`,
+      );
     }
   }
-  throw new LayeroError(
-    "prebuilt_no_dir",
-    "could not auto-detect a built artifact directory",
-    `pass it explicitly: --prebuilt ./dist  (tried: ${PREBUILT_AUTO_DIRS.join(", ")})`,
-  );
+  // Servability check (mirrors the builder-side gate, 2026-07-01 audit): a
+  // prebuilt dir with no index.html at its root isn't a servable site — the
+  // apex "/" would 404. Fail fast here, before packing + uploading, instead of
+  // the deploy going "ready" but broken.
+  let hasIndex = false;
+  try {
+    const entries = await fs.readdir(path.join(cwd, dir));
+    hasIndex = entries.some((e) => e.toLowerCase() === "index.html");
+  } catch {
+    hasIndex = false;
+  }
+  if (!hasIndex) {
+    throw new LayeroError(
+      "prebuilt_no_index",
+      `'${dir}' has no index.html — nothing to serve`,
+      `point --prebuilt at the folder that contains your built index.html (e.g. --prebuilt ./dist)`,
+    );
+  }
+  return dir;
 }
 
 // Resolve the framework / build / output config to send to completeSetup.
