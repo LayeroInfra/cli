@@ -14,7 +14,7 @@ import { packCwd, packDirectory } from "../pack.js";
 import { streamDeployLogs } from "../logs.js";
 import { detectProject } from "../detect.js";
 import { runDeviceLogin } from "../auth.js";
-import { LayeroError, detectMode, emit } from "../agent.js";
+import { LayeroError, detectMode, emit, isCiEnv } from "../agent.js";
 
 interface DeployOptions {
   // Legacy alias of "auto-detect framework + use .layero/project.json
@@ -430,6 +430,18 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
 
   let cliCfg = await loadConfig();
   if (!cliCfg.token) {
+    // In CI nobody can open a browser, so the device flow can only end one
+    // way: fifteen minutes of a hung job and then `auth_expired`. Fail
+    // immediately instead, and say what to do — burning a quarter of an hour
+    // of someone's runner to reach a foregone conclusion is not acceptable.
+    if (isCiEnv()) {
+      throw new LayeroError(
+        "auth_required",
+        "No credentials in CI. Create a token at https://app.layero.ru/settings/cli " +
+          "and pass it as the LAYERO_TOKEN environment variable.",
+        "set_layero_token",
+      );
+    }
     // Not authenticated yet. Kick off the browser device-login flow inline
     // and poll, exactly as the docs describe (B5/I4) — no separate `layero
     // login` step required. In JSON/agent mode this emits `auth_required`

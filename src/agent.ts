@@ -38,6 +38,19 @@ const AGENT_ENV_VARS = [
 
 const CI_ENV_VARS = ["CI", "GITHUB_ACTIONS", "GITLAB_CI", "BUILDKITE", "CIRCLECI"];
 
+/**
+ * True when we're on a build runner.
+ *
+ * Deliberately NOT the same as `!detectMode().interactive`: an AI agent
+ * (Cursor, Claude Code) is also non-interactive, but there the device-auth
+ * flow is the documented happy path — the agent renders the link and a human
+ * clicks it. On a runner nobody can click, so the same flow just hangs until
+ * the code expires.
+ */
+export function isCiEnv(): boolean {
+  return CI_ENV_VARS.some((k) => process.env[k] && process.env[k] !== "0");
+}
+
 export function detectMode(argv: string[] = process.argv): AgentMode {
   if (cachedMode) return cachedMode;
 
