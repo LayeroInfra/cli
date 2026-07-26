@@ -1,6 +1,6 @@
 {
   "name": "layero",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "Layero CLI — publish a local site with one command. No git, no GitHub, agent-friendly (Cursor, Claude Code).",
   "license": "MIT",
   "type": "module",
@@ -13,14 +13,23 @@
     "deploy",
     "deployment",
     "hosting",
+    "static-hosting",
     "cdn",
     "cli",
     "static-site",
     "spa",
     "ssr",
+    "vite",
+    "nextjs",
+    "astro",
+    "sveltekit",
     "ai-agents",
     "cursor",
-    "claude-code"
+    "claude-code",
+    "mcp",
+    "vercel-alternative",
+    "netlify-alternative",
+    "russia"
   ],
   "engines": {
     "node": ">=20"
@@ -52,5 +61,9 @@
     "@types/node": "^20.14.10",
     "typescript": "^5.5.4",
     "vitest": "^4.1.7"
+  },
+  "author": {
+    "name": "Layero",
+    "url": "https://layero.ru"
   }
 }

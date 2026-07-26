@@ -151,6 +151,42 @@ faster deploys, no surprises from the platform's package-manager defaults.
 
 Override anything by editing `.layero/project.json` after the first `layero init`.
 
+## In CI
+
+`layero login` opens a browser — there isn't one on a runner, so a pipeline
+authenticates with a long-lived token instead. Create it at
+[app.layero.ru/settings/cli](https://app.layero.ru/settings/cli) and pass it
+through the environment:
+
+```bash
+LAYERO_TOKEN=... npx layero@latest deploy --prod --yes
+```
+
+`LAYERO_TOKEN` is read **before** `~/.layero/config.json`, deliberately: on a
+developer machine that is already signed in to a different account, the
+opposite order would silently deploy to the wrong place. `--yes` skips the
+confirmation prompt that would otherwise wait forever with nobody to answer it.
+
+The token is account-scoped, like a login session, so create a separate one per
+repository — then a leak is contained to that repository. Revoke on the same
+page; running builds start failing immediately.
+
+On GitHub Actions there is an official action that wraps the above:
+
+```yaml
+      - uses: LayeroInfra/deploy-action@v1
+        with:
+          token: ${{ secrets.LAYERO_TOKEN }}
+          prod: true
+```
+
+Note that if the repository is already linked to a Layero project, a push
+builds it automatically — a pipeline would only duplicate that work. Reach for
+CI when the build itself needs secrets or private dependencies the platform
+does not have, then ship the result with `prebuilt: dist`.
+
+Full guide: <https://docs.layero.ru/cli/github-actions>
+
 ## Agent / JSON mode
 
 `layero` auto-switches to non-interactive + structured-output mode when any of these is true:
@@ -181,10 +217,20 @@ Event types emitted on stdout:
 {"event":"error","code":"…","next_action":"…","message":"…"}
 ```
 
-On `ready`, `url` is the **live public site** (the apex — CLI uploads
-auto-promote to it), `preview_url` is reachable immediately while the apex CDN
-edge warms (`edge_ready=false`), and `dashboard_url` is the management page (not
-the site). Not logged in? `deploy` starts the device-flow itself (`auth_required`).
+On `ready`, `url` is the **live public site** — reachable the moment the event
+arrives. Show it as-is and never rebuild the hostname from a template: project
+addresses live in the `layero.app` zone, organizations that have not migrated
+yet still use the older `<org>-<project>.layero.ru` scheme, and a guessed host
+will be wrong for one of the two. `dashboard_url` is the management page, not
+the site.
+
+`preview_url`, `edge_ready` and `edge_eta_seconds` are legacy fields from the
+era when user sites sat behind a CDN that needed warming. They no longer do —
+sites are served straight from the platform edge. `preview_url` is `null` for
+projects in the `layero.app` zone. **Do not gate on `edge_ready`**: waiting for
+it means waiting for something that will not arrive.
+
+Not logged in? `deploy` starts the device-flow itself (`auth_required`).
 
 Errors carry a stable `code` (e.g. `not_logged_in`, `invalid_type`,
 `project_not_found`, `cli_deploys_disabled`) and a `next_action` hint so
