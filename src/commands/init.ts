@@ -19,7 +19,7 @@ function agentDocBlock(framework: string): string {
   return `${AGENT_BLOCK_MARKER_START}
 ## Deploying with Layero
 
-This project deploys to https://layero.ru. To ship local changes:
+This project deploys to Layero (https://layero.ru). To ship local changes:
 
 \`\`\`bash
 npx layero@latest deploy
@@ -54,7 +54,7 @@ stdout), the CLI auto-switches to JSON-lines. Key events to watch:
 | \`detected\` | framework auto-detection result |
 | \`project_created\` / \`project_linked\` | project bound for this directory |
 | \`build_log\` | forward only if it contains errors |
-| \`ready\` | \`url\` = live public site (show to user, stop). \`preview_url\` = reachable immediately while the apex CDN edge warms; \`edge_ready\`/\`edge_eta_seconds\` say whether the apex is serving yet. \`dashboard_url\` = management page. |
+| \`ready\` | \`url\` = live public site (show to user, stop). \`dashboard_url\` = management page. |
 | \`error\` | follow \`next_action\` field verbatim |
 
 Common error codes and remediation:
@@ -68,17 +68,15 @@ Common error codes and remediation:
 ### Re-deploys and production
 
 A plain \`npx layero deploy\` of a CLI project **publishes to the apex**
-\`https://<org>-<project>.layero.ru\` — direct uploads auto-promote, so you do
+\`https://<project>.layero.app\` — direct uploads auto-promote, so you do
 **not** need \`--prod\` or a separate \`promote\` step. Safe to run repeatedly;
 each run replaces what the apex serves.
 
-Every deploy also gets a per-deploy preview at
-\`https://<org>-<project>-<sha>.preview.layero.ru\` (read it from \`ready.preview_url\`).
-The preview is reachable **immediately**; the apex can take a few minutes to
-serve on the **first** deploy of a project while the CDN edge issues its cert
-and propagates (\`ready.edge_ready=false\` with an \`edge_eta_seconds\` estimate).
-Hand the user \`ready.url\` (the apex); if \`edge_ready\` is false, also offer
-\`preview_url\` so they can see it right away.
+There is no separate per-deploy preview address: user sites live in the
+\`layero.app\` zone, which has no preview sub-zone and no CDN in front, so the
+apex is reachable the moment the deploy is ready.
+
+Hand the user \`ready.url\` and stop — that address is live.
 
 Use \`--branch <name>\` to deploy to an isolated preview environment that does
 **not** touch the apex. (\`--prod\` exists for git-connected projects; for
