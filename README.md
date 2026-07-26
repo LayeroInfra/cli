@@ -208,4 +208,4 @@ always excluded: `node_modules`, `.git`, `dist`, `build`, `.next`, `.env*`,
 
 - Website: https://layero.ru
 - Docs: https://docs.layero.ru
-- Issues: https://github.com/layero/layero/issues
+- Support: https://docs.layero.ru/contacts/

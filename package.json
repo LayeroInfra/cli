@@ -1,17 +1,12 @@
 {
   "name": "layero",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "Layero CLI — publish a local site with one command. No git, no GitHub, agent-friendly (Cursor, Claude Code).",
   "license": "MIT",
   "type": "module",
   "homepage": "https://layero.ru",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/LayeroInfra/core.git",
-    "directory": "cli"
-  },
   "bugs": {
-    "url": "https://github.com/LayeroInfra/core/issues"
+    "url": "https://docs.layero.ru/contacts/"
   },
   "keywords": [
     "layero",
