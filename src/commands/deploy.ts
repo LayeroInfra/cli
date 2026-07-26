@@ -616,20 +616,26 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     const apexUrl = `https://${project.apex_hostname}`;
     const probe = await resolveReachability(api, deploy.environment_id);
 
-    // Public site URL — honour the preview-first contract the dashboard uses
-    // (probe states B/C): until the CDN apex is verified live (`cdn_ready`),
-    // the reachable address is the off-CDN preview domain. A fresh apex
-    // 404/000s for ~10-15min while CDN propagates, and for runtime apps the
-    // preview domain is the *permanent* address (the CDN apex can't serve
-    // POST/WebSocket). So only surface the canonical apex once it's warm;
-    // before that, hand back the preview. `edge_ready` / `edge_eta_seconds`
-    // below tell the caller the apex is on its way.
-    const cdnWarm = probe?.cdn_ready === true;
-    const liveUrl = cdnWarm
-      ? probe?.canonical_url ?? apexUrl
-      : probe?.preview_url ??
-        probe?.canonical_url ??
-        (promoted || !opts.branch ? apexUrl : dashboardUrl);
+    // Публичный адрес сайта.
+    //
+    // Раньше здесь стоял гейт `cdn_ready`: пока YC CDN не подтвердил апекс,
+    // отдавали off-CDN превью, потому что свежий апекс 10-15 минут отвечал
+    // 404, а runtime-приложения на апексе вообще не принимали POST (CDN резал
+    // не-GET). После EDGE-02 CDN перед пользовательскими зонами нет: апекс
+    // валиден с момента создания проекта (wildcard-запись + wildcard-серт), а
+    // `cdn_ready` бекенд отдаёт false НАВСЕГДА — строки в `cdn_hostnames` у
+    // новых проектов не появляется вовсе.
+    //
+    // Из-за этого условие не выполнялось никогда, и после успешной публикации
+    // CLI выдавал ссылку на дашборд вместо адреса сайта. Проверено вживую
+    // 2026-07-26: `layero deploy` вернул `url: https://app.layero.ru/projects/…`.
+    //
+    // Апекс — адрес по умолчанию; превью остаётся для деплоя ветки, которую
+    // не промоутили: там апекс ведёт на другую сборку.
+    const liveUrl =
+      promoted || !opts.branch
+        ? probe?.canonical_url ?? apexUrl
+        : probe?.preview_url ?? probe?.canonical_url ?? apexUrl;
 
     emit({
       event: "ready",
@@ -637,11 +643,11 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       deploy_id: deploy.id,
       preview_url: probe?.preview_url ?? undefined,
       dashboard_url: dashboardUrl,
-      edge_ready: probe ? probe.cdn_ready : undefined,
-      edge_eta_seconds:
-        probe && !probe.cdn_ready && probe.cdn_eta_seconds != null
-          ? probe.cdn_eta_seconds
-          : undefined,
+      // `available` от пробы, а НЕ `cdn_ready`: последний после EDGE-02
+      // остаётся false навсегда, и потребитель JSON-вывода ждал бы события,
+      // которого не будет. ETA пропагации убран по той же причине —
+      // распространять больше нечего.
+      edge_ready: probe ? probe.available : undefined,
     });
   } finally {
     if (upload) {
