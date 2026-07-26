@@ -20,18 +20,30 @@ async function ensureDir(): Promise<void> {
   await fs.mkdir(CONFIG_DIR, { recursive: true });
 }
 
+// Долгоживущий токен для CI. Выпускается в дашборде, кладётся в секреты
+// репозитория и попадает сюда через окружение — на раннере нет ни `layero
+// login` (некому пройти device flow), ни конфиг-файла.
+//
+// Приоритет выше файла намеренно: если на машине есть и то и другое,
+// окружение выигрывает. Иначе локальный конфиг разработчика молча
+// перебивал бы токен, заданный в CI, и деплой уходил бы не в тот аккаунт.
+const ENV_TOKEN = process.env.LAYERO_TOKEN?.trim() || undefined;
+
 export async function loadConfig(): Promise<CliConfig> {
   try {
     const raw = await fs.readFile(CONFIG_FILE, "utf-8");
     const parsed = JSON.parse(raw) as Partial<CliConfig>;
     return {
       apiUrl: parsed.apiUrl ?? DEFAULT_API_URL,
-      token: parsed.token,
-      user: parsed.user,
+      token: ENV_TOKEN ?? parsed.token,
+      // Пользователя из файла не подставляем, когда токен пришёл из
+      // окружения: файл мог остаться от другого аккаунта, и подпись в
+      // выводе врала бы. Кто мы — узнаем у API.
+      user: ENV_TOKEN ? undefined : parsed.user,
     };
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
-      return { apiUrl: DEFAULT_API_URL };
+      return { apiUrl: DEFAULT_API_URL, token: ENV_TOKEN };
     }
     throw err;
   }
