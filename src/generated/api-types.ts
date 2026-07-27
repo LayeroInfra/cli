@@ -1801,6 +1801,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Project Health
+         * @description Как себя чувствует сайт — один вызов вместо семи.
+         *
+         *     Живая проверка адреса включена по умолчанию: без неё ответ говорит о
+         *     телеметрии, но не о главном — открывается ли сайт вообще. Недоступность
+         *     самого сайта считается ДАННЫМИ, а не сбоем этой ручки, поэтому любая
+         *     сетевая ошибка сворачивается в `serving=false`.
+         */
+        get: operations["project_health_projects__project_id__health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/instance-tier": {
         parameters: {
             query?: never;
@@ -3831,6 +3856,46 @@ export interface components {
         ProjectDetectSuggestionsOut: {
             /** Suggestions */
             suggestions: components["schemas"]["FrameworkSuggestionOut"][];
+        };
+        /**
+         * ProjectHealthOut
+         * @description Здоровье проекта одним ответом (AGENT-10).
+         *
+         *     Форма выбрана под агента: выводы, а не сырьё. Временных рядов здесь нет
+         *     намеренно — они не влезут в контекст, и вопрос всё равно звучит как
+         *     «всё ли хорошо», а не «дай данные, я посчитаю».
+         */
+        ProjectHealthOut: {
+            /** Anomalies */
+            anomalies: string[];
+            /** Deploy */
+            deploy: {
+                [key: string]: unknown;
+            };
+            /** Http Code */
+            http_code: number | null;
+            /** Lighthouse */
+            lighthouse: {
+                [key: string]: unknown;
+            } | null;
+            /** Project */
+            project: string | null;
+            /** Runtime */
+            runtime: {
+                [key: string]: unknown;
+            } | null;
+            /** Serving */
+            serving: boolean | null;
+            /** Traffic */
+            traffic: {
+                [key: string]: unknown;
+            };
+            /** Type */
+            type: string;
+            /** Url */
+            url: string | null;
+            /** Verdict */
+            verdict: string;
         };
         /**
          * ProjectLayeroConfigOut
@@ -7829,6 +7894,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": string[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    project_health_projects__project_id__health_get: {
+        parameters: {
+            query?: {
+                /** @description дёрнуть сам сайт, чтобы узнать, отдаётся ли он */
+                check_url?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectHealthOut"];
                 };
             };
             /** @description Validation Error */
