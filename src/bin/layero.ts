@@ -17,6 +17,13 @@ import { loginCmd } from "../commands/login.js";
 import { orgsListCmd } from "../commands/orgs.js";
 import { initCmd } from "../commands/init.js";
 import { diagnoseCmd, logsCmd } from "../commands/diagnose.js";
+import {
+  domainsAddCmd,
+  domainsListCmd,
+  domainsPrimaryCmd,
+  domainsRemoveCmd,
+  domainsVerifyCmd,
+} from "../commands/domains.js";
 import { LayeroError, detectMode, emit } from "../agent.js";
 import { notifyIfOutdated } from "../update-notifier.js";
 
@@ -200,6 +207,42 @@ async function main(): Promise<void> {
     .action(async (opts) => {
       await rollbackCmd(opts);
     });
+
+  const domains = program
+    .command("domains")
+    .description("Свои домены проекта: привязать, проверить DNS, сделать основным, снять.");
+  const domainOpts = (c: any) =>
+    c.option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)");
+  domainOpts(domains.command("list").description("Показать домены проекта."))
+    .action(async (opts: any) => domainsListCmd({ ...opts, json: program.opts().json }));
+  domainOpts(
+    domains
+      .command("add <domain>")
+      .description(
+        "Привязать домен. Печатает DNS-записи, которые нужно вписать у регистратора; "
+          + "готовности НЕ ждёт — распространение DNS занимает от минут до часа.",
+      ),
+  ).action(async (domain: string, opts: any) =>
+    domainsAddCmd(domain, { ...opts, json: program.opts().json }),
+  );
+  domainOpts(
+    domains.command("verify <domain>").description("Проверить DNS сейчас, не дожидаясь фоновой перепроверки."),
+  ).action(async (domain: string, opts: any) =>
+    domainsVerifyCmd(domain, { ...opts, json: program.opts().json }),
+  );
+  domainOpts(
+    domains.command("primary <domain>").description("Сделать домен основным: платформенный адрес станет 301-редиректом на него."),
+  ).action(async (domain: string, opts: any) =>
+    domainsPrimaryCmd(domain, { ...opts, json: program.opts().json }),
+  );
+  domainOpts(
+    domains
+      .command("remove <domain>")
+      .description("Снять домен с проекта. Необратимо и рвёт живой трафик; требует токена со scope admin.")
+      .option("-y, --yes", "не спрашивать подтверждение"),
+  ).action(async (domain: string, opts: any) =>
+    domainsRemoveCmd(domain, { ...opts, json: program.opts().json }),
+  );
 
   program
     .command("diagnose")

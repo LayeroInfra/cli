@@ -146,6 +146,13 @@ export type Event =
       next_actions: string[];
       truncated: boolean;
     } & EventCommon)
+  | ({ event: "domains"; project: string; domains: unknown[] } & EventCommon)
+  // `domain_added` намеренно НЕ ждёт готовности: между ним и рабочим
+  // доменом стоит человек, правящий DNS у регистратора.
+  | ({ event: "domain_added"; domain: string; domain_id: string; ssl_status: string; records: unknown[]; next_action: string } & EventCommon)
+  | ({ event: "domain_verified"; domain: string; verified: boolean; ssl_status: string; checks: unknown; next_check_at?: string; error?: string } & EventCommon)
+  | ({ event: "domain_primary"; domain: string } & EventCommon)
+  | ({ event: "domain_removed"; domain: string } & EventCommon)
   | ({ event: "build_logs"; status: string; lines: unknown[] } & EventCommon)
   | ({ event: "runtime_logs"; status: string; lines: unknown[] } & EventCommon)
   // `ready`:

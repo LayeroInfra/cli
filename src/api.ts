@@ -23,6 +23,8 @@ export type DeploySessionOut = Schemas["DeploySessionOut"];
 export type DeploySessionStatusOut = Schemas["DeploySessionStatusOut"];
 export type DeployDiagnosisOut = Schemas["DeployDiagnosisOut"];
 export type RuntimeLogsOut = Schemas["RuntimeLogsOut"];
+export type DomainOut = Schemas["DomainOut"];
+export type DomainInstructionsOut = Schemas["DomainInstructionsOut"];
 
 export class ApiError extends Error {
   constructor(
@@ -288,6 +290,39 @@ export class ApiClient {
       "GET",
       `/deploys/${deployId}/runtime/logs?tail=${tail}`,
     );
+  }
+
+  // --- Домены (AGENT-09) ---------------------------------------------
+
+  listDomains(projectId: string): Promise<DomainOut[]> {
+    return this.request<DomainOut[]>("GET", `/projects/${projectId}/domains`);
+  }
+
+  /**
+   * Схему и путь бэкенд стрипает сам, так что вставленный из адресной
+   * строки `https://shop.example.com/page` доедет как `shop.example.com`.
+   */
+  addDomain(projectId: string, domain: string): Promise<DomainOut> {
+    return this.request<DomainOut>("POST", `/projects/${projectId}/domains`, { domain });
+  }
+
+  getDomainInstructions(projectId: string, domainId: string): Promise<DomainInstructionsOut> {
+    return this.request<DomainInstructionsOut>(
+      "GET",
+      `/projects/${projectId}/domains/${domainId}/instructions`,
+    );
+  }
+
+  verifyDomain(projectId: string, domainId: string): Promise<DomainOut> {
+    return this.request<DomainOut>("POST", `/projects/${projectId}/domains/${domainId}/verify`);
+  }
+
+  makeDomainPrimary(projectId: string, domainId: string): Promise<DomainOut> {
+    return this.request<DomainOut>("POST", `/projects/${projectId}/domains/${domainId}/primary`);
+  }
+
+  removeDomain(projectId: string, domainId: string): Promise<void> {
+    return this.request<void>("DELETE", `/projects/${projectId}/domains/${domainId}`);
   }
 
   pollLogs(deployId: string, afterId: number): Promise<LogsPollOut> {
