@@ -22,6 +22,9 @@ const {
   completeSetup,
   initUpload,
   triggerDeploy,
+  createDeploySession,
+  startDeploySession,
+  getDeploy,
   probeEnvironment,
   me,
   listOrganizations,
@@ -33,6 +36,9 @@ const {
   completeSetup: vi.fn(),
   initUpload: vi.fn(),
   triggerDeploy: vi.fn(),
+  createDeploySession: vi.fn(),
+  startDeploySession: vi.fn(),
+  getDeploy: vi.fn(),
   probeEnvironment: vi.fn(),
   me: vi.fn(),
   listOrganizations: vi.fn(),
@@ -52,6 +58,9 @@ vi.mock("../src/api.js", () => {
     completeSetup = completeSetup;
     initUpload = initUpload;
     triggerDeploy = triggerDeploy;
+    createDeploySession = createDeploySession;
+    startDeploySession = startDeploySession;
+    getDeploy = getDeploy;
     probeEnvironment = probeEnvironment;
     me = me;
     listOrganizations = listOrganizations;
@@ -123,6 +132,25 @@ beforeEach(() => {
   completeSetup.mockResolvedValue({ ...PROJECT, status: "active" });
   initUpload.mockResolvedValue({ upload_url: "https://s3/x", source_archive_key: "k", headers: {}, expires_in: 60 });
   triggerDeploy.mockResolvedValue({ id: "dep-1", environment_id: "env-1", status: "queued", commit_sha: "deadbeef" });
+  // AGENT-04: деплой идёт через сессию — один вызов вместо пяти.
+  createDeploySession.mockResolvedValue({
+    session_id: "sess-1",
+    project: { ...PROJECT, status: "active" },
+    created_project: true,
+    upload_url: "https://s3/x",
+    upload_headers: {},
+    source_archive_key: "k",
+    expires_in: 600,
+  });
+  startDeploySession.mockResolvedValue({
+    session_id: "sess-1",
+    status: "started",
+    project_id: "proj-123",
+    deploy_id: "dep-1",
+    created_project: true,
+    error: null,
+  });
+  getDeploy.mockResolvedValue({ id: "dep-1", environment_id: "env-1", status: "ready", commit_sha: "deadbeef" });
   probeEnvironment.mockResolvedValue({
     available: true,
     canonical_url: "https://valya-smoke.layero.ru/",
@@ -146,11 +174,18 @@ describe("B1: init scaffold without project_id", () => {
 
     await deployCmd({ name: "smoke", json: true });
 
-    // Must NOT have probed a phantom project link.
+    // Не должен ходить за фантомным проектом.
     expect(getProject).not.toHaveBeenCalled();
-    // Must have created the project cleanly.
-    expect(createCliProject).toHaveBeenCalledTimes(1);
-    expect(triggerDeploy).toHaveBeenCalledTimes(1);
+    // Сессия открывается по имени, без project_id — сервер создаст проект сам.
+    expect(createDeploySession).toHaveBeenCalledTimes(1);
+    const arg = createDeploySession.mock.calls[0]![0] as any;
+    expect(arg.project_id).toBeUndefined();
+    expect(arg.name).toBe("smoke");
+    expect(startDeploySession).toHaveBeenCalledTimes(1);
+    // Хеш архива уходит на СТАРТЕ, а не при открытии сессии (V172):
+    // до проверки прав клиент ничего не пакует.
+    expect(arg.commit_sha).toBeUndefined();
+    expect((startDeploySession.mock.calls[0]![1] as any).commit_sha).toBe("deadbeef");
   });
 });
 
@@ -166,8 +201,13 @@ describe("B1: real link (project_id present)", () => {
 
     await deployCmd({ json: true });
 
-    expect(getProject).toHaveBeenCalledWith("proj-123");
+    // Залинкованный проект уходит в сессию как project_id — никаких
+    // listProjects/getProject ради того, что уже записано в .layero.
+    const arg = createDeploySession.mock.calls[0]![0] as any;
+    expect(arg.project_id).toBe("proj-123");
+    expect(arg.name).toBeUndefined();
     expect(createCliProject).not.toHaveBeenCalled();
+    expect(getProject).not.toHaveBeenCalled();
   });
 });
 

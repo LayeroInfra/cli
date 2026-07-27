@@ -2934,7 +2934,7 @@ export interface components {
             /** Commit Message */
             commit_message?: string | null;
             /** Commit Sha */
-            commit_sha: string;
+            commit_sha?: string | null;
             /** Env Vars */
             env_vars?: {
                 [key: string]: string;
@@ -2993,6 +2993,17 @@ export interface components {
             };
             /** Upload Url */
             upload_url: string;
+        };
+        /**
+         * DeploySessionStartIn
+         * @description Тело старта.
+         *
+         *     `commit_sha` обязателен, если сессия открывалась без него, — иначе
+         *     сборке нечем дедуплицироваться и нечего записать в деплой.
+         */
+        DeploySessionStartIn: {
+            /** Commit Sha */
+            commit_sha?: string | null;
         };
         /** DeploySessionStatusOut */
         DeploySessionStatusOut: {
@@ -5518,7 +5529,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DeploySessionStartIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

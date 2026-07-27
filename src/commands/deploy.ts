@@ -146,158 +146,6 @@ function deployTargeting(opts: DeployOptions): {
   return { target: opts.prod ? "production" : "preview" };
 }
 
-async function resolveOrCreateProject(
-  api: ApiClient,
-  cwd: string,
-  opts: DeployOptions,
-  existing: ProjectConfig | null,
-): Promise<{ project: ProjectSummary; createdNow: boolean }> {
-  const mode = detectMode();
-
-  if (opts.project) {
-    const all = await api.listProjects();
-    const match =
-      all.find((p) => p.id === opts.project) ??
-      all.find((p) => p.slug === opts.project);
-    if (!match) {
-      throw new LayeroError(
-        "project_not_found",
-        `no project with id/slug "${opts.project}"`,
-        "run `layero projects list` to see available projects",
-      );
-    }
-    return { project: match, createdNow: false };
-  }
-
-  // Treat the local config as a real link only if it actually carries a
-  // project_id. `layero init` scaffolds .layero/project.json with the
-  // detected framework/build/output but NO project_id (the project isn't
-  // created until the first deploy). Without this guard, deploy would treat
-  // that scaffold as an existing link and call GET /projects/undefined → 422
-  // (B1 — the documented init→deploy path was broken). When there's no id,
-  // fall through to the create path below, which preserves the scaffold's
-  // setup fields via persistProjectLinking().
-  if (existing && existing.project_id) {
-    try {
-      const project = await api.getProject(existing.project_id);
-      return { project, createdNow: false };
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 404) {
-        throw new LayeroError(
-          "project_unlinked",
-          `linked project ${existing.project_id} no longer exists or isn't on your account`,
-          `delete ${projectConfigPath(cwd)} and re-run, or run \`layero link <id_or_slug>\``,
-        );
-      }
-      throw err;
-    }
-  }
-
-  const me = await api.me();
-  if (!me.username) {
-    throw new LayeroError(
-      "username_missing",
-      "no username set on your account",
-      "open https://app.layero.ru/onboarding to pick one, then re-run",
-    );
-  }
-  let organizationSlug: string | undefined = opts.org;
-  if (organizationSlug) {
-    const orgs = await api.listOrganizations();
-    if (!orgs.some((o) => o.slug === organizationSlug)) {
-      throw new LayeroError(
-        "org_membership_missing",
-        `you're not a member of organization "${organizationSlug}"`,
-        `available: ${orgs.map((o) => o.slug).join(", ") || "(none)"}`,
-      );
-    }
-  } else {
-    const orgs = await api.listOrganizations();
-    if (orgs.length === 0) {
-      throw new LayeroError(
-        "no_organization",
-        "no organization found on your account",
-        "finish onboarding at https://app.layero.ru/onboarding",
-      );
-    } else if (orgs.length === 1) {
-      organizationSlug = orgs[0]!.slug;
-    } else if (opts.yes || opts.config || !mode.interactive) {
-      // Non-interactive: prefer personal, fall back to first.
-      organizationSlug =
-        orgs.find((o) => o.kind === "personal")?.slug ?? orgs[0]!.slug;
-    } else {
-      console.log(chalk.cyan("which organization?"));
-      orgs.forEach((o, i) => {
-        const tag = o.kind === "personal" ? "personal" : "team";
-        console.log(`  ${i + 1}. ${o.slug} (${tag}, ${o.my_role})`);
-      });
-      const choiceRaw = await prompt("choose number", "1");
-      const idx = Number(choiceRaw) - 1;
-      if (Number.isNaN(idx) || idx < 0 || idx >= orgs.length) {
-        throw new LayeroError(
-          "invalid_choice",
-          `invalid org choice "${choiceRaw}"`,
-          "enter a number from the list",
-        );
-      }
-      organizationSlug = orgs[idx]!.slug;
-    }
-  }
-
-  const fallbackName = path.basename(cwd);
-  const name =
-    opts.name ??
-    (opts.yes || opts.config || !mode.interactive
-      ? fallbackName
-      : await prompt("project name", fallbackName));
-  const project = await api.createCliProject({
-    name,
-    framework_hint: opts.type,
-    organization_slug: organizationSlug,
-  });
-  return { project, createdNow: true };
-}
-
-async function packAndUpload(
-  api: ApiClient,
-  cwd: string,
-  project: ProjectSummary,
-  prebuiltDir: string | null,
-): Promise<{ archive_key: string; commit_sha: string; archivePath: string }> {
-  const pack = prebuiltDir
-    ? await packDirectory(path.resolve(cwd, prebuiltDir), project.slug)
-    : await packCwd(cwd, project.slug);
-  emit({
-    event: "packing",
-    files: pack.fileCount,
-    bytes: pack.size,
-    sha256: pack.sha256,
-    ...(prebuiltDir ? { prebuilt_dir: prebuiltDir } : {}),
-  });
-  // A gitignored lockfile is force-included so the build can do a frozen
-  // install; warn (to stderr, off the --json stdout stream) that the ignore
-  // rule was overridden for it.
-  if (pack.forcedLockfiles?.length) {
-    process.stderr.write(
-      chalk.yellow(
-        `! including gitignored lockfile(s) so the build uses a frozen install: ` +
-          `${pack.forcedLockfiles.join(", ")}\n`,
-      ),
-    );
-  }
-
-  const init = await api.initUpload(project.id);
-  emit({ event: "uploading" });
-  await uploadArchive(init, pack.archivePath);
-  emit({ event: "uploaded", archive_key: init.source_archive_key });
-
-  return {
-    archive_key: init.source_archive_key,
-    commit_sha: pack.sha256,
-    archivePath: pack.archivePath,
-  };
-}
-
 const PREBUILT_AUTO_DIRS = [
   "dist",
   "build",
@@ -442,51 +290,16 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
         "set_layero_token",
       );
     }
-    // Not authenticated yet. Kick off the browser device-login flow inline
-    // and poll, exactly as the docs describe (B5/I4) — no separate `layero
-    // login` step required. In JSON/agent mode this emits `auth_required`
-    // so the caller can render the link and keep waiting.
     cliCfg = await runDeviceLogin(cliCfg);
   }
   const api = new ApiClient(cliCfg);
   const cwd = process.cwd();
-
   const existing = await loadProjectConfig(cwd);
-  const { project: created, createdNow } = await resolveOrCreateProject(
-    api,
-    cwd,
-    opts,
-    existing,
-  );
-  let project = created;
 
-  if (project.cli_deploys_enabled === false) {
-    throw new LayeroError(
-      "cli_deploys_disabled",
-      `CLI deploys are disabled on project "${project.slug}"`,
-      "enable them in project settings, or remove --project to use a different project",
-    );
-  }
+  // --- Всё, что требует файловой системы, делаем сами. Остальное — сервер.
 
-  // Prompt before overwriting production — only in interactive mode.
-  if (opts.prod && !opts.yes && !opts.branch && mode.interactive) {
-    const ok = await confirm(
-      `deploy to production (https://${project.apex_hostname})?`,
-    );
-    if (!ok) {
-      console.log(chalk.yellow("aborted."));
-      return;
-    }
-  }
-
-  // Prebuilt deploys: caller has already built the artifact and points at
-  // its directory. Setup-config detection is skipped (we report a synthetic
-  // static setup so completeSetup gets *some* values and the dashboard
-  // shows the project is configured).
   const prebuiltDir = await resolvePrebuiltDir(cwd, opts.prebuilt);
 
-  // Resolve setup config (auto-detect + overrides). Done eagerly so the
-  // user sees what we detected before any network I/O.
   const setup: {
     framework_hint: string;
     build_cmd: string;
@@ -506,7 +319,101 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     emit({ event: "prebuilt", dir: prebuiltDir });
   }
 
-  const persistedCfg = await persistProjectLinking(
+  // Организацию выбирает человек — но только когда есть из чего выбирать и
+  // есть кому отвечать. В агентском режиме и в CI спрашивать некого, там
+  // политику применяет сервер (одна организация → она, несколько → личная).
+  const willCreate = !opts.project && !existing?.project_id;
+  let organizationSlug: string | undefined = opts.org;
+  if (willCreate && !organizationSlug && mode.interactive && !opts.yes) {
+    const orgs = await api.listOrganizations();
+    if (orgs.length > 1) {
+      console.log(chalk.cyan("which organization?"));
+      orgs.forEach((o, i) => {
+        const tag = o.kind === "personal" ? "personal" : "team";
+        console.log(`  ${i + 1}. ${o.slug} (${tag}, ${o.my_role})`);
+      });
+      const choiceRaw = await prompt("choose number", "1");
+      const idx = Number(choiceRaw) - 1;
+      if (Number.isNaN(idx) || idx < 0 || idx >= orgs.length) {
+        throw new LayeroError(
+          "invalid_choice",
+          `invalid org choice "${choiceRaw}"`,
+          "enter a number from the list",
+        );
+      }
+      organizationSlug = orgs[idx]!.slug;
+    }
+  }
+
+  const fallbackName = path.basename(cwd);
+  const name =
+    opts.name ??
+    (willCreate && mode.interactive && !opts.yes && !opts.config
+      ? await prompt("project name", fallbackName)
+      : fallbackName);
+
+  const targeting = deployTargeting(opts);
+
+  // --- Одно обращение вместо пяти: резолв или создание проекта, настройка,
+  // тип рантайма, root и выдача адреса для загрузки архива.
+
+  let session;
+  try {
+    session = await api.createDeploySession({
+      project_id: existing?.project_id ?? undefined,
+      ...(opts.project ? { name: opts.project } : existing?.project_id ? {} : { name }),
+      organization_slug: organizationSlug,
+      target: targeting.target,
+      branch: targeting.branch,
+      promote: Boolean(opts.promote),
+      prebuilt: prebuiltDir !== null,
+      framework_hint: setup.framework_hint,
+      build_cmd: setup.build_cmd,
+      output_dir: setup.output_dir,
+      runtime_kind: setup.runtime_kind,
+      root_directory: opts.root ?? null,
+      env_vars: existing?.env_vars ?? {},
+      commit_message: prebuiltDir
+        ? `CLI prebuilt deploy (${prebuiltDir})`
+        : "CLI deploy",
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 403) {
+      throw new LayeroError(
+        "forbidden",
+        `access denied: ${err.body.slice(0, 200)}`,
+        "check that your token has the required scope and that you're a member of the organization",
+      );
+    }
+    throw err;
+  }
+
+  const project = session.project;
+  if (project.cli_deploys_enabled === false) {
+    throw new LayeroError(
+      "cli_deploys_disabled",
+      `CLI deploys are disabled on project "${project.slug}"`,
+      "enable them in project settings, or remove --project to use a different project",
+    );
+  }
+
+  emit(
+    session.created_project
+      ? {
+          event: "project_created",
+          project_id: project.id,
+          slug: project.slug,
+          organization: project.organization.slug,
+        }
+      : {
+          event: "project_linked",
+          project_id: project.id,
+          slug: project.slug,
+        },
+  );
+  emit({ event: "setup_applied" });
+
+  await persistProjectLinking(
     cwd,
     {
       project_id: project.id,
@@ -517,76 +424,77 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     setup.framework_hint,
   );
 
-  if (createdNow) {
-    emit({
-      event: "project_created",
-      project_id: project.id,
-      slug: project.slug,
-      organization: project.organization.slug,
-    });
-  } else {
-    emit({
-      event: "project_linked",
-      project_id: project.id,
-      slug: project.slug,
-    });
-  }
-
-  // Apply setup if the project is still in pending_setup. After first
-  // run, subsequent deploys reuse whatever was set then — the user can
-  // edit .layero/project.json or use the dashboard to change it.
-  if (project.status === "pending_setup") {
-    project = await api.completeSetup(project.id, {
-      framework_hint: setup.framework_hint,
-      build_cmd: setup.build_cmd,
-      output_dir: setup.output_dir,
-      analytics_enabled: persistedCfg.analytics_enabled ?? false,
-      env_vars: persistedCfg.env_vars ?? {},
-      root_directory: opts.root ?? null,
-    });
-    emit({ event: "setup_applied" });
-    // Newly-created projects default to project_type='spa'. If detect
-    // says the repo is SSR (Next.js without `output: 'export'`), flip
-    // the type now — otherwise the first build crashes at the detect
-    // stage with "looks like ssr_next but configured as spa", forcing
-    // the user to open the dashboard and accept the suggestion. Only
-    // applied on first setup; an explicitly-configured spa project
-    // that drops a next.config later keeps user's choice.
-    if (setup.runtime_kind) {
-      try {
-        project = await api.setRuntimeType(project.id, setup.runtime_kind);
-        emit({ event: "runtime_type_applied", project_type: setup.runtime_kind });
-      } catch (err) {
-        // Non-fatal: the build will fall back to the dashboard suggestion
-        // flow exactly as it did before this CLI fix. Tell the user what
-        // happened so they don't burn a deploy on a surprise crash.
-        const msg = err instanceof Error ? err.message : String(err);
-        emit({ event: "runtime_type_apply_failed", error: msg });
-      }
+  // Подтверждение спрашиваем ЗДЕСЬ, а не раньше: адрес апекса известен
+  // только от сервера, а сборка ещё не запущена — отказ ничего не стоит.
+  // Для только что созданного проекта вопрос бессмыслен: перезаписывать
+  // нечего.
+  if (
+    opts.prod &&
+    !opts.yes &&
+    !opts.branch &&
+    mode.interactive &&
+    !session.created_project
+  ) {
+    const ok = await confirm(
+      `deploy to production (https://${project.apex_hostname})?`,
+    );
+    if (!ok) {
+      console.log(chalk.yellow("aborted."));
+      return;
     }
-  } else if (opts.root !== undefined) {
-    // Active project: --root patches the existing row so the *next*
-    // GitHub-pushed or hook-triggered build uses the new subdir.
-    project = await api.updateProject(project.id, { root_directory: opts.root });
   }
 
-  let upload: Awaited<ReturnType<typeof packAndUpload>> | null = null;
+  // --- Упаковка и загрузка: единственное, что клиент обязан делать сам.
+
+  let archivePath: string | null = null;
   try {
-    upload = await packAndUpload(api, cwd, project, prebuiltDir);
-
-    const targeting = deployTargeting(opts);
-    const deploy = await api.triggerDeploy(project.id, {
-      source_archive_key: upload.archive_key,
-      commit_sha: upload.commit_sha,
-      commit_message: prebuiltDir ? `CLI prebuilt deploy (${prebuiltDir})` : "CLI deploy",
-      framework_hint: setup.framework_hint,
-      target: targeting.target,
-      branch: targeting.branch,
-      prebuilt: prebuiltDir !== null,
+    const pack = prebuiltDir
+      ? await packDirectory(path.resolve(cwd, prebuiltDir), project.slug)
+      : await packCwd(cwd, project.slug);
+    archivePath = pack.archivePath;
+    emit({
+      event: "packing",
+      files: pack.fileCount,
+      bytes: pack.size,
+      sha256: pack.sha256,
+      ...(prebuiltDir ? { prebuilt_dir: prebuiltDir } : {}),
     });
-    emit({ event: "deploy_started", deploy_id: deploy.id });
+    if (pack.forcedLockfiles?.length) {
+      process.stderr.write(
+        chalk.yellow(
+          `! including gitignored lockfile(s) so the build uses a frozen install: ` +
+            `${pack.forcedLockfiles.join(", ")}\n`,
+        ),
+      );
+    }
 
-    const final = await streamDeployLogs(api, deploy.id);
+    emit({ event: "uploading" });
+    await uploadArchive(
+      {
+        upload_url: session.upload_url,
+        headers: session.upload_headers,
+        source_archive_key: session.source_archive_key,
+        expires_in: session.expires_in,
+      },
+      pack.archivePath,
+    );
+    emit({ event: "uploaded", archive_key: session.source_archive_key });
+
+    const started = await api.startDeploySession(session.session_id, {
+      commit_sha: pack.sha256,
+    });
+    if (!started.deploy_id) {
+      throw new LayeroError(
+        "deploy_not_started",
+        `deploy session ended as "${started.status}"${
+          started.error ? `: ${started.error}` : ""
+        }`,
+        "re-run `layero deploy`; if it repeats, check the project in the dashboard",
+      );
+    }
+    emit({ event: "deploy_started", deploy_id: started.deploy_id });
+
+    const final = await streamDeployLogs(api, started.deploy_id);
     if (final.status !== "ready") {
       throw new LayeroError(
         `deploy_${final.status}`,
@@ -597,53 +505,32 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       );
     }
 
-    // --promote: pin apex_hostname to this deploy after a successful
-    // build. Independent of --prod; --promote lets the typical "CLI
-    // preview branch" deploy publish straight to production in one
-    // command. Best-effort: a failure here doesn't fail the deploy
-    // (the artifact is good; promote can be retried via `layero promote`).
+    // --promote: пин апекса на эту сборку. Промоут остаётся на клиенте
+    // осознанно — сборка асинхронна, а сервер применяет промоут только
+    // после активации (см. AGENT-01, известные ограничения).
     let promoted = false;
     if (opts.promote) {
       try {
-        await api.promoteDeploy(project.id, deploy.id);
+        await api.promoteDeploy(project.id, started.deploy_id);
         promoted = true;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn(
           chalk.yellow(
             `warning: deploy succeeded but promote failed — ${msg}.\n` +
-              `  retry with: layero promote ${deploy.id.slice(0, 8)}`,
+              `  retry with: layero promote ${started.deploy_id.slice(0, 8)}`,
           ),
         );
       }
     }
 
-    // Where is this build actually reachable? Ask the backend rather than
-    // guessing — it knows the live public URL (apex once it's the production
-    // pointer), the off-CDN preview URL that's reachable immediately, and
-    // how far along CDN propagation is. Note: a plain `layero deploy` of a
-    // CLI project auto-promotes to the apex on activate (no `--prod` /
-    // `promote` needed), so the apex IS the destination for the common case.
     const dashboardUrl = projectUrl(cliCfg.apiUrl, project.id);
     const apexUrl = `https://${project.apex_hostname}`;
-    const probe = await resolveReachability(api, deploy.environment_id);
+    const deployRow = await api.getDeploy(started.deploy_id);
+    const probe = deployRow.environment_id
+      ? await resolveReachability(api, deployRow.environment_id)
+      : null;
 
-    // Публичный адрес сайта.
-    //
-    // Раньше здесь стоял гейт `cdn_ready`: пока YC CDN не подтвердил апекс,
-    // отдавали off-CDN превью, потому что свежий апекс 10-15 минут отвечал
-    // 404, а runtime-приложения на апексе вообще не принимали POST (CDN резал
-    // не-GET). После EDGE-02 CDN перед пользовательскими зонами нет: апекс
-    // валиден с момента создания проекта (wildcard-запись + wildcard-серт), а
-    // `cdn_ready` бекенд отдаёт false НАВСЕГДА — строки в `cdn_hostnames` у
-    // новых проектов не появляется вовсе.
-    //
-    // Из-за этого условие не выполнялось никогда, и после успешной публикации
-    // CLI выдавал ссылку на дашборд вместо адреса сайта. Проверено вживую
-    // 2026-07-26: `layero deploy` вернул `url: https://app.layero.ru/projects/…`.
-    //
-    // Апекс — адрес по умолчанию; превью остаётся для деплоя ветки, которую
-    // не промоутили: там апекс ведёт на другую сборку.
     const liveUrl =
       promoted || !opts.branch
         ? probe?.canonical_url ?? apexUrl
@@ -652,18 +539,14 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     emit({
       event: "ready",
       url: liveUrl,
-      deploy_id: deploy.id,
+      deploy_id: started.deploy_id,
       preview_url: probe?.preview_url ?? undefined,
       dashboard_url: dashboardUrl,
-      // `available` от пробы, а НЕ `cdn_ready`: последний после EDGE-02
-      // остаётся false навсегда, и потребитель JSON-вывода ждал бы события,
-      // которого не будет. ETA пропагации убран по той же причине —
-      // распространять больше нечего.
       edge_ready: probe ? probe.available : undefined,
     });
   } finally {
-    if (upload) {
-      await fs.unlink(upload.archivePath).catch(() => undefined);
+    if (archivePath) {
+      await fs.unlink(archivePath).catch(() => undefined);
     }
   }
 }

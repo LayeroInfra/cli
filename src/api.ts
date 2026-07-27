@@ -133,6 +133,45 @@ export class ApiClient {
     });
   }
 
+  /**
+   * Открыть сессию деплоя (AGENT-01/04).
+   *
+   * Один вызов вместо пяти: платформа сама решает, создавать ли проект,
+   * применяет настройку и выдаёт адрес для загрузки архива. `commit_sha`
+   * здесь не передаём — он известен только после упаковки, а паковать до
+   * проверки прав значит зря жечь время пользователя на отказе.
+   */
+  createDeploySession(input: {
+    project_id?: string;
+    name?: string;
+    organization_slug?: string;
+    reuse_existing?: boolean;
+    target?: "preview" | "production";
+    branch?: string;
+    promote?: boolean;
+    prebuilt?: boolean;
+    framework_hint?: string;
+    build_cmd?: string;
+    output_dir?: string;
+    runtime_kind?: string;
+    root_directory?: string | null;
+    env_vars?: Record<string, string>;
+    commit_message?: string;
+  }): Promise<DeploySessionOut> {
+    return this.request<DeploySessionOut>("POST", "/deploy-sessions", input);
+  }
+
+  startDeploySession(
+    sessionId: string,
+    input: { commit_sha: string },
+  ): Promise<DeploySessionStatusOut> {
+    return this.request<DeploySessionStatusOut>(
+      "POST",
+      `/deploy-sessions/${sessionId}/start`,
+      input,
+    );
+  }
+
   initUpload(projectId: string): Promise<UploadInit> {
     return this.request<UploadInit>(
       "POST",
@@ -226,6 +265,11 @@ export class ApiClient {
       "GET",
       `/environments/${environmentId}/probe`,
     );
+  }
+
+  /** Одна сборка. Нужна, чтобы узнать её окружение для probe. */
+  getDeploy(deployId: string): Promise<DeployOut> {
+    return this.request<DeployOut>("GET", `/deploys/${deployId}`);
   }
 
   pollLogs(deployId: string, afterId: number): Promise<LogsPollOut> {
