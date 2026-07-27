@@ -17,6 +17,7 @@ import { loginCmd } from "../commands/login.js";
 import { orgsListCmd } from "../commands/orgs.js";
 import { initCmd } from "../commands/init.js";
 import { LayeroError, detectMode, emit } from "../agent.js";
+import { notifyIfOutdated } from "../update-notifier.js";
 
 // Read version from the shipped package.json (two levels up from dist/bin/).
 const pkgPath = path.resolve(
@@ -267,6 +268,9 @@ async function main(): Promise<void> {
     });
 
   await program.parseAsync(process.argv);
+  // AFTER the command, so the nag never delays real work — and on stderr, so
+  // `--json` stdout stays parseable. Bounded + never-throwing by construction.
+  await notifyIfOutdated(VERSION);
 }
 
 main().catch((err) => {
