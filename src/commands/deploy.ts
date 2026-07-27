@@ -360,13 +360,17 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
   let session;
   try {
     session = await api.createDeploySession({
-      project_id: existing?.project_id ?? undefined,
-      // `--project` указывает на СУЩЕСТВУЮЩИЙ проект: опечатка в слаге
-      // должна дать 404, а не завести лишний проект с похожим именем.
+      // `--project` ПЕРЕОПРЕДЕЛЯЕТ запись в .layero/project.json: пользователь
+      // явно сказал, куда деплоить, и залинкованный проект тут не при чём.
+      // Передать оба поля нельзя — сервер выберет project_id и молча уедет
+      // не туда, куда просили.
+      //
+      // Опечатка в слаге при этом обязана дать 404, а не завести лишний
+      // проект с похожим именем: `create_if_missing: false`.
       ...(opts.project
         ? { name: opts.project, create_if_missing: false }
         : existing?.project_id
-          ? {}
+          ? { project_id: existing.project_id }
           : { name }),
       organization_slug: organizationSlug,
       target: targeting.target,

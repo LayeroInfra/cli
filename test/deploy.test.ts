@@ -284,3 +284,41 @@ describe("B3/B4: ready event carries the public URL + preview", () => {
     expect(ready.edge_eta_seconds).toBeUndefined();
   });
 });
+
+describe("AGENT-04: --project переопределяет .layero/project.json", () => {
+  it("шлёт слаг из --project и не шлёт project_id залинкованного проекта", async () => {
+    // Каталог УЖЕ залинкован на другой проект — ровно та ситуация, в которой
+    // легко уехать не туда: если передать оба поля, сервер выберет project_id
+    // и молча задеплоит в залинкованный, а не в запрошенный.
+    loadProjectConfig.mockResolvedValue({
+      project_id: "proj-LINKED",
+      slug: "linked",
+      organization_slug: "valya",
+      apex_hostname: "linked.layero.app",
+    });
+
+    await deployCmd({ json: true, project: "other-project" });
+
+    const arg = createDeploySession.mock.calls[0]![0] as any;
+    expect(arg.name).toBe("other-project");
+    expect(arg.project_id).toBeUndefined();
+    // Опечатка в слаге должна давать 404, а не заводить лишний проект.
+    expect(arg.create_if_missing).toBe(false);
+  });
+
+  it("без --project использует залинкованный project_id", async () => {
+    loadProjectConfig.mockResolvedValue({
+      project_id: "proj-LINKED",
+      slug: "linked",
+      organization_slug: "valya",
+      apex_hostname: "linked.layero.app",
+    });
+
+    await deployCmd({ json: true });
+
+    const arg = createDeploySession.mock.calls[0]![0] as any;
+    expect(arg.project_id).toBe("proj-LINKED");
+    expect(arg.name).toBeUndefined();
+    expect(arg.create_if_missing).toBeUndefined();
+  });
+});
