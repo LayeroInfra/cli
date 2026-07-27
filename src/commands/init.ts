@@ -95,7 +95,7 @@ or a \`dist/\`), ship the artifact directly and skip the server-side
 npx layero@latest deploy --prebuilt out
 \`\`\`
 
-Full reference: https://docs.layero.ru/cli/agents
+Full reference: https://docs.layero.ru/en/cli/agents
 ${AGENT_BLOCK_MARKER_END}
 `;
 }
