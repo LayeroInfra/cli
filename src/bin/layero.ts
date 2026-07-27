@@ -179,7 +179,11 @@ async function main(): Promise<void> {
 
   program
     .command("rollback")
-    .description("Re-activate the previous successful deploy on the project's default branch.")
+    .description(
+      "Re-activate the previous successful deploy on a branch environment. " +
+        "DOES NOT move the production pointer — the apex keeps serving whatever " +
+        "it served before. To bring production back, use `layero promote <sha>`.",
+    )
     .option("--project <id_or_slug>", "target project (default: linked .layero/project.json)")
     .option("--branch <name>", "branch to roll back (default: project's default_branch)")
     .option("--deploy <id_or_sha>", "explicit deploy id or commit sha prefix to roll back to")
@@ -246,7 +250,10 @@ async function main(): Promise<void> {
     )
     .option(
       "--branch <name>",
-      "deploy to a specific branch's environment. Wins over --prod.",
+      "ACCEPTED BUT IGNORED for direct uploads: the backend files every " +
+        "archive deploy under the reserved `cli` environment. Branch " +
+        "environments come from pushes to a connected repository, not from " +
+        "this flag. Kept for backwards compatibility.",
     )
     .option(
       "--org <slug>",
