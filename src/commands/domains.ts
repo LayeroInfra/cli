@@ -90,7 +90,29 @@ export async function domainsAddCmd(domain: string, opts: DomainOptions): Promis
   const api = new ApiClient(await loadConfig());
   const project = await resolveProjectId(api, opts, process.cwd());
 
-  const created = await api.addDomain(project.id, domain);
+  let created;
+  try {
+    created = await api.addDomain(project.id, domain);
+  } catch (err) {
+    // Отказы здесь — почти всегда про сам домен, и сырое «API POST … → 400»
+    // не говорит пользователю ничего. Разворачиваем в объяснение.
+    if (err instanceof ApiError && (err.status === 400 || err.status === 409 || err.status === 422)) {
+      let detail = err.body;
+      try {
+        detail = JSON.parse(err.body)?.detail ?? err.body;
+      } catch {
+        /* тело не JSON — покажем как есть */
+      }
+      throw new LayeroError(
+        "domain_rejected",
+        `домен не принят: ${String(detail).slice(0, 300)}`,
+        err.status === 409
+          ? "домен уже привязан — к этому или другому проекту"
+          : "проверь написание; платформенные адреса (*.layero.ru, *.layero.app) привязать нельзя — они и так твои",
+      );
+    }
+    throw err;
+  }
   const instr = await api.getDomainInstructions(project.id, created.id);
 
   if (mode.json) {
@@ -137,7 +159,23 @@ export async function domainsVerifyCmd(domain: string, opts: DomainOptions): Pro
     );
   }
 
-  const after = await api.verifyDomain(project.id, found.id);
+  // Неразошедшийся DNS — ОЖИДАЕМОЕ промежуточное состояние, а не сбой:
+  // между привязкой и работающим доменом стоит человек, правящий записи у
+  // регистратора. API отвечает на это 400 (для него «подтвердить не
+  // удалось» — отказ), но показывать пользователю ошибку там, где всё идёт
+  // по плану, — значит пугать его на ровном месте. Разворачиваем в отчёт
+  // о состоянии.
+  let after;
+  try {
+    after = await api.verifyDomain(project.id, found.id);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 400) {
+      const fresh = (await api.listDomains(project.id)).find((d) => d.id === found.id);
+      after = fresh ?? found;
+    } else {
+      throw err;
+    }
+  }
   const instr = await api.getDomainInstructions(project.id, found.id);
 
   if (mode.json) {
