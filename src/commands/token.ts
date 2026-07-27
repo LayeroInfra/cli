@@ -9,7 +9,7 @@ export async function tokenSetCmd(jwt: string): Promise<void> {
   const probe = new ApiClient(cfg);
   try {
     const me = await probe.me();
-    cfg.user = { id: me.id, username: me.username, email: me.email };
+    cfg.user = { id: me.id, username: me.username ?? null, email: me.email };
   } catch (err) {
     console.error(
       chalk.red(`token rejected by API: ${(err as Error).message}`),

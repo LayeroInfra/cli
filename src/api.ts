@@ -1,4 +1,26 @@
 import { CliConfig } from "./config.js";
+import type { components } from "./generated/api-types.js";
+
+/**
+ * Типы ответов API берутся из СГЕНЕРИРОВАННОЙ схемы (AGENT-03), а не
+ * описываются руками. Раньше здесь лежало ~200 строк интерфейсов, которые
+ * синхронизировались с бэкендом глазами: поле, переименованное на сервере,
+ * оставалось прежним в этом файле, TypeScript продолжал компилироваться, и
+ * расхождение всплывало уже у пользователя.
+ *
+ * `scripts/gen-sdk.sh` перегенерирует файл, а CI падает, если он разошёлся
+ * со схемой.
+ */
+type Schemas = components["schemas"];
+
+export type ProjectSummary = Schemas["ProjectOut"];
+export type MeOut = Schemas["MeOut"];
+export type UploadInit = Schemas["UploadInitOut"];
+export type DeployOut = Schemas["DeployOut"];
+export type ProbeOut = Schemas["ProbeOut"];
+export type LogsPollOut = Schemas["DeployLogsPollOut"];
+export type DeploySessionOut = Schemas["DeploySessionOut"];
+export type DeploySessionStatusOut = Schemas["DeploySessionStatusOut"];
 
 export class ApiError extends Error {
   constructor(
@@ -10,45 +32,6 @@ export class ApiError extends Error {
   }
 }
 
-export interface ProjectSummary {
-  id: string;
-  name: string;
-  slug: string;
-  apex_hostname: string;
-  source_type: string;
-  github_integration_enabled?: boolean;
-  cli_deploys_enabled?: boolean;
-  framework_hint: string | null;
-  default_branch: string;
-  organization: {
-    id: string;
-    github_login: string | null;
-    slug: string;
-    kind?: "personal" | "team";
-  };
-  created_at: string;
-  publish_status?: string;
-  status?: "pending_setup" | "active";
-  // V071 production-pointer.
-  production_deploy_id?: string | null;
-  auto_promote_default_branch?: boolean;
-  production_pointer_enabled?: boolean;
-}
-
-export interface MeOut {
-  id: string;
-  github_login: string | null;
-  username: string | null;
-  email: string | null;
-  avatar_url: string | null;
-}
-
-export interface UploadInit {
-  upload_url: string;
-  source_archive_key: string;
-  headers: Record<string, string>;
-  expires_in: number;
-}
 
 export interface DeployHookOut {
   id: string;
@@ -60,38 +43,6 @@ export interface DeployHookOut {
   last_triggered_at: string | null;
 }
 
-export interface DeployOut {
-  id: string;
-  environment_id: string;
-  status: string;
-  commit_sha: string;
-  commit_message?: string | null;
-  current_stage: string | null;
-  error_message: string | null;
-  created_at?: string;
-  finished_at?: string | null;
-  source_type?: string;
-  triggered_by_user_id?: string | null;
-}
-
-// Subset of the backend's ProbeOut (GET /environments/{id}/probe) that the
-// CLI cares about. The backend already knows the live public URL, so the
-// CLI doesn't have to guess hostnames or assume promote semantics.
-export interface ProbeOut {
-  available: boolean;
-  // The canonical public URL — apex (`https://<project>.layero.app/`) once
-  // the deploy is the project's production pointer, else the env's canonical
-  // host.
-  canonical_url: string | null;
-  // Legacy field: user sites in the `layero.app` zone have no separate
-  // preview host, so this is null for them. Kept for older CLI builds.
-  preview_url: string | null;
-  // CDN edge state for the canonical host.
-  cdn_ready: boolean;
-  cdn_eta_seconds: number | null;
-  reason: string;
-}
-
 export interface LogLine {
   id: number;
   stream: string;
@@ -99,14 +50,6 @@ export interface LogLine {
   created_at: string;
 }
 
-export interface LogsPollOut {
-  lines: LogLine[];
-  status: string;
-  error_message: string | null;
-  s3_path: string | null;
-  terminal: boolean;
-  current_stage: string | null;
-}
 
 export class ApiClient {
   constructor(private readonly cfg: CliConfig) {}

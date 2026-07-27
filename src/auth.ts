@@ -51,7 +51,7 @@ export async function runDeviceLogin(cfg: CliConfig): Promise<CliConfig> {
       cfg.token = poll.token;
       const probe = new ApiClient(cfg);
       const me = await probe.me();
-      cfg.user = { id: me.id, username: me.username, email: me.email };
+      cfg.user = { id: me.id, username: me.username ?? null, email: me.email };
       await saveConfig(cfg);
       if (mode.json) {
         emit({ event: "authorized", user: me.username ?? me.email ?? me.id });
