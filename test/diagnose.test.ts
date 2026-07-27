@@ -48,10 +48,22 @@ beforeEach(() => {
 });
 
 describe("выбор деплоя", () => {
-  it("берёт последний НЕуспешный, а не просто последний", async () => {
+  it("после починки показывает СВЕЖИЙ успешный, а не старую ошибку", async () => {
+    // Пользователь исправил код и передеплоил. Если показать «последний
+    // неуспешный», он снова увидит ошибку, которой уже нет, и решит, что
+    // починка не сработала. Поймано живым прогоном на проде.
     listProjectDeploys.mockResolvedValue([
       { id: "d-ok", status: "ready" },
       { id: "d-fail", status: "failed" },
+    ]);
+    await diagnoseCmd({ json: true });
+    expect(getDeployDiagnosis).toHaveBeenCalledWith("d-ok");
+  });
+
+  it("свежую неудачу показывает как неудачу", async () => {
+    listProjectDeploys.mockResolvedValue([
+      { id: "d-fail", status: "failed" },
+      { id: "d-ok", status: "ready" },
     ]);
     await diagnoseCmd({ json: true });
     expect(getDeployDiagnosis).toHaveBeenCalledWith("d-fail");
@@ -66,7 +78,7 @@ describe("выбор деплоя", () => {
     expect(getDeployDiagnosis).toHaveBeenCalledWith("d-new");
   });
 
-  it("идущую сборку не считает падением", async () => {
+  it("идущую сборку показывает как идущую", async () => {
     listProjectDeploys.mockResolvedValue([
       { id: "d-building", status: "building" },
       { id: "d-ok", status: "ready" },
