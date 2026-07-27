@@ -196,9 +196,10 @@ async function main(): Promise<void> {
   program
     .command("rollback")
     .description(
-      "Re-activate the previous successful deploy on a branch environment. " +
-        "DOES NOT move the production pointer — the apex keeps serving whatever " +
-        "it served before. To bring production back, use `layero promote <sha>`.",
+      "Re-activate the previous successful deploy. Since 27 Jul 2026 it also " +
+        "moves the production pointer, so the apex comes back too when it is " +
+        "served by this branch. For a SPECIFIC older deploy use " +
+        "`layero promote <commit-sha>`.",
     )
     .option("--project <id_or_slug>", "target project (default: linked .layero/project.json)")
     .option("--branch <name>", "branch to roll back (default: project's default_branch)")
