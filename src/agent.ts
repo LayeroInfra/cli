@@ -146,6 +146,12 @@ export type Event =
       next_actions: string[];
       truncated: boolean;
     } & EventCommon)
+  | ({ event: "analytics_status"; connected: boolean; counter_id?: number; status: string; injection_mode: string; tracked_branch?: string } & EventCommon)
+  // Между ссылкой и подключением стоит ЧЕЛОВЕК: OAuth Яндекса проходит в
+  // браузере, и ни CLI, ни агент не сделают этот шаг за него.
+  | ({ event: "analytics_connect_started"; oauth_url: string; next_action: string } & EventCommon)
+  | ({ event: "analytics_stats"; period: string; state: string; totals: unknown; trend: string | null; sources: unknown[]; devices: unknown[]; pages: unknown[] } & EventCommon)
+  | ({ event: "analytics_disconnected"; project: string } & EventCommon)
   | ({ event: "perf_check_started"; run_id: string; status: string | null; next_action: string } & EventCommon)
   // Вердикт по БАЛЛУ: тайминги на одном и том же коде гуляют на десятки
   // процентов, и решение по ним было бы случайным.

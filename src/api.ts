@@ -26,6 +26,7 @@ export type RuntimeLogsOut = Schemas["RuntimeLogsOut"];
 export type DomainOut = Schemas["DomainOut"];
 export type DomainInstructionsOut = Schemas["DomainInstructionsOut"];
 export type PerfCheckOut = Schemas["PerfCheckOut"];
+export type MetrikaIntegrationOut = Schemas["MetrikaIntegrationOut"];
 
 export class ApiError extends Error {
   constructor(
@@ -291,6 +292,38 @@ export class ApiClient {
       "GET",
       `/deploys/${deployId}/runtime/logs?tail=${tail}`,
     );
+  }
+
+  // --- Метрика (AGENT-12) ---------------------------------------------
+
+  getMetrikaIntegration(projectId: string): Promise<MetrikaIntegrationOut> {
+    return this.request<MetrikaIntegrationOut>(
+      "GET",
+      `/projects/${projectId}/integrations/metrika`,
+    );
+  }
+
+  /**
+   * Возвращает ссылку на OAuth Яндекса. Открыть её должен ЧЕЛОВЕК —
+   * ни CLI, ни агент за него авторизоваться не могут.
+   */
+  connectMetrika(projectId: string, branch?: string): Promise<{ oauth_url: string }> {
+    return this.request<{ oauth_url: string }>(
+      "POST",
+      `/projects/${projectId}/integrations/metrika/connect`,
+      branch ? { branch_name: branch } : {},
+    );
+  }
+
+  getMetrikaStats(projectId: string, period = "7d"): Promise<unknown> {
+    return this.request<unknown>(
+      "GET",
+      `/projects/${projectId}/integrations/metrika/stats?period=${encodeURIComponent(period)}`,
+    );
+  }
+
+  disconnectMetrika(projectId: string): Promise<void> {
+    return this.request<void>("DELETE", `/projects/${projectId}/integrations/metrika`);
   }
 
   // --- Замеры (AGENT-11) ----------------------------------------------

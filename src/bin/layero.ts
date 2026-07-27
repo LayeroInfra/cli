@@ -19,6 +19,12 @@ import { initCmd } from "../commands/init.js";
 import { diagnoseCmd, logsCmd } from "../commands/diagnose.js";
 import { perfCheckCmd, perfShowCmd } from "../commands/perf.js";
 import {
+  analyticsConnectCmd,
+  analyticsDisconnectCmd,
+  analyticsStatsCmd,
+  analyticsStatusCmd,
+} from "../commands/analytics.js";
+import {
   domainsAddCmd,
   domainsListCmd,
   domainsPrimaryCmd,
@@ -208,6 +214,32 @@ async function main(): Promise<void> {
     .action(async (opts) => {
       await rollbackCmd(opts);
     });
+
+  const analytics = program
+    .command("analytics")
+    .description("Яндекс.Метрика: подключение и статистика сайта.");
+  const withProject = (c: any) =>
+    c.option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)");
+  withProject(analytics.command("status").description("Подключена ли Метрика и к какой ветке."))
+    .action(async (opts: any) => analyticsStatusCmd({ ...opts, json: program.opts().json }));
+  withProject(
+    analytics
+      .command("connect")
+      .description("Подключить Метрику. Печатает ссылку — открыть её и разрешить доступ должен человек.")
+      .option("--branch <name>", "ветка, чей адрес получит счётчик (по умолчанию основная)"),
+  ).action(async (opts: any) => analyticsConnectCmd({ ...opts, json: program.opts().json }));
+  withProject(
+    analytics
+      .command("stats")
+      .description("Посещаемость: итоги, тренд и топ источников/устройств/страниц.")
+      .option("--period <7d|30d|90d>", "период (по умолчанию 7d)"),
+  ).action(async (opts: any) => analyticsStatsCmd({ ...opts, json: program.opts().json }));
+  withProject(
+    analytics
+      .command("disconnect")
+      .description("Отключить Метрику от проекта.")
+      .option("-y, --yes", "не спрашивать подтверждение"),
+  ).action(async (opts: any) => analyticsDisconnectCmd({ ...opts, json: program.opts().json }));
 
   const perf = program
     .command("perf")
