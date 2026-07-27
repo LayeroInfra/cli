@@ -149,6 +149,14 @@ uploaded (no source-tree filters like `.gitignore` apply). The platform
 ships them verbatim — no detect, no install, no build. Smaller archive,
 faster deploys, no surprises from the platform's package-manager defaults.
 
+⚠️ The flip side of ignoring `.gitignore`: `--prebuilt .` at your project
+root publishes **everything there** except the built-in denylist, including
+drafts you hid via `.gitignore` (verified on a live deploy — such a file comes
+back with a 200). Secrets are still safe: `.env`, `.env.*`, `.git`,
+`node_modules` and the rule files are excluded on this path too, nested
+directories included. Even so, name the directory explicitly rather than
+using `.`.
+
 Override anything by editing `.layero/project.json` after the first `layero init`.
 
 ## In CI
