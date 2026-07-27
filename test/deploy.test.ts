@@ -184,11 +184,19 @@ describe("B3/B4: ready event carries the public URL + preview", () => {
       .find((e) => e && e.event === "ready");
   }
 
-  it("emits the preview_url as url until CDN is warm (never the dashboard)", async () => {
-    // Preview-first contract: the mock probe reports cdn_ready=false, so the
-    // reachable address is the off-CDN preview — the fresh apex 404/000s during
-    // CDN propagation. `url` must be the preview, with edge_ready=false +
-    // edge_eta_seconds telling the caller the apex is on its way.
+  it("emits the apex as url even when cdn_ready=false (never the dashboard)", async () => {
+    // Contract as of 2026-07-26 (commit 8779f32). It USED to gate on
+    // `cdn_ready` and fall back to the off-CDN preview while the fresh apex was
+    // still 404-ing through CDN propagation. After EDGE-02 there is no CDN in
+    // front of user zones: the apex is valid from project creation (wildcard
+    // record + wildcard cert) and the backend now reports `cdn_ready=false`
+    // FOREVER — no row ever lands in `cdn_hostnames` for a new project. The old
+    // gate therefore never opened and the CLI handed back a dashboard link
+    // instead of the site (reproduced live 2026-07-26).
+    //
+    // So: apex is the default address, and cdn_ready is no longer an input.
+    // `edge_ready` now mirrors the probe's `available`, and `edge_eta_seconds`
+    // is gone — there is nothing left to propagate.
     loadProjectConfig.mockResolvedValue(null);
     const lines: string[] = [];
     const spy = vi.spyOn(process.stdout, "write").mockImplementation((s: any) => {
@@ -202,13 +210,13 @@ describe("B3/B4: ready event carries the public URL + preview", () => {
     }
     const ready = readyEventOf(lines);
     expect(ready).toBeTruthy();
-    expect(ready.url).toBe("https://valya-smoke-deadbee.preview.layero.ru/");
+    expect(ready.url).toBe("https://valya-smoke.layero.ru/");
+    // The invariant this test has always been about, and still is.
     expect(ready.url).not.toContain("app.layero.ru");
-    expect(ready.edge_ready).toBe(false);
     expect(ready.preview_url).toBe("https://valya-smoke-deadbee.preview.layero.ru/");
     expect(ready.dashboard_url).toContain("app.layero.ru/projects/");
-    expect(ready.edge_ready).toBe(false);
-    expect(ready.edge_eta_seconds).toBe(300);
+    expect(ready.edge_ready).toBe(true); // = probe.available, not cdn_ready
+    expect(ready.edge_eta_seconds).toBeUndefined();
   });
 
   it("switches url to the canonical apex once CDN is ready", async () => {
