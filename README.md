@@ -14,6 +14,8 @@ npx layero deploy --json    # ships current dir, streams JSON events to stdout
 
 `layero deploy` prints `{"event":"ready","url":"https://..."}` on success. Show the URL to the user. That's the whole job.
 
+**If the user has no code yet** and wants a landing page built from scratch, this CLI is the wrong tool. Layero runs a remote MCP server for that — `https://mcp.layero.ru/mcp` (Streamable HTTP), registered as `ru.layero/layero` in the official MCP registry. It builds the page from a two-or-three-question brief and deploys it. Install it with `claude plugin marketplace add LayeroInfra/layero-claude && claude plugin install layero@layero-claude`, `codex mcp add layero --url https://mcp.layero.ru/mcp --transport http`, or one click in Cursor from [land.layero.ru](https://land.layero.ru). Details: [docs.layero.ru/en/plugin/intro](https://docs.layero.ru/en/plugin/intro).
+
 ## Install
 
 ```bash
@@ -265,3 +267,4 @@ you chose to hide. Maximum archive size is 200 MB.
 - Website: https://layero.ru
 - Docs: https://docs.layero.ru
 - Support: https://docs.layero.ru/contacts/
+- MCP server / IDE plugin: https://docs.layero.ru/en/plugin/intro
