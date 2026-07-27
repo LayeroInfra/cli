@@ -595,6 +595,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/deploys/{deploy_id}/diagnosis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Deploy Diagnosis
+         * @description Почему деплой в таком состоянии — один вызов вместо четырёх.
+         *
+         *     Собирает карточку деплоя, окрестность ошибки в логе сборки, хвост
+         *     рантайм-лога и состояние инстанса. Ответ намеренно held в единицах
+         *     килобайт: он предназначен агенту, у которого контекст конечен, а не
+         *     человеку с бесконечной прокруткой.
+         *
+         *     Рантайм берём из durable-истории, БЕЗ живого docker-tail: диагностика
+         *     нужна ровно тогда, когда приложение не поднялось, то есть когда ноду
+         *     спрашивать бесполезно, а история уже всё записала.
+         */
+        get: operations["deploy_diagnosis_deploys__deploy_id__diagnosis_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/deploys/{deploy_id}/logs": {
         parameters: {
             query?: never;
@@ -2830,6 +2859,34 @@ export interface components {
             type: string;
             /** Values */
             values: string[];
+        };
+        /**
+         * DeployDiagnosisOut
+         * @description Диагностика деплоя одним ответом (AGENT-07).
+         */
+        DeployDiagnosisOut: {
+            /** Build Error Found */
+            build_error_found: boolean;
+            /** Build Log Excerpt */
+            build_log_excerpt: string[];
+            /** Deploy Id */
+            deploy_id: string;
+            /** Next Actions */
+            next_actions: string[];
+            /** Runtime Error Found */
+            runtime_error_found: boolean;
+            /** Runtime Log Excerpt */
+            runtime_log_excerpt: string[];
+            /** Runtime State */
+            runtime_state: string | null;
+            /** Stage */
+            stage: string | null;
+            /** Status */
+            status: string | null;
+            /** Truncated */
+            truncated: boolean;
+            /** Verdict */
+            verdict: string | null;
         };
         /** DeployLogsPollOut */
         DeployLogsPollOut: {
@@ -5613,6 +5670,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeployOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deploy_diagnosis_deploys__deploy_id__diagnosis_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                deploy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeployDiagnosisOut"];
                 };
             };
             /** @description Validation Error */
