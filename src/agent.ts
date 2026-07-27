@@ -146,6 +146,10 @@ export type Event =
       next_actions: string[];
       truncated: boolean;
     } & EventCommon)
+  | ({ event: "perf_check_started"; run_id: string; status: string | null; next_action: string } & EventCommon)
+  // Вердикт по БАЛЛУ: тайминги на одном и том же коде гуляют на десятки
+  // процентов, и решение по ним было бы случайным.
+  | ({ event: "perf_check"; run_id: string; score: number | null; previous_score: number | null; delta: number | null; verdict: string; message: string; timings: unknown; significant_delta: number } & EventCommon)
   | ({ event: "domains"; project: string; domains: unknown[] } & EventCommon)
   // `domain_added` намеренно НЕ ждёт готовности: между ним и рабочим
   // доменом стоит человек, правящий DNS у регистратора.

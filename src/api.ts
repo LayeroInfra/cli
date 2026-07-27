@@ -25,6 +25,7 @@ export type DeployDiagnosisOut = Schemas["DeployDiagnosisOut"];
 export type RuntimeLogsOut = Schemas["RuntimeLogsOut"];
 export type DomainOut = Schemas["DomainOut"];
 export type DomainInstructionsOut = Schemas["DomainInstructionsOut"];
+export type PerfCheckOut = Schemas["PerfCheckOut"];
 
 export class ApiError extends Error {
   constructor(
@@ -290,6 +291,18 @@ export class ApiClient {
       "GET",
       `/deploys/${deployId}/runtime/logs?tail=${tail}`,
     );
+  }
+
+  // --- Замеры (AGENT-11) ----------------------------------------------
+
+  /** Запустить замер активного деплоя. Не ждёт: прогон асинхронный. */
+  startPerfCheck(projectId: string): Promise<PerfCheckOut> {
+    return this.request<PerfCheckOut>("POST", `/projects/${projectId}/perf-check`);
+  }
+
+  /** Результат последнего замера со сравнением с предыдущим деплоем. */
+  getPerfCheck(projectId: string): Promise<PerfCheckOut> {
+    return this.request<PerfCheckOut>("GET", `/projects/${projectId}/perf-check`);
   }
 
   // --- Домены (AGENT-09) ---------------------------------------------

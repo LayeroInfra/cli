@@ -17,6 +17,7 @@ import { loginCmd } from "../commands/login.js";
 import { orgsListCmd } from "../commands/orgs.js";
 import { initCmd } from "../commands/init.js";
 import { diagnoseCmd, logsCmd } from "../commands/diagnose.js";
+import { perfCheckCmd, perfShowCmd } from "../commands/perf.js";
 import {
   domainsAddCmd,
   domainsListCmd,
@@ -207,6 +208,21 @@ async function main(): Promise<void> {
     .action(async (opts) => {
       await rollbackCmd(opts);
     });
+
+  const perf = program
+    .command("perf")
+    .description("Замер производительности сайта со сравнением с предыдущим деплоем.");
+  perf
+    .command("check")
+    .description("Запустить замер активного деплоя. Прогон асинхронный — с --wait команда дождётся результата.")
+    .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)")
+    .option("--wait", "дождаться результата (до 4 минут)")
+    .action(async (opts) => perfCheckCmd({ ...opts, json: program.opts().json }));
+  perf
+    .command("show")
+    .description("Показать последний замер и сравнение с предыдущим деплоем.")
+    .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)")
+    .action(async (opts) => perfShowCmd({ ...opts, json: program.opts().json }));
 
   const domains = program
     .command("domains")

@@ -2091,6 +2091,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/perf-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Perf Check
+         * @description Результат последнего замера + сравнение с предыдущим деплоем.
+         */
+        get: operations["get_perf_check_projects__project_id__perf_check_get"];
+        put?: never;
+        /**
+         * Start Perf Check
+         * @description Замерить производительность активного деплоя.
+         *
+         *     Прогон асинхронный и занимает десятки секунд, поэтому ручка НЕ ждёт:
+         *     возвращает handle, а результат со сравнением забирается тем же путём
+         *     через GET. Держать соединение открытым ради ожидания значило бы
+         *     занимать и клиента, и наш воркер там, где достаточно вернуться позже.
+         */
+        post: operations["start_perf_check_projects__project_id__perf_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/perf/memory": {
         parameters: {
             query?: never;
@@ -3663,6 +3692,36 @@ export interface components {
             p99_ms?: number | null;
             /** Req Count */
             req_count: number;
+        };
+        /**
+         * PerfCheckOut
+         * @description Замер со сравнением (AGENT-11).
+         */
+        PerfCheckOut: {
+            /** Delta */
+            delta: number | null;
+            /** Message */
+            message: string;
+            /** Next Action */
+            next_action: string;
+            /** Previous Score */
+            previous_score: number | null;
+            /** Run Id */
+            run_id: string;
+            /** Score */
+            score: number | null;
+            /** Significant Delta */
+            significant_delta: number;
+            /** Status */
+            status: string | null;
+            /** Timings */
+            timings: {
+                [key: string]: unknown;
+            };
+            /** Url */
+            url: string | null;
+            /** Verdict */
+            verdict: string;
         };
         /** PerfSummaryOut */
         PerfSummaryOut: {
@@ -8527,6 +8586,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PerfBucketOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_perf_check_projects__project_id__perf_check_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PerfCheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_perf_check_projects__project_id__perf_check_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PerfCheckOut"];
                 };
             };
             /** @description Validation Error */
