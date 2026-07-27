@@ -361,7 +361,13 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
   try {
     session = await api.createDeploySession({
       project_id: existing?.project_id ?? undefined,
-      ...(opts.project ? { name: opts.project } : existing?.project_id ? {} : { name }),
+      // `--project` указывает на СУЩЕСТВУЮЩИЙ проект: опечатка в слаге
+      // должна дать 404, а не завести лишний проект с похожим именем.
+      ...(opts.project
+        ? { name: opts.project, create_if_missing: false }
+        : existing?.project_id
+          ? {}
+          : { name }),
       organization_slug: organizationSlug,
       target: targeting.target,
       branch: targeting.branch,

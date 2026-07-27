@@ -146,6 +146,7 @@ export class ApiClient {
     name?: string;
     organization_slug?: string;
     reuse_existing?: boolean;
+    create_if_missing?: boolean;
     target?: "preview" | "production";
     branch?: string;
     promote?: boolean;

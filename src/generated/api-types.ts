@@ -2935,6 +2935,11 @@ export interface components {
             commit_message?: string | null;
             /** Commit Sha */
             commit_sha?: string | null;
+            /**
+             * Create If Missing
+             * @default true
+             */
+            create_if_missing: boolean;
             /** Env Vars */
             env_vars?: {
                 [key: string]: string;
