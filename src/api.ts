@@ -27,6 +27,7 @@ export type DomainOut = Schemas["DomainOut"];
 export type DomainInstructionsOut = Schemas["DomainInstructionsOut"];
 export type PerfCheckOut = Schemas["PerfCheckOut"];
 export type MetrikaIntegrationOut = Schemas["MetrikaIntegrationOut"];
+export type EnvVarOut = Schemas["EnvVarOut"];
 
 export class ApiError extends Error {
   constructor(
@@ -292,6 +293,28 @@ export class ApiClient {
       "GET",
       `/deploys/${deployId}/runtime/logs?tail=${tail}`,
     );
+  }
+
+  // --- Переменные окружения (AGENT-13) --------------------------------
+
+  /**
+   * Платформа отдаёт маску, длину и короткий префикс — plaintext не
+   * возвращается ни при каких условиях.
+   */
+  listEnvVars(projectId: string): Promise<EnvVarOut[]> {
+    return this.request<EnvVarOut[]>("GET", `/projects/${projectId}/env`);
+  }
+
+  /**
+   * Значение `null` = «оставить как есть». Благодаря этому добавить одну
+   * переменную можно, не читая остальные, — то есть не имея доступа к
+   * чужим секретам.
+   */
+  replaceEnvVars(
+    projectId: string,
+    vars: Record<string, string | null>,
+  ): Promise<EnvVarOut[]> {
+    return this.request<EnvVarOut[]>("PUT", `/projects/${projectId}/env`, { vars });
   }
 
   // --- Метрика (AGENT-12) ---------------------------------------------

@@ -146,6 +146,11 @@ export type Event =
       next_actions: string[];
       truncated: boolean;
     } & EventCommon)
+  // Ни значений, ни префиксов: только имена и длины. Всё, что попало в
+  // вывод агента, оседает в истории переписки.
+  | ({ event: "env_vars"; project: string; vars: Array<{ key: string; length: number }> } & EventCommon)
+  | ({ event: "env_set"; project: string; keys: string[]; total: number } & EventCommon)
+  | ({ event: "env_unset"; project: string; keys: string[] } & EventCommon)
   | ({ event: "analytics_status"; connected: boolean; counter_id?: number; status: string; injection_mode: string; tracked_branch?: string } & EventCommon)
   // Между ссылкой и подключением стоит ЧЕЛОВЕК: OAuth Яндекса проходит в
   // браузере, и ни CLI, ни агент не сделают этот шаг за него.

@@ -18,6 +18,7 @@ import { orgsListCmd } from "../commands/orgs.js";
 import { initCmd } from "../commands/init.js";
 import { diagnoseCmd, logsCmd } from "../commands/diagnose.js";
 import { perfCheckCmd, perfShowCmd } from "../commands/perf.js";
+import { envListCmd, envSetCmd, envUnsetCmd } from "../commands/env.js";
 import {
   analyticsConnectCmd,
   analyticsDisconnectCmd,
@@ -214,6 +215,29 @@ async function main(): Promise<void> {
     .action(async (opts) => {
       await rollbackCmd(opts);
     });
+
+  const env = program
+    .command("env")
+    .description("Переменные окружения проекта. Значения не показываются — платформа их не отдаёт.");
+  const envProject = (c: any) =>
+    c.option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)");
+  envProject(env.command("list").description("Имена переменных и длина значений."))
+    .action(async (opts: any) => envListCmd({ ...opts, json: program.opts().json }));
+  envProject(
+    env
+      .command("set <pairs...>")
+      .description("Задать переменные: KEY=value. Остальные остаются нетронутыми."),
+  ).action(async (pairs: string[], opts: any) =>
+    envSetCmd(pairs, { ...opts, json: program.opts().json }),
+  );
+  envProject(
+    env
+      .command("unset <keys...>")
+      .description("Удалить переменные.")
+      .option("-y, --yes", "не спрашивать подтверждение"),
+  ).action(async (keys: string[], opts: any) =>
+    envUnsetCmd(keys, { ...opts, json: program.opts().json }),
+  );
 
   const analytics = program
     .command("analytics")
