@@ -78,9 +78,12 @@ apex is reachable the moment the deploy is ready.
 
 Hand the user \`ready.url\` and stop — that address is live.
 
-Use \`--branch <name>\` to deploy to an isolated preview environment that does
-**not** touch the apex. (\`--prod\` exists for git-connected projects; for
-direct CLI uploads it's redundant.)
+There is no way to publish without replacing the live site from the CLI:
+\`--branch\` is accepted and **silently ignored** — archive uploads are always
+filed under the reserved \`cli\` environment. If the user asks for a version
+"just to look at" that leaves the live address alone, tell them it needs a
+connected repository and a push to a branch. (\`--prod\` exists for
+git-connected projects; for direct CLI uploads it's redundant.)
 
 ### Already built? Skip the server build
 
