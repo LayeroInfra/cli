@@ -250,9 +250,13 @@ it means waiting for something that will not arrive.
 
 Not logged in? `deploy` starts the device-flow itself (`auth_required`).
 
-Errors carry a stable `code` (e.g. `not_logged_in`, `invalid_type`,
-`project_not_found`, `cli_deploys_disabled`) and a `next_action` hint so
-your agent can react without parsing prose.
+Errors carry a stable `code` (`auth_required`, `auth_expired`, `auth_timeout`,
+`project_unknown`, `project_not_found`, `cli_deploys_disabled`, `invalid_type`,
+`prebuilt_no_dir`, `prebuilt_no_index`, `deploy_not_started`, `deploy_failed`,
+`internal`, and a few command-specific ones) plus a `next_action` hint, so your
+agent can react without parsing prose. The failure code is assembled as
+`deploy_<status>` and a deploy only has `ready`, `building`, `failed` and
+`cancelled` — so `deploy_error` and `deploy_timed_out` do not exist.
 
 ## Ignore rules
 
