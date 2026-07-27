@@ -240,7 +240,9 @@ your agent can react without parsing prose.
 
 `layero deploy` honours `.gitignore` and `.layeroignore`. The following are
 always excluded: `node_modules`, `.git`, `dist`, `build`, `.next`, `.env*`,
-`.DS_Store`. Maximum archive size is 200 MB.
+`.DS_Store`, and the rule files themselves (`.gitignore`, `.layeroignore`) —
+they have no business being on the web, and they list exactly the filenames
+you chose to hide. Maximum archive size is 200 MB.
 
 ## Config
 

@@ -27,6 +27,12 @@ const DEFAULT_IGNORE = [
   ".DS_Store",
   "Thumbs.db",
   ".layero",
+  // Сами файлы правил на сайте не нужны, а перечисляют они ровно то, что
+  // автор прятал: опубликованный `.gitignore` со строкой `private-draft.html`
+  // подсказывает, что искать. Проверено на проде — до этой правки оба
+  // отдавались с кодом 200. Та же категория, что `.git` и `.env*` выше.
+  ".gitignore",
+  ".layeroignore",
 ];
 
 async function readIgnoreFile(filePath: string): Promise<string[]> {
@@ -162,6 +168,11 @@ export async function packDirectory(
     ".DS_Store",
     "Thumbs.db",
     ".layero",
+    // См. комментарий у DEFAULT_IGNORE: файлы правил перечисляют то, что
+    // автор прятал, и на сайте им делать нечего. В каталоге сборки они
+    // оказываются редко, но `--prebuilt .` на корне проекта — обычное дело.
+    ".gitignore",
+    ".layeroignore",
   ]);
   const files = await walk(targetDir, minimalIgnore);
   if (files.length === 0) {
