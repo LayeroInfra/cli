@@ -388,6 +388,16 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
         : "CLI deploy",
     });
   } catch (err) {
+    if (err instanceof ApiError && err.status === 404 && opts.project) {
+      // Явно указанный проект не найден. Код ошибки сохраняем прежним
+      // (`project_not_found`): на него смотрят агенты и наш Action, и
+      // подменять его на `internal` значит ломать их обработку.
+      throw new LayeroError(
+        "project_not_found",
+        `no project with id/slug "${opts.project}"`,
+        "run `layero projects list` to see available projects",
+      );
+    }
     if (err instanceof ApiError && err.status === 403) {
       throw new LayeroError(
         "forbidden",
