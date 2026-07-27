@@ -322,3 +322,26 @@ describe("AGENT-04: --project переопределяет .layero/project.json"
     expect(arg.create_if_missing).toBeUndefined();
   });
 });
+
+describe("AGENT-13: --project принимает и id, и слаг", () => {
+  it("UUID уходит как project_id, а не как имя", async () => {
+    // На сервере это РАЗНЫЕ поля: project_id ищется по идентификатору,
+    // name — по слагу. UUID, отправленный как имя, не находится ничем, и
+    // деплой падает «no project with id/slug» на существующем проекте.
+    // Поймано живым прогоном.
+    loadProjectConfig.mockResolvedValue(null);
+    await deployCmd({ json: true, project: "947ddd51-419f-4603-8557-2e0178e27d48" });
+    const arg = createDeploySession.mock.calls[0]![0] as any;
+    expect(arg.project_id).toBe("947ddd51-419f-4603-8557-2e0178e27d48");
+    expect(arg.name).toBeUndefined();
+  });
+
+  it("слаг по-прежнему уходит как имя с запретом создания", async () => {
+    loadProjectConfig.mockResolvedValue(null);
+    await deployCmd({ json: true, project: "my-site" });
+    const arg = createDeploySession.mock.calls[0]![0] as any;
+    expect(arg.name).toBe("my-site");
+    expect(arg.create_if_missing).toBe(false);
+    expect(arg.project_id).toBeUndefined();
+  });
+});

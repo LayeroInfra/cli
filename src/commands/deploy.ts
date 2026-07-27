@@ -45,6 +45,9 @@ interface DeployOptions {
   root?: string;
 }
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const VALID_TYPES = new Set([
   "vite",
   "next",
@@ -365,10 +368,17 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       // Передать оба поля нельзя — сервер выберет project_id и молча уедет
       // не туда, куда просили.
       //
+      // Флаг принимает И id, И слаг (так было до переноса оркестрации), а
+      // на сервере это разные поля: `project_id` ищется по идентификатору,
+      // `name` — по слагу. Отличаем по форме значения, иначе UUID уходит в
+      // поиск по слагу и не находится — живой прогон это и показал.
+      //
       // Опечатка в слаге при этом обязана дать 404, а не завести лишний
       // проект с похожим именем: `create_if_missing: false`.
       ...(opts.project
-        ? { name: opts.project, create_if_missing: false }
+        ? UUID_RE.test(opts.project)
+          ? { project_id: opts.project }
+          : { name: opts.project, create_if_missing: false }
         : existing?.project_id
           ? { project_id: existing.project_id }
           : { name }),
