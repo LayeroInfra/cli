@@ -80,7 +80,7 @@ Run `layero <cmd> --help` for full options.
 - `--name <name>` — project name (only on first deploy).
 - `--project <id_or_slug>` — deploy into an existing project, ignoring
   `./.layero/project.json` (useful for CI).
-- `--prod` — deploy to the project's apex hostname (replaces production). Without it, deploys go to a preview pseudo-branch and never touch prod.
+- `--prod` — target the production environment of a repository-linked project. **Redundant for CLI projects**: a project created by `layero deploy` auto-promotes to its apex on every deploy, so a plain `deploy` already replaces the live site. Use `--branch <name>` when you want a publish that leaves the live address alone.
 - `--branch <name>` — deploy to a specific branch's environment.
 - `--org <slug>` — Layero organization for first-time project creation.
 - `--yes` / `-y` — non-interactive mode.
