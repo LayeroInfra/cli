@@ -129,6 +129,25 @@ export type Event =
   | ({ event: "deploy_started"; deploy_id: string } & EventCommon)
   | ({ event: "build_log"; line: string; stream: string } & EventCommon)
   | ({ event: "stage"; name: string } & EventCommon)
+  // Диагностика (AGENT-08). `build_log_excerpt` — ВЫЖИМКА вокруг фатальной
+  // строки, а не хвост: платформа уже выбрала из лога значимое, и агенту не
+  // нужно тянуть в контекст две тысячи строк ради одной.
+  | ({
+      event: "diagnosis";
+      deploy_id: string;
+      status: string | null;
+      stage: string | null;
+      verdict: string | null;
+      build_log_excerpt: string[];
+      build_error_found: boolean;
+      runtime_log_excerpt: string[];
+      runtime_error_found: boolean;
+      runtime_state: string | null;
+      next_actions: string[];
+      truncated: boolean;
+    } & EventCommon)
+  | ({ event: "build_logs"; status: string; lines: unknown[] } & EventCommon)
+  | ({ event: "runtime_logs"; status: string; lines: unknown[] } & EventCommon)
   // `ready`:
   //   url           — the LIVE PUBLIC site (apex when published, else the
   //                    reachable preview host). NOT the dashboard. This is

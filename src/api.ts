@@ -21,6 +21,8 @@ export type ProbeOut = Schemas["ProbeOut"];
 export type LogsPollOut = Schemas["DeployLogsPollOut"];
 export type DeploySessionOut = Schemas["DeploySessionOut"];
 export type DeploySessionStatusOut = Schemas["DeploySessionStatusOut"];
+export type DeployDiagnosisOut = Schemas["DeployDiagnosisOut"];
+export type RuntimeLogsOut = Schemas["RuntimeLogsOut"];
 
 export class ApiError extends Error {
   constructor(
@@ -271,6 +273,21 @@ export class ApiClient {
   /** Одна сборка. Нужна, чтобы узнать её окружение для probe. */
   getDeploy(deployId: string): Promise<DeployOut> {
     return this.request<DeployOut>("GET", `/deploys/${deployId}`);
+  }
+
+  /**
+   * Диагностика деплоя (AGENT-07): разобранная причина + окрестность
+   * ошибки. Не сырой лог — платформа уже выбрала из него значимое.
+   */
+  getDeployDiagnosis(deployId: string): Promise<DeployDiagnosisOut> {
+    return this.request<DeployDiagnosisOut>("GET", `/deploys/${deployId}/diagnosis`);
+  }
+
+  getRuntimeLogs(deployId: string, tail = 100): Promise<RuntimeLogsOut> {
+    return this.request<RuntimeLogsOut>(
+      "GET",
+      `/deploys/${deployId}/runtime/logs?tail=${tail}`,
+    );
   }
 
   pollLogs(deployId: string, afterId: number): Promise<LogsPollOut> {

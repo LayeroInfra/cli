@@ -16,6 +16,7 @@ import { hooksCreateCmd, hooksDeleteCmd, hooksListCmd } from "../commands/hooks.
 import { loginCmd } from "../commands/login.js";
 import { orgsListCmd } from "../commands/orgs.js";
 import { initCmd } from "../commands/init.js";
+import { diagnoseCmd, logsCmd } from "../commands/diagnose.js";
 import { LayeroError, detectMode, emit } from "../agent.js";
 import { notifyIfOutdated } from "../update-notifier.js";
 
@@ -198,6 +199,34 @@ async function main(): Promise<void> {
     )
     .action(async (opts) => {
       await rollbackCmd(opts);
+    });
+
+  program
+    .command("diagnose")
+    .description(
+      "Разобрать, почему деплой в таком состоянии: причина человеческим языком, "
+        + "окрестность ошибки в логе сборки и состояние приложения. Без --deploy берёт "
+        + "последний неуспешный деплой проекта.",
+    )
+    .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный в .layero/project.json)")
+    .option("--deploy <id>", "конкретный деплой")
+    .addHelpText("after", "\nПримеры:\n  $ layero diagnose\n  $ layero diagnose --deploy 8da10ee6")
+    .action(async (opts) => {
+      await diagnoseCmd({ ...opts, json: program.opts().json });
+    });
+
+  program
+    .command("logs")
+    .description(
+      "Показать логи деплоя: сборки (по умолчанию) или приложения (--runtime).",
+    )
+    .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)")
+    .option("--deploy <id>", "конкретный деплой")
+    .option("--runtime", "логи запущенного приложения вместо логов сборки")
+    .option("--tail <n>", "сколько последних строк приложения (по умолчанию 100)", (v) => Number(v))
+    .addHelpText("after", "\nПримеры:\n  $ layero logs\n  $ layero logs --runtime --tail 200")
+    .action(async (opts) => {
+      await logsCmd({ ...opts, json: program.opts().json });
     });
 
   program
