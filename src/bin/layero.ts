@@ -449,8 +449,8 @@ main().catch((err) => {
         event: "error",
         code: "internal",
         next_action: debug
-          ? "report at https://github.com/LayeroInfra/core/issues"
-          : "re-run with --debug for a stack trace, or report at https://github.com/LayeroInfra/core/issues",
+          ? "report at https://docs.layero.ru/contacts/"
+          : "re-run with --debug for a stack trace, or report at https://docs.layero.ru/contacts/",
         message,
       });
     } else {

@@ -59,11 +59,16 @@ stdout), the CLI auto-switches to JSON-lines. Key events to watch:
 
 Common error codes and remediation:
 
-- \`not_logged_in\` → run \`npx layero@latest login\`
+- \`auth_required\` → run \`npx layero@latest login\`, or set \`LAYERO_TOKEN\`
 - \`auth_expired\` / \`auth_timeout\` → user did not approve in time, re-run login
+- \`project_unknown\` → run from the project directory, or pass \`--project\`
 - \`invalid_type\` → drop \`--type\`, rely on auto-detect
 - \`cli_deploys_disabled\` → user must enable CLI deploys in project settings
-- \`deploy_failed\` / \`deploy_error\` → check the dashboard URL in the message
+- \`deploy_failed\` → check the dashboard URL in the message
+- \`internal\` → unexpected CLI error; re-run with \`--debug\`
+
+There is no \`not_logged_in\`, \`deploy_error\` or \`deploy_timed_out\` — do not
+branch on codes that are not listed here.
 
 ### Re-deploys and production
 
