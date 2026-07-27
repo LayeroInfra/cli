@@ -40,7 +40,15 @@ layero deploy         # auto-detects framework, packs, uploads, builds, ships
 
 The first `layero deploy` in a directory creates a project and links it via
 `./.layero/project.json`. Subsequent runs reuse the same project — re-edit code,
-re-run `layero deploy`, get a new preview URL each time.
+re-run `layero deploy`.
+
+> **A plain `layero deploy` is not a preview.** For a project created from the
+> CLI, direct uploads auto-promote: every run replaces what visitors see at the
+> project's public address — the same `ready.url` the previous run printed.
+> `--prod` matters only for projects with a connected git repository, where it
+> targets the production environment. Isolated previews come from pushing to a
+> branch of a connected repo, nothing else: `--branch` is accepted and silently
+> ignored for direct uploads.
 
 ## Commands
 
