@@ -4261,6 +4261,8 @@ export interface components {
             fullstack_config?: {
                 [key: string]: unknown;
             } | null;
+            /** Node Version */
+            node_version?: string | null;
             /** Output Dir */
             output_dir: string;
             /** Package Manager */
