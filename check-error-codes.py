@@ -54,14 +54,14 @@ ALLOW_MARKERS = (
     "не выдаётся", "не выдаются",
 )
 
-# Поверхности относительно корня рабочей папки. Отсутствующие пропускаем:
-# репозитории лежат рядом, но не у всех они склонированы.
+# Поверхности относительно корня рабочей папки. Отсутствие любой из них —
+# ОТКАЗ, а не пропуск: список выверен, и молча уменьшившийся охват опаснее
+# честного падения (см. комментарий в main).
 SURFACES = (
     "layero-docs/docs/cli/json-events.md",
     "layero-docs/docs/cli/agents.md",
     "layero-docs/i18n/en/docusaurus-plugin-content-docs/current/cli/json-events.md",
     "layero-docs/i18n/en/docusaurus-plugin-content-docs/current/cli/agents.md",
-    "layero-docs/static/llms.txt",
     "frontend/landing/llms.txt",
     "frontend/landing/llms-full.txt",
     "frontend/landing/cursorrules",
@@ -100,7 +100,12 @@ def main() -> int:
     for rel in SURFACES:
         path = root / rel
         if not path.is_file():
-            print(f"  · пропуск (нет файла): {rel}")
+            # НЕ пропуск. SURFACES — выверенный список; если файл переехал или
+            # удалён, охват проверки молча падает, а она продолжает рапортовать
+            # успех. 28.07 так и вышло: `layero-docs/static/llms.txt` удалён при
+            # переходе на генератор, поверхностей стало 9 вместо 10, выход 0.
+            print(f"  ✗ поверхность отсутствует: {rel} — обновите SURFACES")
+            failures += 1
             continue
         checked += 1
         lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
@@ -141,7 +146,8 @@ def main() -> int:
                 print(f"  ✗ {reference.name} — код `{code}` выдаётся CLI, но не описан")
             failures += len(undocumented)
     else:
-        print(f"  · пропуск (нет файла): {reference}")
+        print(f"  ✗ справочник отсутствует: {reference}")
+        failures += 1
 
     if failures:
         print(f"\nрасхождений: {failures}")
