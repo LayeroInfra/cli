@@ -1,6 +1,6 @@
 {
   "name": "layero",
-  "version": "0.8.19",
+  "version": "0.8.20",
   "description": "Layero CLI — publish a local site with one command. No git, no GitHub, agent-friendly (Cursor, Claude Code).",
   "license": "MIT",
   "type": "module",
@@ -14,7 +14,6 @@
     "deployment",
     "hosting",
     "static-hosting",
-    "cdn",
     "cli",
     "static-site",
     "spa",
