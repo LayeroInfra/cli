@@ -3,7 +3,7 @@ import chalk from "chalk";
 import { ApiClient, ApiError, DeployOut } from "../api.js";
 import { loadConfig } from "../config.js";
 import { loadProjectConfig } from "../project-config.js";
-import { detectMode } from "../agent.js";
+import { detectMode, LayeroError } from "../agent.js";
 
 interface ListOptions {
   project?: string;
@@ -186,6 +186,25 @@ export async function rollbackCmd(opts: RollbackOptions): Promise<void> {
     console.log(chalk.dim("  CDN cache purged; new requests serve the rolled-back artifact."));
   } catch (err) {
     if (err instanceof ApiError) {
+      // 409 «not in a rollback-eligible state» — это НЕ сбой платформы, а
+      // ожидаемое ограничение, и подавать его кодом `internal` (то есть
+      // «сообщите о проблеме») нельзя: человек читает это в момент, когда у
+      // него уже что-то сломалось на проде.
+      //
+      // Две причины дают один и тот же ответ API. Runtime-проекты (SSR,
+      // Streamlit, Gradio) не откатываются вообще: их артефакт лежит в
+      // реестре образов, а проверка пригодности требует s3_path. У статики
+      // артефакт мог быть вычищен по ретенции. Различить их здесь нечем,
+      // поэтому называем оба и даём общий выход — пересборку коммита.
+      if (err.status === 409 && err.body.includes("rollback-eligible")) {
+        throw new LayeroError(
+          "rollback_unsupported",
+          "этот деплой нельзя переактивировать: у него нет раздаваемого артефакта",
+          "runtime-проекты (SSR, Streamlit, Gradio) откатывать пока нельзя, " +
+            "а у статики артефакт мог быть вычищен по ретенции — " +
+            "пересобери нужный коммит через `layero deploy`",
+        );
+      }
       throw new Error(`rollback failed (${err.status}): ${err.body.slice(0, 200)}`);
     }
     throw err;

@@ -119,10 +119,34 @@ def main() -> int:
                     failures += 1
 
     print(f"проверено поверхностей: {checked}")
+
+    # Обратное направление: код есть в CLI, но не описан в справочнике.
+    #
+    # Проверка была односторонней и ловила только мёртвые коды. 28.07 я добавил
+    # `rollback_unsupported` — и она смолчала: новый код нигде не описан, а
+    # претензий нет. То есть инструмент против расхождения списка с
+    # реальностью не видел расхождения ровно того вида, ради которого писался.
+    #
+    # Сверяем с одним справочником (страница JSON-событий), а не со всеми
+    # десятью поверхностями: llms.txt и правила для агентов перечисляют коды
+    # выборочно, и требовать от них полноты неправильно.
+    reference = root / "layero-docs/docs/cli/json-events.md"
+    if reference.is_file():
+        doc = reference.read_text(encoding="utf-8", errors="ignore")
+        undocumented = sorted(
+            c for c in codes if not re.search(rf"`{re.escape(c)}`", doc)
+        )
+        if undocumented:
+            for code in undocumented:
+                print(f"  ✗ {reference.name} — код `{code}` выдаётся CLI, но не описан")
+            failures += len(undocumented)
+    else:
+        print(f"  · пропуск (нет файла): {reference}")
+
     if failures:
-        print(f"\nмёртвых кодов в текстах: {failures}")
+        print(f"\nрасхождений: {failures}")
         return 1
-    print("мёртвых кодов не найдено")
+    print("список кодов сходится с CLI в обе стороны")
     return 0
 
 
