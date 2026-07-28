@@ -1451,15 +1451,20 @@ export interface paths {
          *         up HEAD of the chosen branch via GitHub. Requires the project to have
          *         github_integration_enabled and a connected repo.
          *
-         *     Branch targeting:
+         *     Branch targeting (order matches the resolution block below):
+         *       * archive deploy → ALWAYS the CLI pseudo-branch "cli", whatever the
+         *         caller passed. `branch` and `target` are accepted and ignored here:
+         *         a manual upload is not a git branch, and keeping it in one reserved
+         *         env is what stops it colliding with the repo's `main` once a repo is
+         *         connected. Note the consequence for a repo-less project: its
+         *         default_branch IS "cli", so the env doubles as the apex and every
+         *         upload publishes live (see promotes_to_apex in internal.py). With a
+         *         repo connected the same env is isolated and production is safe.
+         *       * branch=X            → branch X, creating the env if missing. Repo
+         *         deploys only — unreachable for archive uploads, see above.
          *       * target='production' → project.default_branch (apex_hostname).
-         *       * branch=X            → branch X (creates env if missing).
-         *       * target='preview' (or unset) without branch:
-         *           - archive deploy → CLI pseudo-branch "cli" (per-project, isolated
-         *             from default_branch so a stray `layero deploy` can't replace
-         *             production).
-         *           - repo deploy    → project.default_branch (legacy "manual deploy
-         *             from main" behaviour).
+         *       * repo deploy without branch → project.default_branch (legacy "manual
+         *         deploy from main" behaviour).
          */
         post: operations["trigger_deploy_projects__project_id__deploy_post"];
         delete?: never;
@@ -4117,6 +4122,8 @@ export interface components {
             my_role: string;
             /** Name */
             name: string;
+            /** Node Version */
+            node_version?: string | null;
             organization: components["schemas"]["OrganizationInline"];
             /** Output Dir */
             output_dir: string;
@@ -4345,6 +4352,8 @@ export interface components {
             framework_hint?: string | null;
             /** Indexing Enabled */
             indexing_enabled?: boolean | null;
+            /** Node Version */
+            node_version?: string | null;
             /** Output Dir */
             output_dir?: string | null;
             /** Package Manager */
