@@ -72,7 +72,7 @@ UNITS = (
 PREP = "вкосуиаяВКОСУИАЯ"
 
 
-def spans_markdown(text: str) -> list[tuple[int, str]]:
+def spans_markdown(text: str) -> list[tuple[int, str, bool]]:
     out, fence = [], False
     for n, raw in enumerate(text.split("\n"), 1):
         if raw.lstrip().startswith("```"):
@@ -80,11 +80,11 @@ def spans_markdown(text: str) -> list[tuple[int, str]]:
             continue
         if fence or raw.startswith("    "):
             continue
-        out.append((n, _blank_code(raw)))
+        out.append((n, _blank_code(raw), True))
     return out
 
 
-def spans_html(text: str) -> list[tuple[int, str]]:
+def spans_html(text: str) -> list[tuple[int, str, bool]]:
     """Текст между тегами плюс строковые литералы внутри <script>.
 
     Половину интерфейса статус-страницы рисует скрипт, и проверка, которая
@@ -95,8 +95,15 @@ def spans_html(text: str) -> list[tuple[int, str]]:
     что произносит продукт: на этой странице комментариев больше, чем
     интерфейса, и без их вырезания находки тонут в объяснениях для нас самих.
     """
-    body = _blank_regions(text, r"<!--.*?-->", r"<style\b.*?</style>",
-                          r"/\*.*?\*/", r"(?m)^[ \t]*//.*$")
+    body = _blank_regions(
+        text,
+        r"<!--.*?-->",
+        r"<style\b.*?</style>",
+        r"<script[^>]*application/ld\+json.*?</script>",
+        r"<(code|pre|kbd)\b[^>]*>.*?</\1>",
+        r"/\*.*?\*/",
+        r"(?m)^[ \t]*//.*$",
+    )
     out = []
     in_script = False
     for n, raw in enumerate(body.split("\n"), 1):
@@ -106,11 +113,11 @@ def spans_html(text: str) -> list[tuple[int, str]]:
         if not in_script:
             line = htmllib.unescape(re.sub(r"<[^>]*>", " ", raw))
             if re.search("[а-яА-ЯёЁ]", line):
-                out.append((n, _blank_code(line)))
+                out.append((n, _blank_code(line), True))
         else:
             for m in re.finditer(r'"((?:[^"\\\n]|\\.)*)"', raw):
                 if re.search("[а-яА-ЯёЁ]", m.group(1)):
-                    out.append((n, _unescape_js(m.group(1))))
+                    out.append((n, _unescape_js(m.group(1)), False))
         if "</script" in low:
             in_script = False
     return out
@@ -124,7 +131,7 @@ def _blank_regions(text: str, *patterns: str) -> str:
     return text
 
 
-def spans_source(text: str) -> list[tuple[int, str]]:
+def spans_source(text: str) -> list[tuple[int, str, bool]]:
     """Строковые литералы с кириллицей. Докстроки и комментарии не в счёт:
     это разговор с собой, а не с пользователем."""
     text = _blank_regions(text, r'""".*?"""', r"'''.*?'''", r"(?m)#.*$", r"(?m)//.*$")
@@ -133,7 +140,7 @@ def spans_source(text: str) -> list[tuple[int, str]]:
         for m in re.finditer(r'"((?:[^"\\\n]|\\.)*)"' + r"|'((?:[^'\\\n]|\\.)*)'", raw):
             body = m.group(1) if m.group(1) is not None else m.group(2)
             if body and re.search("[а-яА-ЯёЁ]", body):
-                out.append((n, _unescape_js(body)))
+                out.append((n, _unescape_js(body), False))
     return out
 
 
@@ -150,9 +157,14 @@ def _blank_code(line: str) -> str:
     return line
 
 
-def findings(span: str) -> list[tuple[str, str]]:
+def findings(span: str, from_markup: bool = False) -> list[tuple[str, str]]:
+    """from_markup — текст получен вычёркиванием тегов. Тогда двойные пробелы и
+    «пробел перед точкой» смотреть нельзя: их создаёт само вычёркивание
+    (`<code>x</code>.` даёт ` x .`), а в исходнике их нет."""
     out = []
     for m in re.finditer("—", span):
+        if from_markup and not span[:m.start()].strip():
+            continue
         if m.start() and span[m.start() - 1] == " ":
             out.append(("R16/R44", "обычный пробел перед длинным тире"))
     for m in re.finditer(r"(?<![А-Яа-яЁё])([%s]) (?=[А-Яа-яЁё0-9«])" % PREP, span):
@@ -166,10 +178,11 @@ def findings(span: str) -> list[tuple[str, str]]:
         out.append(("R1/R2", "прямые кавычки вокруг русского текста"))
     if "..." in span:
         out.append(("R45", "три точки вместо символа многоточия"))
-    if re.search(r"\S  +\S", span):
-        out.append(("—", "двойной пробел"))
-    if re.search(r"\s[,.;:!?]", span):
-        out.append(("R40", "пробел перед знаком препинания"))
+    if not from_markup:
+        if re.search(r"\S  +\S", span):
+            out.append(("—", "двойной пробел"))
+        if re.search(r"\s[,.;:!?]", span):
+            out.append(("R40", "пробел перед знаком препинания"))
     return out
 
 
@@ -185,8 +198,8 @@ def check(path: Path, root: Path, strict: bool) -> tuple[int, int]:
     rel = str(path.relative_to(root)) if root in path.parents else str(path)
     hard = strict or rel in STRICT
     errors = warns = 0
-    for line, span in spans:
-        for rule, what in findings(span):
+    for line, span, from_markup in spans:
+        for rule, what in findings(span, from_markup):
             mark = "✗" if hard else "·"
             print(f"  {mark} {rel}:{line}  {rule} — {what}")
             print(f"      {span.strip()[:100]}")
