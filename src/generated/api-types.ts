@@ -2997,6 +2997,10 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Probe */
+            probe?: {
+                [key: string]: unknown;
+            } | null;
             /** Runtime Version */
             runtime_version?: {
                 [key: string]: unknown;
