@@ -4472,6 +4472,8 @@ export interface components {
         };
         /** RuntimeMemoryBucketOut */
         RuntimeMemoryBucketOut: {
+            /** Avg Cpu Cores */
+            avg_cpu_cores?: number | null;
             /** Avg Rss Mb */
             avg_rss_mb: number;
             /**
@@ -4481,6 +4483,8 @@ export interface components {
             bucket_start: string;
             /** Limit Mb */
             limit_mb: number;
+            /** Max Cpu Cores */
+            max_cpu_cores?: number | null;
             /** Max Rss Mb */
             max_rss_mb: number;
             /** Samples */
@@ -4500,6 +4504,8 @@ export interface components {
          *     остаётся осмысленным).
          */
         RuntimeMemoryOut: {
+            /** Avg Cpu Cores */
+            avg_cpu_cores?: number | null;
             /**
              * Awake Minutes 24H
              * @default 0
@@ -4517,6 +4523,8 @@ export interface components {
              * @default true
              */
             is_sleeping: boolean;
+            /** Last Cpu Cores */
+            last_cpu_cores?: number | null;
             /** Last Rss Mb */
             last_rss_mb?: number | null;
             /** Last Sampled At */
@@ -4525,6 +4533,8 @@ export interface components {
             last_status?: string | null;
             /** Limit Mb */
             limit_mb: number;
+            /** Max Cpu Cores */
+            max_cpu_cores?: number | null;
             /** Max Rss Mb */
             max_rss_mb?: number | null;
             /** P95 Rss Mb */
