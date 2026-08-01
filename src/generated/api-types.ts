@@ -1141,7 +1141,32 @@ export interface paths {
         delete: operations["delete_organization_organizations__slug__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Rename Organization
+         * @description Сменить слаг организации. ДЕСТРУКТИВНАЯ операция.
+         *
+         *     Слаг организации — префикс адреса каждого её проекта
+         *     (`<org>-<project>.layero.ru`), поэтому смена имени переносит апекс и хосты
+         *     всех окружений. Всё — одной транзакцией: половина проектов на новом имени,
+         *     половина на старом хуже, чем отказ.
+         *
+         *     Работает для обоих видов организаций. Для личной это единственный способ
+         *     уйти с аварийного имени: V187 заводила орги вида `имя-a1b2c3` тем, чей слаг
+         *     был занят чужой организацией, и до этой ручки такой слаг оставался с
+         *     человеком навсегда, попадая в адрес каждого его сайта.
+         *
+         *     ПРЕЖНИЕ ИМЕНА ОСВОБОЖДАЮТСЯ, а не уходят в 301 — то же решение, что и у
+         *     смены адреса проекта (2026-07-26): инициатор здесь владелец, он знает, что
+         *     делает, и вечный редирект навсегда сжигал бы имя в общем пространстве.
+         *     Платформенные переезды (APP-05), где имя меняет не владелец, остаются с
+         *     редиректом — там он обязателен.
+         *
+         *     Проекты, чей адрес владелец менял руками, НЕ трогаются: их метка из слага
+         *     организации не выведена (`apex_after_org_rename` → None), и переписать её
+         *     значило бы отнять выбранное человеком имя. Список возвращается в
+         *     `untouched_projects`, чтобы это было видно, а не молча.
+         */
+        patch: operations["rename_organization_organizations__slug__patch"];
         trace?: never;
     };
     "/organizations/{slug}/invites": {
@@ -1212,6 +1237,34 @@ export interface paths {
         head?: never;
         /** Update Member Role */
         patch: operations["update_member_role_organizations__slug__members__user_id__patch"];
+        trace?: never;
+    };
+    "/organizations/{slug}/rename/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Organization Rename
+         * @description Свободно ли имя и что переедет — до подтверждения, а не после.
+         *
+         *     Смена слага деструктивна: прежние адреса перестают работать в тот же
+         *     момент. Узнавать об этом из 409 после нажатия — худший момент из
+         *     возможных, поэтому расчёт доступен отдельным GET и совпадает с тем, что
+         *     сделает PATCH (`_rename_availability`).
+         *
+         *     Требует прав администратора, как и само переименование: иначе ручка
+         *     превращается в перебор занятых имён по всей платформе.
+         */
+        get: operations["check_organization_rename_organizations__slug__rename_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/projects": {
@@ -3395,6 +3448,13 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** HostnameMove */
+        HostnameMove: {
+            /** New */
+            new: string;
+            /** Old */
+            old: string;
+        };
         /** InstanceTierIn */
         InstanceTierIn: {
             /** Runtime Instance Tier */
@@ -3663,6 +3723,44 @@ export interface components {
             my_role: string;
             /** Slug */
             slug: string;
+        };
+        /** OrganizationRenameCheckOut */
+        OrganizationRenameCheckOut: {
+            /** Available */
+            available: boolean;
+            /**
+             * Conflicts
+             * @default []
+             */
+            conflicts: string[];
+            /**
+             * Moves
+             * @default []
+             */
+            moves: components["schemas"]["HostnameMove"][];
+            /** Normalized */
+            normalized: string;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Untouched Projects
+             * @default []
+             */
+            untouched_projects: string[];
+        };
+        /** OrganizationRenameOut */
+        OrganizationRenameOut: {
+            /**
+             * Moves
+             * @default []
+             */
+            moves: components["schemas"]["HostnameMove"][];
+            organization: components["schemas"]["OrganizationOut"];
+            /**
+             * Untouched Projects
+             * @default []
+             */
+            untouched_projects: string[];
         };
         /**
          * PackageScriptOut
@@ -4426,6 +4524,11 @@ export interface components {
             email_login: boolean;
             /** Providers */
             providers: components["schemas"]["ProviderOut"][];
+        };
+        /** RenameOrganizationIn */
+        RenameOrganizationIn: {
+            /** Slug */
+            slug: string;
         };
         /** RepoOut */
         RepoOut: {
@@ -6675,6 +6778,43 @@ export interface operations {
             };
         };
     };
+    rename_organization_organizations__slug__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameOrganizationIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRenameOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_invites_organizations__slug__invites_get: {
         parameters: {
             query?: never;
@@ -6867,6 +7007,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_organization_rename_organizations__slug__rename_check_get: {
+        parameters: {
+            query: {
+                value: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRenameCheckOut"];
                 };
             };
             /** @description Validation Error */
