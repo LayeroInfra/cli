@@ -30,7 +30,9 @@ import {
   domainsVerifyCmd,
 } from "../commands/domains.js";
 import { LayeroError, detectMode, emit } from "../agent.js";
-import { ApiError } from "../api.js";
+import { ApiClient, ApiError } from "../api.js";
+import { loadConfig } from "../config.js";
+import { usernameSetCmd } from "../username.js";
 import { notifyIfOutdated } from "../update-notifier.js";
 import { CLI_VERSION } from "../version.js";
 
@@ -68,6 +70,26 @@ async function main(): Promise<void> {
     .command("whoami")
     .description("Show the currently logged-in account.")
     .action(whoamiCmd);
+
+  program
+    .command("username <value>")
+    .description(
+      "Задать имя аккаунта — оно же адрес личной организации. " +
+        "Без него платформе некуда положить проект. " +
+        "В интерактивном терминале `login` и `deploy` спросят его сами; " +
+        "эта команда нужна агентам и CI, где спрашивать некого.",
+    )
+    .addHelpText(
+      "after",
+      "\nExamples:\n" +
+        "  $ layero username alice\n" +
+        "  $ layero username my-team-bot\n\n" +
+        "Строчные латинские буквы, цифры и дефис; 2–32 символа.",
+    )
+    .action(async (value: string) => {
+      const cfg = await loadConfig();
+      await usernameSetCmd(value, new ApiClient(cfg));
+    });
 
   program
     .command("init")

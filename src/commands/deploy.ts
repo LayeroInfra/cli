@@ -2,7 +2,13 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 import chalk from "chalk";
-import { ApiClient, ApiError, ProbeOut, ProjectSummary, uploadArchive } from "../api.js";
+import {
+  ApiClient,
+  ApiError,
+  ProbeOut,
+  ProjectSummary,
+  uploadArchive,
+} from "../api.js";
 import { loadConfig } from "../config.js";
 import {
   ProjectConfig,
@@ -15,6 +21,7 @@ import { streamDeployLogs } from "../logs.js";
 import { detectProject } from "../detect.js";
 import { runDeviceLogin } from "../auth.js";
 import { LayeroError, detectMode, emit, isCiEnv } from "../agent.js";
+import { ensureUsername } from "../username.js";
 
 interface DeployOptions {
   // Legacy alias of "auto-detect framework + use .layero/project.json
@@ -132,7 +139,9 @@ async function confirm(question: string): Promise<boolean> {
     output: process.stdout,
   });
   try {
-    const answer = (await rl.question(`${question} [y/N]: `)).trim().toLowerCase();
+    const answer = (await rl.question(`${question} [y/N]: `))
+      .trim()
+      .toLowerCase();
     return answer === "y" || answer === "yes";
   } finally {
     rl.close();
@@ -227,7 +236,8 @@ async function resolveSetupConfig(
   // instead of crashing in detect with "looks like ssr_next but
   // configured as spa". Honoured only on first setup; on already-active
   // projects the existing project_type wins.
-  runtime_kind?: "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web";
+  runtime_kind?:
+    "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web";
 }> {
   // Honour --root when auto-detecting: the framework signals live in the
   // monorepo subdir, not the repo root. Without this the detector sees
@@ -308,7 +318,8 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     build_cmd: string;
     output_dir: string;
     source: "config" | "detected" | "hybrid" | "prebuilt";
-    runtime_kind?: "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web";
+    runtime_kind?:
+      "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web";
   } = prebuiltDir
     ? {
         framework_hint: "static",
@@ -360,43 +371,47 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
   // --- Одно обращение вместо пяти: резолв или создание проекта, настройка,
   // тип рантайма, root и выдача адреса для загрузки архива.
 
+  // Тело вынесено из вызова, чтобы повтор после выбора имени аккаунта уходил
+  // РОВНО с тем же payload — собирать его второй раз значит однажды разойтись.
+  const sessionPayload = {
+    // `--project` ПЕРЕОПРЕДЕЛЯЕТ запись в .layero/project.json: пользователь
+    // явно сказал, куда деплоить, и залинкованный проект тут не при чём.
+    // Передать оба поля нельзя — сервер выберет project_id и молча уедет
+    // не туда, куда просили.
+    //
+    // Флаг принимает И id, И слаг (так было до переноса оркестрации), а
+    // на сервере это разные поля: `project_id` ищется по идентификатору,
+    // `name` — по слагу. Отличаем по форме значения, иначе UUID уходит в
+    // поиск по слагу и не находится — живой прогон это и показал.
+    //
+    // Опечатка в слаге при этом обязана дать 404, а не завести лишний
+    // проект с похожим именем: `create_if_missing: false`.
+    ...(opts.project
+      ? UUID_RE.test(opts.project)
+        ? { project_id: opts.project }
+        : { name: opts.project, create_if_missing: false }
+      : existing?.project_id
+        ? { project_id: existing.project_id }
+        : { name }),
+    organization_slug: organizationSlug,
+    target: targeting.target,
+    branch: targeting.branch,
+    promote: Boolean(opts.promote),
+    prebuilt: prebuiltDir !== null,
+    framework_hint: setup.framework_hint,
+    build_cmd: setup.build_cmd,
+    output_dir: setup.output_dir,
+    runtime_kind: setup.runtime_kind,
+    root_directory: opts.root ?? null,
+    env_vars: existing?.env_vars ?? {},
+    commit_message: prebuiltDir
+      ? `CLI prebuilt deploy (${prebuiltDir})`
+      : "CLI deploy",
+  };
+
   let session;
   try {
-    session = await api.createDeploySession({
-      // `--project` ПЕРЕОПРЕДЕЛЯЕТ запись в .layero/project.json: пользователь
-      // явно сказал, куда деплоить, и залинкованный проект тут не при чём.
-      // Передать оба поля нельзя — сервер выберет project_id и молча уедет
-      // не туда, куда просили.
-      //
-      // Флаг принимает И id, И слаг (так было до переноса оркестрации), а
-      // на сервере это разные поля: `project_id` ищется по идентификатору,
-      // `name` — по слагу. Отличаем по форме значения, иначе UUID уходит в
-      // поиск по слагу и не находится — живой прогон это и показал.
-      //
-      // Опечатка в слаге при этом обязана дать 404, а не завести лишний
-      // проект с похожим именем: `create_if_missing: false`.
-      ...(opts.project
-        ? UUID_RE.test(opts.project)
-          ? { project_id: opts.project }
-          : { name: opts.project, create_if_missing: false }
-        : existing?.project_id
-          ? { project_id: existing.project_id }
-          : { name }),
-      organization_slug: organizationSlug,
-      target: targeting.target,
-      branch: targeting.branch,
-      promote: Boolean(opts.promote),
-      prebuilt: prebuiltDir !== null,
-      framework_hint: setup.framework_hint,
-      build_cmd: setup.build_cmd,
-      output_dir: setup.output_dir,
-      runtime_kind: setup.runtime_kind,
-      root_directory: opts.root ?? null,
-      env_vars: existing?.env_vars ?? {},
-      commit_message: prebuiltDir
-        ? `CLI prebuilt deploy (${prebuiltDir})`
-        : "CLI deploy",
-    });
+    session = await api.createDeploySession(sessionPayload);
   } catch (err) {
     if (err instanceof ApiError && err.status === 404 && opts.project) {
       // Явно указанный проект не найден. Код ошибки сохраняем прежним
@@ -415,7 +430,16 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
         "check that your token has the required scope and that you're a member of the organization",
       );
     }
-    throw err;
+    // 412 = у аккаунта нет имени, и платформе некуда положить проект (имя
+    // становится слагом личной организации). В интерактивном терминале
+    // спрашиваем прямо здесь и повторяем — отправлять в браузер за одним
+    // словом значит обрывать ровно тот сценарий, ради которого ставят CLI.
+    if (err instanceof ApiError && err.status === 412) {
+      await ensureUsername(api);
+      session = await api.createDeploySession(sessionPayload);
+    } else {
+      throw err;
+    }
   }
 
   const project = session.project;
@@ -563,8 +587,8 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
 
     const liveUrl =
       promoted || !opts.branch
-        ? probe?.canonical_url ?? apexUrl
-        : probe?.preview_url ?? probe?.canonical_url ?? apexUrl;
+        ? (probe?.canonical_url ?? apexUrl)
+        : (probe?.preview_url ?? probe?.canonical_url ?? apexUrl);
 
     emit({
       event: "ready",

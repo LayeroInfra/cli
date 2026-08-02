@@ -9,6 +9,7 @@ import open from "open";
 import { CliConfig, saveConfig } from "./config.js";
 import { ApiClient } from "./api.js";
 import { LayeroError, detectMode, emit } from "./agent.js";
+import { ensureUsername } from "./username.js";
 
 const MAX_WAIT_MS = 15 * 60 * 1000;
 
@@ -59,11 +60,25 @@ export async function runDeviceLogin(cfg: CliConfig): Promise<CliConfig> {
         console.log(
           chalk.green(`Logged in as ${me.username ?? me.email ?? me.id}`),
         );
-        if (!me.username) {
-          console.log(
-            chalk.yellow(
-              "No username set — open https://app.layero.ru/onboarding to pick one.",
-            ),
+      }
+      // Имя аккаунта спрашиваем здесь же, а не отправляем в браузер: без него
+      // первый же деплой упрётся в 412, а CLI ровно затем и нужен, чтобы в
+      // дашборд не ходить. В агентском режиме ensureUsername не спрашивает —
+      // отдаёт `username_required` с командой, которую агент выполнит сам.
+      if (!me.username) {
+        try {
+          const picked = await ensureUsername(probe, me);
+          cfg.user = { ...cfg.user, username: picked };
+          await saveConfig(cfg);
+        } catch (err) {
+          // Вход УЖЕ состоялся и токен сохранён — валить команду из-за
+          // невыбранного имени нельзя. В агентском режиме ensureUsername
+          // бросает `username_required`: показываем подсказку на stderr
+          // (stdout занят JSON-строками) и выходим с успехом. Отказом это
+          // станет на первом деплое, где действительно мешает.
+          process.stderr.write(
+            `\n  ${err instanceof Error ? err.message : String(err)}\n` +
+              "  Задайте имя аккаунта: layero username <имя>\n\n",
           );
         }
       }

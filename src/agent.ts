@@ -116,6 +116,7 @@ export interface EventCommon {
 export type Event =
   | ({ event: "auth_required"; url: string; user_code: string } & EventCommon)
   | ({ event: "authorized"; user: string } & EventCommon)
+  | ({ event: "username_set"; username: string; organization: string } & EventCommon)
   | ({ event: "project_created"; project_id: string; slug: string; organization: string } & EventCommon)
   | ({ event: "project_linked"; project_id: string; slug: string } & EventCommon)
   | ({ event: "detected"; framework: string; build_cmd: string; output_dir: string; confident: boolean; runtime_kind?: "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web"; ssr_warning?: string } & EventCommon)
@@ -214,6 +215,11 @@ function renderHuman(event: Event): void {
       break;
     case "authorized":
       process.stdout.write(`✓ Authorized as ${event.user}\n`);
+      break;
+    case "username_set":
+      process.stdout.write(
+        `✓ Имя аккаунта: ${event.username} (организация ${event.organization})\n`,
+      );
       break;
     case "project_created":
       process.stdout.write(`✓ Created project ${event.slug} (org: ${event.organization})\n`);
