@@ -1,4 +1,5 @@
 import { CliConfig } from "./config.js";
+import { CLI_VERSION, userAgent } from "./version.js";
 import type { components } from "./generated/api-types.js";
 
 /**
@@ -66,6 +67,12 @@ export class ApiClient {
     if (this.cfg.token) {
       h.Authorization = `Bearer ${this.cfg.token}`;
     }
+    // Версия — в КАЖДОМ запросе, а не только в деплое: иначе доля старых
+    // сборок в поле остаётся неизмеримой (02.08.2026 — так и было).
+    // Отдельный заголовок рядом с User-Agent, потому что UA по дороге может
+    // переписать прокси или корпоративный шлюз, а этот — нет.
+    h["User-Agent"] = userAgent();
+    h["X-Layero-Cli-Version"] = CLI_VERSION;
     return h;
   }
 

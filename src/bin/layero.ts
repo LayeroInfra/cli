@@ -1,7 +1,4 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
 import { Command } from "commander";
 import chalk from "chalk";
 import { whoamiCmd } from "../commands/whoami.js";
@@ -35,15 +32,11 @@ import {
 import { LayeroError, detectMode, emit } from "../agent.js";
 import { ApiError } from "../api.js";
 import { notifyIfOutdated } from "../update-notifier.js";
+import { CLI_VERSION } from "../version.js";
 
-// Read version from the shipped package.json (two levels up from dist/bin/).
-const pkgPath = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  "package.json",
-);
-const VERSION = (JSON.parse(readFileSync(pkgPath, "utf-8")) as { version: string }).version;
+// Одно чтение package.json на процесс — версия нужна и здесь (`--version`,
+// нагон обновления), и в каждом запросе к API (заголовок).
+const VERSION = CLI_VERSION;
 
 async function main(): Promise<void> {
   const program = new Command();
