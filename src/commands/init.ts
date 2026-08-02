@@ -38,7 +38,7 @@ device-flow automatically and emits a JSON line:
 \`\`\`
 
 Render the \`url\` as a clickable link in chat. The user opens it, signs in
-(GitHub or Yandex — Layero creates the account automatically on first OAuth),
+(by an emailed code or with Yandex ID — Layero creates the account on first sign-in),
 clicks "Разрешить доступ", and the CLI's poll loop picks up the token within
 2 seconds. No localhost server is involved — the browser can be on a
 different machine than the CLI.

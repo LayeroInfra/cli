@@ -23,7 +23,16 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
-const REGISTRY_URL = "https://registry.npmjs.org/layero/latest";
+// ВАЖНО: пакумент (`/layero`), а НЕ `/layero/latest`.
+//
+// Сокращённый тип `application/vnd.npm.install-v1+json` npm отдаёт только на
+// пакументе. На адресе конкретной версии (`/<pkg>/latest`) тот же заголовок
+// даёт **406 Not Acceptable** — а `fetchLatest` глотает любой не-ok и молча
+// возвращает null. Проверено 02.08.2026: сочетание было именно таким, и нагон
+// версии не печатался НИ РАЗУ ни в одном релизе. Тесты этого не поймали,
+// потому что проверяли только чистые `compareVersions`/`updateNotice`, а до
+// сети не доходили.
+const REGISTRY_URL = "https://registry.npmjs.org/layero";
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // once a day is plenty
 const FETCH_TIMEOUT_MS = 1500;
 
@@ -78,8 +87,9 @@ async function fetchLatest(): Promise<string | null> {
         headers: { accept: "application/vnd.npm.install-v1+json" },
       });
       if (!res.ok) return null;
-      const body = (await res.json()) as { version?: string };
-      return typeof body.version === "string" ? body.version : null;
+      const body = (await res.json()) as { "dist-tags"?: { latest?: string } };
+      const latest = body["dist-tags"]?.latest;
+      return typeof latest === "string" ? latest : null;
     } finally {
       clearTimeout(timer);
     }

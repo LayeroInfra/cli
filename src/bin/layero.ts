@@ -33,6 +33,7 @@ import {
   domainsVerifyCmd,
 } from "../commands/domains.js";
 import { LayeroError, detectMode, emit } from "../agent.js";
+import { ApiError } from "../api.js";
 import { notifyIfOutdated } from "../update-notifier.js";
 
 // Read version from the shipped package.json (two levels up from dist/bin/).
@@ -58,7 +59,7 @@ async function main(): Promise<void> {
   program
     .command("login")
     .description(
-      "Authenticate via browser (GitHub / Yandex). Opens a one-time URL — no localhost server required.",
+      "Authenticate via browser (email code or Yandex ID). Opens a one-time URL — no localhost server required.",
     )
     .addHelpText("after", "\nExamples:\n  $ layero login\n  $ npx layero login")
     .action(async (opts) => {
@@ -425,7 +426,68 @@ async function main(): Promise<void> {
   await notifyIfOutdated(VERSION);
 }
 
+/**
+ * Ответы API, которые означают НОРМАЛЬНОЕ состояние аккаунта, а не поломку.
+ *
+ * До 02.08.2026 их не разбирал никто, и они доезжали до пользователя как
+ * `code: "internal"` с советом «сообщите о баге»:
+ *
+ *   Error: internal
+ *     API GET /auth/me → 401: {"detail":"Invalid token"}
+ *     → re-run with --debug for a stack trace, or report at …/contacts/
+ *
+ * 401 здесь — не редкость, а расписание: TTL токена 168 часов, то есть КАЖДЫЙ
+ * пользователь CLI упирается в это раз в неделю. На момент проверки токен был
+ * протухшим у 66 из 115 человек, деплоивших через CLI за месяц. Ни один из них
+ * не получил единственную нужную подсказку — «выполните layero login».
+ *
+ * 402 — лимит тарифа (например, `max_projects` на free). Тоже обычное дело, а
+ * не сбой платформы: чинится сменой тарифа или удалением проекта, и текст
+ * ошибки обязан говорить именно это.
+ */
+function asAccountStateError(err: unknown): LayeroError | null {
+  if (!(err instanceof ApiError)) return null;
+
+  if (err.status === 401) {
+    return new LayeroError(
+      "auth_expired",
+      "Вход больше не действует — токен протух или сессия отозвана.",
+      "выполните `layero login`",
+    );
+  }
+
+  if (err.status === 402) {
+    let detail: { feature?: string; limit?: number; observed?: number } = {};
+    try {
+      const parsed = JSON.parse(err.body) as { detail?: typeof detail };
+      detail = parsed.detail ?? {};
+    } catch {
+      /* тело не JSON — обойдёмся общим текстом */
+    }
+    const limits: Record<string, string> = {
+      max_projects: "проектов",
+      custom_domains: "своих доменов",
+      team_orgs: "командных организаций",
+    };
+    const what = detail.feature ? limits[detail.feature] ?? detail.feature : null;
+    const counts =
+      typeof detail.limit === "number" && typeof detail.observed === "number"
+        ? ` (${detail.observed} при лимите ${detail.limit})`
+        : "";
+    return new LayeroError(
+      "plan_limit",
+      what
+        ? `Тариф не позволяет больше ${what}${counts}.`
+        : "Действие недоступно на текущем тарифе.",
+      "смените тариф на app.layero.ru/billing или освободите место, удалив ненужное",
+    );
+  }
+
+  return null;
+}
+
 main().catch((err) => {
+  err = asAccountStateError(err) ?? err;
   const mode = detectMode();
   // `--debug` (real global flag) prints the full stack trace for any error,
   // structured or not, so the next_action hint that mentions it is honest.

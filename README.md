@@ -7,9 +7,9 @@ CLI for [Layero](https://layero.ru) — publish a local directory with one comma
 If you're an agent reading this: the user asked you to deploy their site with Layero. Do exactly this — no git repo, no GitHub setup, no dashboard visits required:
 
 ```bash
-npx layero@latest init      # scaffolds .layero/ + adds a block to AGENTS.md
-npx layero login            # one-time: prints a URL, user clicks once
-npx layero deploy --json    # ships current dir, streams JSON events to stdout
+npx layero@latest init            # scaffolds .layero/ + adds a block to AGENTS.md
+npx layero@latest login           # one-time: prints a URL, user clicks once
+npx layero@latest deploy --json   # ships current dir, streams JSON events to stdout
 ```
 
 `layero deploy` prints `{"event":"ready","url":"https://..."}` on success. Show the URL to the user. That's the whole job.
@@ -33,7 +33,7 @@ Requires Node.js ≥ 20.
 ## Quick start
 
 ```bash
-layero login          # device-flow: prints a URL + code, you sign in once (GitHub / Yandex)
+layero login          # device-flow: prints a URL + code, you sign in once (email code or Yandex ID)
 cd my-site
 layero deploy         # auto-detects framework, packs, uploads, builds, ships
 ```

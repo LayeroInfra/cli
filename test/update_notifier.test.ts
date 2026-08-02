@@ -61,3 +61,30 @@ describe("updateNotice", () => {
     expect(updateNotice("0.5.3", null)).toBeNull();
   });
 });
+
+/**
+ * Обе проверки выше — чистые, и обе проходили, пока нагон НЕ РАБОТАЛ ВООБЩЕ:
+ * запрос уходил на `/layero/latest` с сокращённым `accept`, npm отвечал 406,
+ * `fetchLatest` глотал не-ok и возвращал null. То есть «молчит, когда версия
+ * неизвестна» было истинным всегда — во всех релизах, у всех пользователей.
+ *
+ * Поэтому проверка ходит в СЕТЬ: только живой ответ реестра доказывает, что
+ * пара «адрес + заголовок» рабочая. Без сети — пропуск, а не падение: тест
+ * охраняет контракт с npm, и падать он должен на 406, а не на офлайне.
+ */
+describe("registry contract (network)", () => {
+  it("the URL + accept header the notifier uses actually returns dist-tags", async () => {
+    let res: Response;
+    try {
+      res = await fetch("https://registry.npmjs.org/layero", {
+        headers: { accept: "application/vnd.npm.install-v1+json" },
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      return; // офлайн — проверять нечего
+    }
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { "dist-tags"?: { latest?: string } };
+    expect(typeof body["dist-tags"]?.latest).toBe("string");
+  });
+});

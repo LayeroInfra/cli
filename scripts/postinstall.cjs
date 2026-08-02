@@ -38,7 +38,7 @@ const lines = [
   "",
   `${c.green}${c.bold}✨ Layero CLI installed${c.reset}`,
   "",
-  `  ${c.cyan}${cmd("layero login")}${c.reset}    ${c.dim}sign in (GitHub or Yandex)${c.reset}`,
+  `  ${c.cyan}${cmd("layero login")}${c.reset}    ${c.dim}sign in (email code or Yandex ID)${c.reset}`,
   `  ${c.cyan}${cmd("layero init")}${c.reset}     ${c.dim}scaffold .layero/ + agent docs${c.reset}`,
   `  ${c.cyan}${cmd("layero deploy")}${c.reset}   ${c.dim}ship the current directory${c.reset}`,
   "",
