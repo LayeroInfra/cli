@@ -47,11 +47,16 @@ SUFFIXES = {".md", ".mdx", ".txt", ".html", ".json"}
 
 # Поверхности, на которых расхождение = ОТКАЗ. Остальное печатается
 # предупреждением, и файл переезжает сюда, когда вычищен (та же схема, что у
-# check-typography.py). Лендинг пока в предупреждениях: там 275 вхождений и
-# идёт переработка локалей — правку делать после неё, одним проходом.
+# check-typography.py). На 02.08 вычищено всё, что перечислено в SURFACES.
+#
+# Лендинг попал сюда последним и с оговоркой: ключ словаря `i18n/en.json` — сам
+# русский текст из `index.html`, поэтому правку надо делать в ОБОИХ файлах
+# одновременно, иначе ключ перестаёт совпадать и кусок английской страницы
+# молча остаётся русским. Сверяет `python3 frontend/landing/i18n/render.py --check`.
 STRICT = (
     "layero-docs/docs",
     "layero-docs/i18n",
+    "frontend/landing",
     "core/cli/README.md",
     "mcp/server/prompts",
     "mcp/README.md",
@@ -91,9 +96,13 @@ def main() -> int:
             p for p in path.rglob("*") if p.suffix in SUFFIXES and p.is_file()
         ]
         for f in files:
-            # Собранные артефакты Docusaurus — копия исходников; ловить их
-            # значит удваивать вывод на том же дефекте.
+            # Артефакты сборки — копия исходников; ловить их значит удваивать
+            # вывод на том же дефекте, а править — бессмысленно: пересоберётся.
+            # `landing/en.html` собирается из index.html + i18n/en.json
+            # (`i18n/render.py`) и лежит в .gitignore.
             if "/build/" in str(f) or "/node_modules/" in str(f):
+                continue
+            if f.name == "en.html" and f.parent.name == "landing":
                 continue
             checked += 1
             try:
