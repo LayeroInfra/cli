@@ -30,8 +30,8 @@ is required — Layero packs and uploads the local directory directly.
 
 ### First-time auth (one-click device flow)
 
-If you're not logged in yet, \`deploy\` (or \`login\`) starts the browser
-device-flow automatically and emits a JSON line:
+If you're not logged in yet, \`npx layero@latest deploy\` (or \`… login\`)
+starts the browser device-flow automatically and emits a JSON line:
 
 \`\`\`json
 {"event":"auth_required","url":"https://app.layero.ru/cli?code=ABCD-1234","user_code":"ABCD-1234"}
