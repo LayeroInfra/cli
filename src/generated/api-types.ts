@@ -1576,6 +1576,13 @@ export interface paths {
          *     environment (production view). With ?branch — narrows to that branch
          *     environment. Used by `layero deploys list` so the CLI doesn't have
          *     to chase environment_id first.
+         *
+         *     Если окружения дефолтной ветки нет — отдаём деплои по всему проекту, а не
+         *     пустой список. У проекта, залитого через CLI, единственное окружение
+         *     зовётся `cli`, тогда как default_branch остаётся 'main': выборка по ветке
+         *     возвращала пусто при готовых деплоях, и интерфейс уверял, что деплоя нет
+         *     (аудит отказывался стартовать, DeployWatcher не видел выкаток). Явный
+         *     ?branch по-прежнему сужает строго: там пусто значит пусто.
          */
         get: operations["list_project_deploys_projects__project_id__deploys_get"];
         put?: never;
