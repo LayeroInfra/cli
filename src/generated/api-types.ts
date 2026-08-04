@@ -4342,6 +4342,8 @@ export interface components {
             } | null;
             /** Has Deploy */
             has_deploy: boolean;
+            /** Not Found Path */
+            not_found_path?: string | null;
             /** Runtime Kind */
             runtime_kind?: string | null;
             /** Start Cmd */
