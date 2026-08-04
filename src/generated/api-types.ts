@@ -3065,6 +3065,8 @@ export interface components {
             runtime_version?: {
                 [key: string]: unknown;
             } | null;
+            /** Servable */
+            servable?: boolean | null;
             /**
              * Source Type
              * @default github
