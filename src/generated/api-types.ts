@@ -4461,6 +4461,10 @@ export interface components {
             footer_color?: string | null;
             /** Framework Hint */
             framework_hint?: string | null;
+            /** Fullstack Config */
+            fullstack_config?: {
+                [key: string]: unknown;
+            } | null;
             /** Indexing Enabled */
             indexing_enabled?: boolean | null;
             /** Node Version */
