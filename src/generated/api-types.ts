@@ -4024,6 +4024,10 @@ export interface components {
             scripts: components["schemas"]["PackageScriptOut"][];
             /** Ssr Warning */
             ssr_warning?: string | null;
+            /** Suggested Fullstack */
+            suggested_fullstack?: {
+                [key: string]: unknown;
+            } | null;
             /** Suggested Root Directory */
             suggested_root_directory?: string | null;
         };
