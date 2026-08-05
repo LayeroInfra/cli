@@ -50,6 +50,10 @@ NNBSP = " "
 STRICT = (
     "core/infra/status-page/index.html",
     "core/backend/app/services/public_status.py",
+    # 05.08.2026: вычищена целиком при добавлении раздела о переезде домена
+    # с другого хостинга. Страница длинная и её читают, когда что-то уже не
+    # получилось, — пусть остаётся чистой.
+    "layero-docs/docs/deploys/custom-domains.md",
 )
 
 # Что проверяем по умолчанию, если пути не заданы явно.
@@ -57,6 +61,7 @@ SURFACES = (
     "core/infra/status-page/index.html",
     "core/backend/app/services/public_status.py",
     "frontend/landing/index.html",
+    "layero-docs/docs/deploys/custom-domains.md",
 )
 
 # Единицы измерения, которые не должны отрываться от числа (R36). Список
