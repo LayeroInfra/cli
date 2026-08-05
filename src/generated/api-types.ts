@@ -3998,6 +3998,8 @@ export interface components {
              * @default []
              */
             layero_warnings: string[];
+            /** Next Static Export */
+            next_static_export?: boolean | null;
             /** Output Dir */
             output_dir: string;
             /**
@@ -4638,6 +4640,11 @@ export interface components {
              * @default []
              */
             buckets: components["schemas"]["RuntimeMemoryBucketOut"][];
+            /**
+             * Cpu Quota
+             * @default 0.25
+             */
+            cpu_quota: number;
             /** Is Runtime */
             is_runtime: boolean;
             /**
