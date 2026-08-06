@@ -8898,6 +8898,7 @@ export interface operations {
                 to?: string | null;
                 granularity?: string;
                 environment_id?: string | null;
+                deploy_id?: string | null;
             };
             header?: {
                 authorization?: string | null;
