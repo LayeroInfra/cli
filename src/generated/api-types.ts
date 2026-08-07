@@ -1831,6 +1831,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/domains/{domain_id}/www": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Domain Www
+         * @description Подключить или отключить адрес с www рядом с доменом.
+         *
+         *     Включение заводит вторую строку `www.<домен>` со ссылкой на эту; дальше
+         *     она идёт обычным путём — DNS-проверка, ACME, продление. Выключение удаляет
+         *     спутника; если основным был именно www, флаг возвращается домену.
+         *
+         *     Возвращаем сам домен, а не спутника: интерфейсу нужно обновить карточку,
+         *     а список он и так перечитывает.
+         */
+        post: operations["set_domain_www_projects__project_id__domains__domain_id__www_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/env": {
         parameters: {
             query?: never;
@@ -3271,6 +3298,11 @@ export interface components {
              * @default subdomain
              */
             kind: string;
+            /**
+             * With Www
+             * @default false
+             */
+            with_www: boolean;
         };
         /** DomainInstructionsOut */
         DomainInstructionsOut: {
@@ -3320,17 +3352,29 @@ export interface components {
              * Format: uuid
              */
             project_id: string;
+            /** Redirect To Domain Id */
+            redirect_to_domain_id?: string | null;
             /** Ssl Status */
             ssl_status: string;
             /** Target Environment Id */
             target_environment_id?: string | null;
             /** Verified */
             verified: boolean;
+            /**
+             * Www Dangling
+             * @default false
+             */
+            www_dangling: boolean;
         };
         /** DomainRoutingUpdate */
         DomainRoutingUpdate: {
             /** Target Environment Id */
             target_environment_id?: string | null;
+        };
+        /** DomainWwwUpdate */
+        DomainWwwUpdate: {
+            /** Enabled */
+            enabled: boolean;
         };
         /** EmailChooseIn */
         EmailChooseIn: {
@@ -8068,6 +8112,44 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_domain_www_projects__project_id__domains__domain_id__www_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+                domain_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DomainWwwUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
