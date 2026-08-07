@@ -57,12 +57,41 @@ STRICT = (
 )
 
 # Что проверяем по умолчанию, если пути не заданы явно.
+#
+# 🚨 До 07.08 здесь было ЧЕТЫРЕ файла, и проверка отрабатывала зелёным, ничего
+# не зная про целые языки. CLAUDE.md §5.2 при этом перечисляет как проверяемые
+# «тексты ошибок деплоя, CLI, письма email-движка» и подписи панели — то есть
+# обещание было шире набора ровно на всё, что произносит продукт в работе.
+# Живая проверка: в `app/api/routes/billing.py` НОЛЬ неразрывных пробелов при
+# девяти сообщениях с длинным тире. ИБ-ревью 07.08.2026, T-20260807-59.
+#
+# Каталог разворачивается рекурсивно (см. `_expand`). Новые поверхности дают
+# ПРЕДУПРЕЖДЕНИЯ, а не падение: иначе проверка встанет красной на тысячах строк
+# и её отключат в тот же день. Файл переезжает в STRICT, когда вычищен.
 SURFACES = (
     "core/infra/status-page/index.html",
     "core/backend/app/services/public_status.py",
     "frontend/landing/index.html",
     "layero-docs/docs/deploys/custom-domains.md",
+    # Тексты, которые человек читает, когда у него что-то не получилось.
+    "core/backend/app/api/routes",
+    "core/backend/app/services/deploy_error.py",
+    "core/backend/app/services/log_humanize.py",
+    "core/backend/app/services/email",
+    "core/backend/app/billing",
+    "core/cli/src",
+    # Подписи панели: кнопки, пустые состояния, ошибки.
+    "frontend/control-plane/src",
 )
+
+# Какие расширения вообще имеет смысл открывать при развороте каталога.
+_SCANNABLE = {".py", ".ts", ".tsx", ".js", ".jsx", ".md", ".html", ".htm"}
+
+# Каталоги, в которые не спускаемся: там не тексты продукта.
+_SKIP_DIRS = {
+    "node_modules", ".git", "dist", "build", "__pycache__", ".venv",
+    "tests", "test", "__tests__", "migrations", "generated",
+}
 
 # Единицы измерения, которые не должны отрываться от числа (R36). Список
 # намеренно короткий: «с» и «ч» без него дали бы ложные срабатывания на
@@ -111,7 +140,7 @@ def spans_html(text: str) -> list[tuple[int, str, bool]]:
         r"<script[^>]*application/ld\+json.*?</script>",
         r"<(code|pre|kbd)\b[^>]*>.*?</\1>",
         r"/\*.*?\*/",
-        r"(?m)^[ \t]*//.*$",
+        r"(?m)^[ \t]*//[^\n]*$",
     )
     out = []
     in_script = False
@@ -134,7 +163,16 @@ def spans_html(text: str) -> list[tuple[int, str, bool]]:
 
 def _blank_regions(text: str, *patterns: str) -> str:
     """Гасим область, сохраняя переводы строк: номера строк обязаны остаться
-    настоящими, иначе находку не найти в файле."""
+    настоящими, иначе находку не найти в файле.
+
+    🚨 Все шаблоны компилируются с `re.S`, то есть `.` матчит и перевод строки.
+    Однострочные шаблоны обязаны писаться через `[^\\n]*`, а НЕ `.*`: с `re.S`
+    выражение `(?m)#.*$` жадно доходит до конца ФАЙЛА и гасит всё после первого
+    же комментария. Ровно это и происходило: `spans_source` возвращала ноль
+    литералов на `routes/billing.py` (78 строк с длинным тире), а
+    `public_status.py` числился вычищенной STRICT-поверхностью, будучи
+    непроверенным. ИБ-ревью 07.08.2026, T-20260807-59.
+    """
     for pat in patterns:
         text = re.sub(pat, lambda m: re.sub(r"[^\n]", " ", m.group(0)), text, flags=re.S)
     return text
@@ -143,7 +181,7 @@ def _blank_regions(text: str, *patterns: str) -> str:
 def spans_source(text: str) -> list[tuple[int, str, bool]]:
     """Строковые литералы с кириллицей. Докстроки и комментарии не в счёт:
     это разговор с собой, а не с пользователем."""
-    text = _blank_regions(text, r'""".*?"""', r"'''.*?'''", r"(?m)#.*$", r"(?m)//.*$")
+    text = _blank_regions(text, r'""".*?"""', r"'''.*?'''", r"(?m)#[^\n]*$", r"(?m)//[^\n]*$")
     out = []
     for n, raw in enumerate(text.split("\n"), 1):
         for m in re.finditer(r'"((?:[^"\\\n]|\\.)*)"' + r"|'((?:[^'\\\n]|\\.)*)'", raw):
@@ -177,6 +215,13 @@ def findings(span: str, from_markup: bool = False) -> list[tuple[str, str]]:
         if m.start() and span[m.start() - 1] == " ":
             out.append(("R16/R44", "обычный пробел перед длинным тире"))
     for m in re.finditer(r"(?<![А-Яа-яЁё])([%s]) (?=[А-Яа-яЁё0-9«])" % PREP, span):
+        # Неразрывный пробел СЛЕВА означает, что буква — не предлог, а единица
+        # измерения, уже привязанная к числу: «2 с назад», «5 м ниже». Правило
+        # R30 связывает предлог с ПОСЛЕДУЮЩИМ словом, и здесь ему делать нечего.
+        # Найдено на статус-странице при снятии слепоты проверки: `" с
+        # назад"` числилось нарушением на STRICT-поверхности, будучи верным.
+        if m.start() and span[m.start() - 1] in (NBSP, NNBSP):
+            continue
         out.append(("R30", "однобуквенный предлог «%s» отрывается от слова" % m.group(1)))
     for m in re.finditer(r"\d ([А-Яа-яЁё]+|[₽%%])" % (), span):
         if m.group(1) in UNITS:
@@ -195,12 +240,43 @@ def findings(span: str, from_markup: bool = False) -> list[tuple[str, str]]:
     return out
 
 
+def spans_jsx(text: str) -> list[tuple[int, str, bool]]:
+    """Строковые литералы ПЛЮС текст между тегами JSX.
+
+    Известная дыра того же класса, что и «не смотрит .py»: в `.tsx` половина
+    подписей — не литералы, а текстовые узлы разметки (`<p>Сайт публикуется</p>`),
+    и проверка, читающая только строки в кавычках, честно рапортует «чисто» о
+    файле, где ни одна видимая подпись не проверена.
+    ИБ-ревью 07.08.2026, T-20260807-59.
+
+    Текстовый узел помечается `from_markup=True`: двойные пробелы и «пробел
+    перед точкой» в нём смотреть нельзя — их создаёт перенос строки и отступ
+    самой разметки, а не автор текста.
+    """
+    out = list(spans_source(text))
+    body = _blank_regions(
+        text, r'""".*?"""', r"(?m)//[^\n]*$", r"/\*.*?\*/",
+        # Литералы уже собраны выше; гасим их, чтобы не считать дважды.
+        r'"(?:[^"\\\n]|\\.)*"', r"'(?:[^'\\\n]|\\.)*'", r"`(?:[^`\\]|\\.)*`",
+    )
+    for n, raw in enumerate(body.split("\n"), 1):
+        # Текст ПОСЛЕ закрывающей `>` и ДО следующей `<`. Выражения `{…}`
+        # гасим: `{count} проектов` — текст здесь только вторая половина.
+        for m in re.finditer(r">([^<>{}]+)(?=<|\{|$)", raw):
+            span = m.group(1)
+            if re.search("[а-яА-ЯёЁ]", span):
+                out.append((n, _blank_code(span), True))
+    return out
+
+
 def check(path: Path, root: Path, strict: bool) -> tuple[int, int]:
     text = path.read_text(encoding="utf-8")
     if path.suffix in (".md",):
         spans = spans_markdown(text)
     elif path.suffix in (".html", ".htm"):
         spans = spans_html(text)
+    elif path.suffix in (".tsx", ".jsx"):
+        spans = spans_jsx(text)
     else:
         spans = spans_source(text)
 
@@ -219,6 +295,26 @@ def check(path: Path, root: Path, strict: bool) -> tuple[int, int]:
     return errors, warns
 
 
+def _expand(p: Path) -> list[Path]:
+    """Файл — сам собой; каталог — все текстовые файлы под ним.
+
+    Разворот нужен потому, что поверхности из CLAUDE.md §5.2 — не файлы, а
+    области: «тексты ошибок деплоя», «подписи панели». Перечислять их файлами
+    значило бы завести пятый список, который отстанет от кода на первой же
+    новой ручке.
+    """
+    if p.is_file():
+        return [p]
+    out: list[Path] = []
+    for f in sorted(p.rglob("*")):
+        if f.suffix not in _SCANNABLE or not f.is_file():
+            continue
+        if any(part in _SKIP_DIRS for part in f.relative_to(p).parts):
+            continue
+        out.append(f)
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("paths", nargs="*")
@@ -230,14 +326,17 @@ def main() -> int:
     paths = [Path(p).resolve() for p in args.paths] or [root / s for s in SURFACES]
 
     errors = warns = 0
+    scanned = 0
     for p in paths:
         if not p.exists():
             print(f"  ✗ файл отсутствует: {p}")
             errors += 1
             continue
-        e, w = check(p, root, args.strict)
-        errors += e
-        warns += w
+        for f in _expand(p):
+            scanned += 1
+            e, w = check(f, root, args.strict)
+            errors += e
+            warns += w
 
     if errors:
         print(f"\nнарушений на вычищенных поверхностях: {errors}"
