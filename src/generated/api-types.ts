@@ -1047,6 +1047,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/integrations/google-sheets/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start Google Sheets
+         * @description Верхнеуровневый вход в поток привязки: ставит куку-нонс и ведёт к Google.
+         *
+         *     Зачем отдельная ручка, а не редирект из панели по `oauth_url`. Куку обязан
+         *     поставить НАШ ответ в first-party-контексте, иначе браузер её не сохранит:
+         *     панель живёт на `app.layero.ru`, API — на `api.layero.ru`, и XHR между
+         *     ними кросс-сайтовый, а axios-клиент создан без `withCredentials`.
+         *
+         *     Аутентификация билетом, а не заголовком: верхнеуровневый переход не несёт
+         *     JWT (он в localStorage). Билет выдаёт `/connect` по `Authorization` и живёт
+         *     пять минут. T-20260807-4.
+         */
+        get: operations["start_google_sheets_integrations_google_sheets_start_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/invites/accept": {
         parameters: {
             query?: never;
@@ -6693,6 +6722,38 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    start_google_sheets_integrations_google_sheets_start_get: {
+        parameters: {
+            query: {
+                /** @description Билет из /connect. НЕ сессионный токен. */
+                ticket: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
