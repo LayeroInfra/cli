@@ -674,6 +674,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/deploys/{deploy_id}/logs/stream-ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue Log Stream Ticket
+         * @description Выдать короткоживущий билет для `GET …/logs/stream`.
+         *
+         *     🚨 Зачем ручка вообще есть. Поток логов принимает токен query-параметром —
+         *     уважительно, `EventSource` не умеет ставить заголовки. Но раньше это был
+         *     обычный сессионный JWT на 168 часов, а nginx пишет полную строку запроса
+         *     в `access_log`, который в контейнере уходит в /dev/stdout и оседает в
+         *     docker-логах хоста открытым текстом, попадая в любую отгрузку логов.
+         *
+         *     Замер на проде за сутки: вхождений `token=eyJ` — НОЛЬ. Панель ходит
+         *     опросом, `EventSource` в исходниках фронтенда не встречается ни разу. То
+         *     есть механизм был, дорогу не поехали. Чинится до того, как поедут: иначе
+         *     вернувшийся SSE, CLI или MCP начали бы писать сессионные токены в логи
+         *     молча, без единого признака.
+         *
+         *     Билет живёт две минуты и годен ровно для этого деплоя. Выдаётся по
+         *     `Authorization`-заголовку — то есть сессионный токен в query-строку не
+         *     попадает никогда. ИБ-ревью 07.08.2026, T-20260807-33.
+         */
+        post: operations["issue_log_stream_ticket_deploys__deploy_id__logs_stream_ticket_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/deploys/{deploy_id}/retry": {
         parameters: {
             query?: never;
@@ -4909,6 +4945,13 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** StreamTicketOut */
+        StreamTicketOut: {
+            /** Expires In */
+            expires_in: number;
+            /** Ticket */
+            ticket: string;
+        };
         /** TransferAcceptIn */
         TransferAcceptIn: {
             /** Slug Override */
@@ -6078,7 +6121,7 @@ export interface operations {
     stream_logs_deploys__deploy_id__logs_stream_get: {
         parameters: {
             query: {
-                /** @description JWT in query (EventSource can't set headers) */
+                /** @description Short-lived stream ticket from POST …/logs/stream-ticket (EventSource can't set headers). NOT a session JWT. */
                 token: string;
             };
             header?: never;
@@ -6096,6 +6139,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    issue_log_stream_ticket_deploys__deploy_id__logs_stream_ticket_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                deploy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StreamTicketOut"];
                 };
             };
             /** @description Validation Error */
