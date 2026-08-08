@@ -151,6 +151,8 @@ def main() -> int:
             print(f"  ✗ {rel}:{n}  {name} — {why}")
             findings += 1
 
+    findings += _check_gateway_spec(root)
+
     if findings:
         print(f"\nнайдено похожего на секреты: {findings}")
         print("Если это заведомо не секрет — допишите в строку "
@@ -158,6 +160,33 @@ def main() -> int:
         return 1
     print(f"секретов не найдено (просмотрено файлов: {scanned})")
     return 0
+
+
+def _check_gateway_spec(root) -> int:
+    """Спека шлюза обязана нести ПЛЕЙСХОЛДЕР, а не подставленный секрет.
+
+    🚨 Общие шаблоны сюда не годятся: `API_GW_SHARED_SECRET` — случайный hex
+    без префикса, и ни одна из девяти форм его не опознаёт. А цена коммита
+    отрендеренной спеки высокая: значение заголовка `X-Layero-Gw` — это всё,
+    что отделяет доверие к `X-Forwarded-For` от «доверяем кому угодно».
+    Поэтому проверка точечная и по месту. Ревю 08.08.2026.
+    """
+    spec = root / "infra/api-gateway/layero-api-gateway.openapi.yaml"
+    if not spec.exists():
+        return 0
+    bad = 0
+    for n, line in enumerate(spec.read_text(encoding="utf-8").splitlines(), 1):
+        stripped = line.strip()
+        if not stripped.startswith("X-Layero-Gw:"):
+            continue
+        value = stripped.split(":", 1)[1].strip().strip('"').strip("'")
+        if value != "${API_GW_SHARED_SECRET}":
+            rel = spec.relative_to(root)
+            print(f"  ✗ {rel}:{n}  X-Layero-Gw — подставленный секрет вместо "
+                  f"плейсхолдера ${{API_GW_SHARED_SECRET}}")
+            bad += 1
+    return bad
+
 
 
 if __name__ == "__main__":
