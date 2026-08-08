@@ -1551,6 +1551,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/database": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Database */
+        get: operations["get_database_projects__project_id__database_get"];
+        put?: never;
+        /** Create Database */
+        post: operations["create_database_projects__project_id__database_post"];
+        /** Delete Database */
+        delete: operations["delete_database_projects__project_id__database_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/database/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rotate Password */
+        post: operations["rotate_password_projects__project_id__database_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/deploy": {
         parameters: {
             query?: never;
@@ -3074,6 +3110,21 @@ export interface components {
             type: string;
             /** Values */
             values: string[];
+        };
+        /** DatabaseOut */
+        DatabaseOut: {
+            /** Connection String */
+            connection_string: string;
+            /** Db Name */
+            db_name: string;
+            /** Quota Bytes */
+            quota_bytes: number;
+            /** Role Name */
+            role_name: string;
+            /** Status */
+            status: string;
+            /** Synchronous Commit */
+            synchronous_commit: string;
         };
         /**
          * DeployDiagnosisOut
@@ -4829,6 +4880,18 @@ export interface components {
             status: string;
             /** Url */
             url: string;
+        };
+        /** SecretOut */
+        SecretOut: {
+            /** Connection String */
+            connection_string: string;
+            /**
+             * Note
+             * @default Пароль показывается один раз. Сохраните его — восстановить нельзя, только сменить.
+             */
+            note: string;
+            /** Password */
+            password: string;
         };
         /** SessionOut */
         SessionOut: {
@@ -7706,6 +7769,138 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_database_projects__project_id__database_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatabaseOut"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_database_projects__project_id__database_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecretOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_database_projects__project_id__database_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatabaseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rotate_password_projects__project_id__database_password_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecretOut"];
                 };
             };
             /** @description Validation Error */
