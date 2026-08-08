@@ -4053,6 +4053,8 @@ export interface components {
             repo_full_name?: string | null;
             /** Repo Url */
             repo_url?: string | null;
+            /** Runtime Kind */
+            runtime_kind?: ("ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web") | null;
             /** Slug */
             slug?: string | null;
             /**
