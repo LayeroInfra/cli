@@ -549,6 +549,18 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     emit({ event: "deploy_started", deploy_id: started.deploy_id });
 
     const final = await streamDeployLogs(api, started.deploy_id);
+    // Отмена — не отказ. С выделением 'cancelled' в отдельный статус
+    // (08.08.2026) прежняя строка напечатала бы «deploy failed (cancelled)»:
+    // деплой одновременно и упал, и отменён. Чаще всего причина — вытеснение
+    // более новым пушем, и совет «посмотрите логи» тут не по адресу: смотреть
+    // надо на деплой-преемник, а не на этот.
+    if (final.status === "cancelled") {
+      throw new LayeroError(
+        "deploy_cancelled",
+        `deploy cancelled${final.error_message ? `: ${final.error_message}` : ""}`,
+        "a newer deploy superseded this one — check the latest deploy in the dashboard",
+      );
+    }
     if (final.status !== "ready") {
       throw new LayeroError(
         `deploy_${final.status}`,
