@@ -721,13 +721,17 @@ export interface paths {
         put?: never;
         /**
          * Retry Deploy
-         * @description Manually re-queue a failed deploy.
+         * @description Manually re-queue a failed or cancelled deploy.
          *
-         *     Allowed only on terminal `failed` state — refuses on `queued`/
-         *     `building` (already in flight) and `ready` (active artifact, no
-         *     sense in re-running). Resets `attempts` so the reaper grants a
+         *     Allowed on the terminal `failed` / `cancelled` states — refuses on
+         *     `queued`/`building` (already in flight) and `ready` (active artifact,
+         *     no sense in re-running). Resets `attempts` so the reaper grants a
          *     fresh retry budget. The same deploy row is reused (id stays),
          *     so existing UI links / logs stay valid.
+         *
+         *     `cancelled` попал сюда вместе с выделением отмены в отдельный статус
+         *     (08.08.2026): раньше отмена писалась как 'failed' и повтор работал —
+         *     новый статус не должен молча отбирать эту кнопку.
          */
         post: operations["retry_deploy_deploys__deploy_id__retry_post"];
         delete?: never;
