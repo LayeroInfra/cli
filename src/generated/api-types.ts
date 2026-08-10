@@ -1392,6 +1392,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/database/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Database
+         * @description Вернуть базу, пока окно хранения не истекло.
+         */
+        post: operations["restore_database_organizations__slug__database_restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/database/roles": {
         parameters: {
             query?: never;
@@ -3292,6 +3312,8 @@ export interface components {
             connection_string: string;
             /** Db Name */
             db_name: string;
+            /** Purge After */
+            purge_after?: string | null;
             /** Quota Bytes */
             quota_bytes: number;
             /** Role Name */
@@ -7709,6 +7731,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_database_organizations__slug__database_restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatabaseOut"];
                 };
             };
             /** @description Validation Error */
