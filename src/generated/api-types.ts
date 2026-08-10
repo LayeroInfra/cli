@@ -1257,6 +1257,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/database/network": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Network
+         * @description Режим, список адресов, баны — и адрес самого спрашивающего.
+         *
+         *     Свой адрес отдаём вместе с остальным сознательно: без него кнопка
+         *     «добавить мой IP» превращается в задачу «найдите свой адрес сами», а это
+         *     ровно тот момент, когда человек бросает настройку и оставляет базу
+         *     открытой.
+         */
+        get: operations["get_network_organizations__slug__database_network_get"];
+        /** Put Network Mode */
+        put: operations["put_network_mode_organizations__slug__database_network_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/database/network/bans/{addr}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Network Ban */
+        delete: operations["delete_network_ban_organizations__slug__database_network_bans__addr__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/database/network/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Network Rule */
+        post: operations["add_network_rule_organizations__slug__database_network_rules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/database/network/rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Network Rule */
+        delete: operations["delete_network_rule_organizations__slug__database_network_rules__rule_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/database/options": {
         parameters: {
             query?: never;
@@ -3376,6 +3453,13 @@ export interface components {
         DeployOut: {
             /** Artifact Purged At */
             artifact_purged_at?: string | null;
+            /**
+             * Candidate App Dirs
+             * @default []
+             */
+            candidate_app_dirs: {
+                [key: string]: unknown;
+            }[];
             /** Commit Message */
             commit_message: string | null;
             /** Commit Sha */
@@ -4045,6 +4129,20 @@ export interface components {
             tracked_branch_name?: string | null;
             /** Yandex Login */
             yandex_login?: string | null;
+        };
+        /** NetworkModeIn */
+        NetworkModeIn: {
+            /** Mode */
+            mode: string;
+        };
+        /** NetworkRuleIn */
+        NetworkRuleIn: {
+            /** Cidr */
+            cidr: string;
+            /** Comment */
+            comment?: string | null;
+            /** Expires At */
+            expires_at?: string | null;
         };
         /** NotificationPrefsIn */
         NotificationPrefsIn: {
@@ -4813,6 +4911,11 @@ export interface components {
         };
         /** ProjectTypeIn */
         ProjectTypeIn: {
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
             /** Project Type */
             project_type: string;
         };
@@ -7420,6 +7523,181 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DatabaseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_network_organizations__slug__database_network_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_network_mode_organizations__slug__database_network_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NetworkModeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_network_ban_organizations__slug__database_network_bans__addr__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                addr: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_network_rule_organizations__slug__database_network_rules_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NetworkRuleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_network_rule_organizations__slug__database_network_rules__rule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
