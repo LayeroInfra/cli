@@ -3331,7 +3331,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get Pending Transfer
+         * @description Висящая заявка на передачу этого проекта, или `null`.
+         *
+         *     Без этой ручки состояние «заявка создана» жило только в стейте формы:
+         *     после перезагрузки виджет снова показывал пустую форму, повторная
+         *     отправка упиралась в 409 «A pending transfer already exists», а кнопка
+         *     отмены не появлялась вовсе — свою же заявку нельзя было ни увидеть, ни
+         *     снять.
+         */
+        get: operations["get_pending_transfer_projects__project_id__transfer_get"];
         put?: never;
         /** Init Transfer */
         post: operations["init_transfer_projects__project_id__transfer_post"];
@@ -12153,6 +12163,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SpeedRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pending_transfer_projects__project_id__transfer_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferOut"] | null;
                 };
             };
             /** @description Validation Error */
