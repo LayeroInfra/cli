@@ -1404,7 +1404,14 @@ export interface paths {
         };
         /**
          * Creation Options
-         * @description Из чего пользователь выбирает при создании: движок и расширения.
+         * @description Из чего пользователь выбирает при создании: движок, расширения и ЦЕНА.
+         *
+         *     Цена здесь появилась не для красоты. `included_in_plan` отдавался и раньше,
+         *     с комментарием «человек должен видеть, что упирается в подписку, до того
+         *     как нажал», — и панель это поле не использовала ни разу: пользователь
+         *     проходил весь мастер и получал красный тост после клика. Теперь тем же
+         *     ответом приходит и стоимость следующей базы, потому что вторая база платная
+         *     и узнать об этом после создания — худший из возможных моментов.
          */
         get: operations["creation_options_organizations__slug__database_options_get"];
         put?: never;
@@ -1441,7 +1448,7 @@ export interface paths {
         };
         /**
          * List Connected
-         * @description Кто получает DATABASE_URL и кого ещё можно подключить.
+         * @description Кто получает строку подключения и кого ещё можно подключить.
          *
          *     Оба списка сразу: выбирать проект из выпадающего списка, не видя уже
          *     подключённых, значит подключать один и тот же дважды.
@@ -1483,7 +1490,15 @@ export interface paths {
         /** List Saved Queries */
         get: operations["list_saved_queries_organizations__slug__database_queries_get"];
         put?: never;
-        /** Save Query */
+        /**
+         * Save Query
+         * @description Сохранить запрос в общую библиотеку организации.
+         *
+         *     ⚠️ Права ADMIN, а не MEMBER. Сохранённый запрос видит вся команда и
+         *     запускает его в один клик — то есть это не заметка, а кнопка, которую
+         *     нажмёт кто-то другой. Право писать такие кнопки не должно быть у роли,
+         *     которой не доверено выполнение запросов.
+         */
         post: operations["save_query_organizations__slug__database_queries_post"];
         delete?: never;
         options?: never;
@@ -1612,7 +1627,13 @@ export interface paths {
         /** List Databases */
         get: operations["list_databases_organizations__slug__databases_get"];
         put?: never;
-        /** Create Managed Database */
+        /**
+         * Create Managed Database
+         * @description Завести базу Layero.
+         *
+         *     Первая входит в тариф, следующие считаются по гигабайтам. Объём платной
+         *     базы приходит от пользователя — он же и есть основание счёта.
+         */
         post: operations["create_managed_database_organizations__slug__databases_post"];
         delete?: never;
         options?: never;
@@ -1644,6 +1665,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Databases Options
+         * @description Что можно завести и почём — до нажатия кнопки, а не после.
+         */
+        get: operations["databases_options_organizations__slug__databases_options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}": {
         parameters: {
             query?: never;
@@ -1659,12 +1700,24 @@ export interface paths {
          * @description Отключить базу.
          *
          *     Внешнюю просто забываем — она чужая, и уносить с собой её данные мы не
-         *     вправе. Свою ставим в очередь уборки с окном хранения, как и раньше.
+         *     вправе. Свою ставим в очередь уборки с окном хранения.
+         *
+         *     🚨 `db_id` ДОХОДИТ ДО СЕРВИСА. Раньше ручка передавала в `schedule_deletion`
+         *     только организацию, а та брала САМУЮ СТАРУЮ базу: удаление второй базы
+         *     ставило в очередь уборки первую, и узналось бы это через семь суток.
          */
         delete: operations["delete_database_by_id_organizations__slug__databases__db_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Rename Database
+         * @description Переименовать базу. Адрес при этом НЕ меняется — и так и отвечаем.
+         *
+         *     Имя ресурса и имя в строке подключения — разные вещи: второе уехало в
+         *     чужие `.env` и в настройки подрядчиков, и менять его переименованием
+         *     карточки значит ломать работающее молча.
+         */
+        patch: operations["rename_database_organizations__slug__databases__db_id__patch"];
         trace?: never;
     };
     "/organizations/{slug}/databases/{db_id}/backups": {
@@ -1755,10 +1808,35 @@ export interface paths {
          *
          *     ⚠️ Недоступность хранилища отдаём флагом, а не пустыми рядами: пустой
          *     график читается как «нагрузки нет», и на этом строят неверные выводы.
+         *
+         *     🚨 Хранилище опрашивается В ПОТОКЕ, а не в event loop. `urllib` синхронный,
+         *     запросов пять, таймаут у каждого 6 с — недоступная VictoriaMetrics
+         *     замораживала воркер до 30 с, то есть одно открытие вкладки «Мониторинг»
+         *     останавливало обслуживание ВСЕХ сайтов на этом воркере.
          */
         get: operations["database_metrics_organizations__slug__databases__db_id__metrics_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate Password Of
+         * @description Сменить пароль владельца КОНКРЕТНОЙ базы.
+         */
+        post: operations["rotate_password_of_organizations__slug__databases__db_id__password_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1775,7 +1853,16 @@ export interface paths {
         /** List Projects Of */
         get: operations["list_projects_of_organizations__slug__databases__db_id__projects_get"];
         put?: never;
-        /** Connect Project To Database */
+        /**
+         * Connect Project To Database
+         * @description Подключить проект к базе.
+         *
+         *     Подключение ВСЕГДА заводит проекту собственного пользователя базы. Раньше
+         *     это было опцией (`own_role`), а «под владельцем» — вариантом по умолчанию у
+         *     ручки в единственном числе; смысл роли при этом терялся: пока все проекты
+         *     ходят под владельцем, отозвать доступ одному нельзя — только сменить пароль
+         *     всем сразу и уронить остальных.
+         */
         post: operations["connect_project_to_database_organizations__slug__databases__db_id__projects_post"];
         delete?: never;
         options?: never;
@@ -1823,6 +1910,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Database By Id
+         * @description Вернуть КОНКРЕТНУЮ базу из очереди на уборку.
+         */
+        post: operations["restore_database_by_id_organizations__slug__databases__db_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/roles": {
         parameters: {
             query?: never;
@@ -1858,6 +1965,10 @@ export interface paths {
         /**
          * Update Role In Database
          * @description Перевыдать доступ роли: пароль, срок, лимит подключений.
+         *
+         *     ⚠️ `role_name` приходит из адреса. Сервис обязан сверить его со списком
+         *     ролей ИМЕННО ЭТОЙ базы — без такой проверки ручка меняла пароль любой роли
+         *     кластера, включая чужие и служебные (см. `userdb._require_role_of_db`).
          */
         patch: operations["update_role_in_database_organizations__slug__databases__db_id__roles__role_name__patch"];
         trace?: never;
@@ -3800,7 +3911,18 @@ export interface components {
             /** Name */
             name: string;
         };
-        /** BackupCreateIn */
+        /**
+         * BackupCreateIn
+         * @description Копия в хранилище. Тип больше не выбирается.
+         *
+         *     ⚠️ `snapshot` из этой ручки убран сознательно. Снимок ZFS делается
+         *     рекурсивно по всему пулу (иначе каталог кластера и данные базы разъезжаются
+         *     во времени и снимок негоден), а `zfs quota` считает снимки — то есть снимок
+         *     ОДНОГО арендатора физически удерживал блоки в датасетах ВСЕХ остальных и
+         *     съедал их квоту. Плюс восстановить его самостоятельно было нельзя ни одной
+         *     ручкой. Снимок остался, но стал тем, чем он и является: суточной точкой
+         *     отката ШАРДА, которую делает платформа и разворачивает инженер.
+         */
         BackupCreateIn: {
             /**
              * Kind
@@ -3833,16 +3955,8 @@ export interface components {
         };
         /** ConnectProjectIn */
         ConnectProjectIn: {
-            /**
-             * Env Var Name
-             * @default DATABASE_URL
-             */
-            env_var_name: string;
-            /**
-             * Own Role
-             * @default true
-             */
-            own_role: boolean;
+            /** Env Var Name */
+            env_var_name?: string | null;
             /**
              * Project Id
              * Format: uuid
@@ -3891,6 +4005,11 @@ export interface components {
         CreateIn: {
             /** Extensions */
             extensions?: string[];
+            /**
+             * Name
+             * @default База данных
+             */
+            name: string;
         };
         /** CreateManagedIn */
         CreateManagedIn: {
@@ -3898,6 +4017,8 @@ export interface components {
             extensions?: string[];
             /** Name */
             name: string;
+            /** Quota Gb */
+            quota_gb?: number | null;
         };
         /** CreateOrganizationIn */
         CreateOrganizationIn: {
@@ -3933,6 +4054,11 @@ export interface components {
         };
         /** DatabaseListItem */
         DatabaseListItem: {
+            /**
+             * Billable
+             * @default false
+             */
+            billable: boolean;
             /** Capabilities */
             capabilities: string[];
             /** Connection String */
@@ -3946,12 +4072,17 @@ export interface components {
             id: string;
             /** Name */
             name: string;
-            /** Paid Quota Blocks */
-            paid_quota_blocks: number;
+            /**
+             * Price Kopecks
+             * @default 0
+             */
+            price_kopecks: number;
             /** Projects Count */
             projects_count: number;
             /** Provider */
             provider: string;
+            /** Purge After */
+            purge_after?: string | null;
             /** Quota Bytes */
             quota_bytes: number;
             /** Size Bytes */
@@ -3965,6 +4096,13 @@ export interface components {
             connection_string: string;
             /** Db Name */
             db_name: string;
+            /** Id */
+            id?: string | null;
+            /**
+             * Name
+             * @default База данных
+             */
+            name: string;
             /** Purge After */
             purge_after?: string | null;
             /** Quota Bytes */
@@ -5631,6 +5769,11 @@ export interface components {
             /** Sql */
             sql: string;
         };
+        /** RenameIn */
+        RenameIn: {
+            /** Name */
+            name: string;
+        };
         /** RenameOrganizationIn */
         RenameOrganizationIn: {
             /** Slug */
@@ -5657,6 +5800,11 @@ export interface components {
         };
         /** RestoreIn */
         RestoreIn: {
+            /**
+             * Overwrite
+             * @default false
+             */
+            overwrite: boolean;
             /**
              * Target Database Id
              * Format: uuid
@@ -5858,6 +6006,11 @@ export interface components {
         SecretOut: {
             /** Connection String */
             connection_string: string;
+            /**
+             * Env Var Name
+             * @default LAYERO_DATABASE_URL
+             */
+            env_var_name: string;
             /**
              * Note
              * @default Пароль показывается один раз. Сохраните его — восстановить нельзя, только сменить.
@@ -9086,6 +9239,39 @@ export interface operations {
             };
         };
     };
+    databases_options_organizations__slug__databases_options_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_database_by_id_organizations__slug__databases__db_id__delete: {
         parameters: {
             query?: never;
@@ -9099,6 +9285,44 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_database_organizations__slug__databases__db_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -9340,6 +9564,40 @@ export interface operations {
             };
         };
     };
+    rotate_password_of_organizations__slug__databases__db_id__password_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecretOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_projects_of_organizations__slug__databases__db_id__projects_get: {
         parameters: {
             query?: never;
@@ -9464,6 +9722,40 @@ export interface operations {
                 "application/json": components["schemas"]["QueryIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_database_by_id_organizations__slug__databases__db_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
