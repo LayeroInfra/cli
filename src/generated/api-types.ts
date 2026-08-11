@@ -1606,6 +1606,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Database Metrics
+         * @description Ряды по базе за диапазон плюс уведомления по последним значениям.
+         *
+         *     ⚠️ Недоступность хранилища отдаём флагом, а не пустыми рядами: пустой
+         *     график читается как «нагрузки нет», и на этом строят неверные выводы.
+         */
+        get: operations["database_metrics_organizations__slug__databases__db_id__metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/projects": {
         parameters: {
             query?: never;
@@ -8570,6 +8593,42 @@ export interface operations {
     delete_database_by_id_organizations__slug__databases__db_id__delete: {
         parameters: {
             query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    database_metrics_organizations__slug__databases__db_id__metrics_get: {
+        parameters: {
+            query?: {
+                range?: string;
+            };
             header?: {
                 authorization?: string | null;
             };
