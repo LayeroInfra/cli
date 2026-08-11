@@ -5741,20 +5741,22 @@ export interface components {
             /** Ticket */
             ticket: string;
         };
-        /** TransferAcceptIn */
-        TransferAcceptIn: {
-            /** Slug Override */
-            slug_override?: string | null;
-        };
-        /** TransferInitIn */
+        /**
+         * TransferInitIn
+         * @description The initiator picks an organization — nothing else.
+         *
+         *     `requested_target_slug` used to live here so the initiator could dodge a
+         *     slug collision up-front, back when the slug was baked into the address
+         *     as `{org}-{slug}`. On the projects zone it isn't, so the field asked the
+         *     user to solve a problem they can no longer observe. Collisions are now
+         *     auto-suffixed on accept.
+         */
         TransferInitIn: {
             /**
              * Keep Previous Owner As Editor
              * @default true
              */
             keep_previous_owner_as_editor: boolean;
-            /** Requested Target Slug */
-            requested_target_slug?: string | null;
             /** Target Organization Slug */
             target_organization_slug: string;
         };
@@ -12109,11 +12111,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TransferAcceptIn"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
