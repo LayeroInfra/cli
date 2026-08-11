@@ -2380,6 +2380,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/build-settings-suggestion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Dismiss Build Settings Suggestion
+         * @description Скрыть подсказку билдера про настройки сборки, ничего не меняя.
+         *
+         *     Принять её отдельной ручкой не нужно: применение — это обычная правка
+         *     настроек, а `update_settings` снимает подсказку сам. Две ручки на одно
+         *     действие рано или поздно разъедутся.
+         */
+        delete: operations["dismiss_build_settings_suggestion_projects__project_id__build_settings_suggestion_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/connect-repo": {
         parameters: {
             query?: never;
@@ -5243,6 +5267,11 @@ export interface components {
         };
         /** ProjectDetectSuggestionsOut */
         ProjectDetectSuggestionsOut: {
+            /**
+             * Content Read
+             * @default true
+             */
+            content_read: boolean;
             /** Suggestions */
             suggestions: components["schemas"]["FrameworkSuggestionOut"][];
         };
@@ -5372,6 +5401,10 @@ export interface components {
             branding_enabled: boolean;
             /** Build Cmd */
             build_cmd: string;
+            /** Build Settings Suggestion */
+            build_settings_suggestion?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Cancel Superseded
              * @default true
@@ -6127,6 +6160,11 @@ export interface components {
             web_base_url: string;
             /** Webhook Create */
             webhook_create: boolean;
+            /**
+             * Webhook Supported
+             * @default true
+             */
+            webhook_supported: boolean;
         };
         /** SourceRepoOut */
         SourceRepoOut: {
@@ -10840,6 +10878,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["BranchOut"][];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_build_settings_suggestion_projects__project_id__build_settings_suggestion_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
