@@ -1187,6 +1187,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Organizations
+         * @description Подсказка организаций по началу слага — для выбора получателя передачи.
+         *
+         *     Передавать проект можно в ЛЮБУЮ организацию, не только в свою: слаг
+         *     получателя раньше вбивали руками, а слаг, которого не видно, набрать
+         *     нельзя. Поэтому это поиск по всем организациям, а не список своих.
+         *
+         *     ГРАНИЦЫ. Ручка отвечает только аутентифицированному пользователю, просит
+         *     минимум два символа и отдаёт максимум восемь совпадений — перебрать через
+         *     неё каталог владельцев можно, но дороже, чем через уже открытые адреса
+         *     сайтов: слаг организации и так виден в адресе каждого её проекта. Наружу
+         *     идут ровно три поля; почта, состав участников и внутренние идентификаторы
+         *     не отдаются.
+         *
+         *     Совпадение — по НАЧАЛУ слага, а не подстрокой: «mi» обязано предлагать
+         *     `mixa`, но не всякую организацию, у которой «mi» затесалось в середине.
+         */
+        get: operations["search_organizations_organizations_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}": {
         parameters: {
             query?: never;
@@ -1618,6 +1652,26 @@ export interface paths {
         put?: never;
         /** Create Backup */
         post: operations["create_backup_organizations__slug__databases__db_id__backups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/backups/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Backups Enabled
+         * @description Включить или выключить копии. Выключение не удаляет уже сделанные.
+         */
+        put: operations["set_backups_enabled_organizations__slug__databases__db_id__backups_settings_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3584,6 +3638,11 @@ export interface components {
              */
             kind: string;
         };
+        /** BackupsSettingsIn */
+        BackupsSettingsIn: {
+            /** Enabled */
+            enabled: boolean;
+        };
         /** BranchOut */
         BranchOut: {
             /** Active Deploy Id */
@@ -4556,6 +4615,15 @@ export interface components {
              * @default []
              */
             untouched_projects: string[];
+        };
+        /** OrganizationSuggestOut */
+        OrganizationSuggestOut: {
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /** Kind */
+            kind: string;
+            /** Slug */
+            slug: string;
         };
         /**
          * PackageScriptOut
@@ -7729,6 +7797,39 @@ export interface operations {
             };
         };
     };
+    search_organizations_organizations_search_get: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationSuggestOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_organization_organizations__slug__delete: {
         parameters: {
             query?: never;
@@ -8751,6 +8852,44 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_backups_enabled_organizations__slug__databases__db_id__backups_settings_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupsSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
