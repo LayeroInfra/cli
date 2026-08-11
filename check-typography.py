@@ -58,6 +58,17 @@ STRICT = (
     # ровно та поверхность, ради которой проверка писалась. Заведён чистым,
     # пусть таким и остаётся.
     "frontend/control-plane/src/lib/authRealm.ts",
+    # 12.08.2026: раздел «Базы данных» вычищен целиком. Поводом стала вычитка
+    # по ru-text: во всех пяти экранах раздела было НОЛЬ неразрывных пробелов
+    # при том, что соседние файлы того же каталога их используют — то есть
+    # соглашение в кодовой базе есть, а раздел прошёл мимо него. Тот же класс,
+    # что со статус-страницей 30.07: смотреть надо в байты, а не на макет.
+    "frontend/control-plane/src/pages/Database/Create.tsx",
+    "frontend/control-plane/src/pages/Database/Connection.tsx",
+    "frontend/control-plane/src/pages/Database/Backups.tsx",
+    "frontend/control-plane/src/pages/Database/List.tsx",
+    "frontend/control-plane/src/pages/Database/Projects.tsx",
+    "frontend/control-plane/src/pages/Project/DatabaseCard.tsx",
 )
 
 # Что проверяем по умолчанию, если пути не заданы явно.
