@@ -1950,6 +1950,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/source-connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Connections */
+        get: operations["list_connections_organizations__slug__source_connections_get"];
+        put?: never;
+        /** Create Connection */
+        post: operations["create_connection_organizations__slug__source_connections_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/source-connections/{connection_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Connection */
+        delete: operations["delete_connection_organizations__slug__source_connections__connection_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/source-connections/{connection_id}/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Branches */
+        get: operations["list_branches_organizations__slug__source_connections__connection_id__branches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/source-connections/{connection_id}/repos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Repos */
+        get: operations["list_repos_organizations__slug__source_connections__connection_id__repos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/source-connections/{connection_id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify Connection */
+        post: operations["verify_connection_organizations__slug__source_connections__connection_id__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/source-providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Providers */
+        get: operations["list_providers_organizations__slug__source_providers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects": {
         parameters: {
             query?: never;
@@ -2159,6 +2262,36 @@ export interface paths {
          *     just from a repo now.
          */
         post: operations["connect_repo_projects__project_id__connect_repo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/connect-source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Connect Source
+         * @description Привязать репозиторий внешнего провайдера (GitVerse и далее).
+         *
+         *     Тот же контракт, что у `connect-repo`: только проводка, деплой НЕ
+         *     запускается, апекс НЕ переезжает. Пуши приезжают обычными ветковыми
+         *     деплоями, живой сайт продолжает отдавать то, что отдавал.
+         *
+         *     Отличие от GitHub-пути в одном месте: если завести вебхук через API не
+         *     удалось, привязка НЕ откатывается. У GitHub откат правильный — там
+         *     единственный режим работы это App с вебхуком, и половинчатое состояние
+         *     бесполезно. Здесь же ручной вебхук — штатный режим (L1): провайдер может
+         *     не дать создать его токеном, и терять из-за этого готовую привязку незачем.
+         */
+        post: operations["connect_source_projects__project_id__connect_source_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3699,6 +3832,28 @@ export interface components {
             repo_full_name: string;
             /** Repo Url */
             repo_url?: string | null;
+        };
+        /** ConnectSourceIn */
+        ConnectSourceIn: {
+            /** Branch */
+            branch?: string | null;
+            /**
+             * Connection Id
+             * Format: uuid
+             */
+            connection_id: string;
+            /** Repo Path */
+            repo_path: string;
+        };
+        /** ConnectSourceOut */
+        ConnectSourceOut: {
+            project: components["schemas"]["ProjectOut"];
+            /** Webhook Hint */
+            webhook_hint?: string | null;
+            /** Webhook Registered */
+            webhook_registered: boolean;
+            /** Webhook Url */
+            webhook_url: string;
         };
         /**
          * CreateIn
@@ -5711,6 +5866,84 @@ export interface components {
         SiteUserPasswordIn: {
             /** Password */
             password: string;
+        };
+        /** SourceBranchOut */
+        SourceBranchOut: {
+            /** Commit Sha */
+            commit_sha: string;
+            /** Name */
+            name: string;
+        };
+        /** SourceConnectionIn */
+        SourceConnectionIn: {
+            /** Base Url */
+            base_url?: string | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Provider Id */
+            provider_id: string;
+            /** Token */
+            token: string;
+        };
+        /** SourceConnectionOut */
+        SourceConnectionOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Display Name */
+            display_name: string | null;
+            /** External Account */
+            external_account: string | null;
+            /** Id */
+            id: string;
+            /** Last Error */
+            last_error: string | null;
+            /** Last Verified At */
+            last_verified_at: string | null;
+            /** Projects Count */
+            projects_count: number;
+            /** Provider Id */
+            provider_id: string;
+            /** Provider Title */
+            provider_title: string;
+            /** Status */
+            status: string;
+        };
+        /** SourceProviderOut */
+        SourceProviderOut: {
+            /** Id */
+            id: string;
+            /** Self Hosted */
+            self_hosted: boolean;
+            /** Title */
+            title: string;
+            /** Token Hint */
+            token_hint?: string | null;
+            /** Web Base Url */
+            web_base_url: string;
+            /** Webhook Create */
+            webhook_create: boolean;
+        };
+        /** SourceRepoOut */
+        SourceRepoOut: {
+            /** Can Admin */
+            can_admin: boolean;
+            /** Clone Url */
+            clone_url: string;
+            /** Default Branch */
+            default_branch: string;
+            /** External Id */
+            external_id: string;
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /** Private */
+            private: boolean;
+            /** Updated At */
+            updated_at: string | null;
         };
         /** SpeedRunCreateIn */
         SpeedRunCreateIn: {
@@ -9590,6 +9823,245 @@ export interface operations {
             };
         };
     };
+    list_connections_organizations__slug__source_connections_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceConnectionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_connection_organizations__slug__source_connections_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceConnectionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceConnectionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_connection_organizations__slug__source_connections__connection_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                connection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_branches_organizations__slug__source_connections__connection_id__branches_get: {
+        parameters: {
+            query: {
+                repo: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                connection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceBranchOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_repos_organizations__slug__source_connections__connection_id__repos_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                connection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceRepoOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_connection_organizations__slug__source_connections__connection_id__verify_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                connection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceConnectionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_providers_organizations__slug__source_providers_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceProviderOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_projects_projects_get: {
         parameters: {
             query?: never;
@@ -10028,6 +10500,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    connect_source_projects__project_id__connect_source_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectSourceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectSourceOut"];
                 };
             };
             /** @description Validation Error */
