@@ -1541,6 +1541,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Databases */
+        get: operations["list_databases_organizations__slug__databases_get"];
+        put?: never;
+        /** Create Managed Database */
+        post: operations["create_managed_database_organizations__slug__databases_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/external": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Attach External Database
+         * @description Подключить чужую базу по строке подключения.
+         *
+         *     Мы её не создаём и не отвечаем за неё: доступны только те разделы, которые
+         *     работают через обычного клиента. Это же ответ на вопрос «а если я уйду» —
+         *     базу можно принести и унести.
+         */
+        post: operations["attach_external_database_organizations__slug__databases_external_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Database By Id
+         * @description Отключить базу.
+         *
+         *     Внешнюю просто забываем — она чужая, и уносить с собой её данные мы не
+         *     вправе. Свою ставим в очередь уборки с окном хранения, как и раньше.
+         */
+        delete: operations["delete_database_by_id_organizations__slug__databases__db_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Projects Of */
+        get: operations["list_projects_of_organizations__slug__databases__db_id__projects_get"];
+        put?: never;
+        /** Connect Project To Database */
+        post: operations["connect_project_to_database_organizations__slug__databases__db_id__projects_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Disconnect Project From Database */
+        delete: operations["disconnect_project_from_database_organizations__slug__databases__db_id__projects__project_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/invites": {
         parameters: {
             query?: never;
@@ -3312,6 +3412,13 @@ export interface components {
             /** Scopes */
             scopes: string[];
         };
+        /** AttachExternalIn */
+        AttachExternalIn: {
+            /** Dsn */
+            dsn: string;
+            /** Name */
+            name: string;
+        };
         /** BranchOut */
         BranchOut: {
             /** Active Deploy Id */
@@ -3329,6 +3436,19 @@ export interface components {
             preview_url: string;
             /** Slug */
             slug: string;
+        };
+        /** ConnectProjectIn */
+        ConnectProjectIn: {
+            /**
+             * Env Var Name
+             * @default DATABASE_URL
+             */
+            env_var_name: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
         };
         /** ConnectRepoIn */
         ConnectRepoIn: {
@@ -3350,6 +3470,13 @@ export interface components {
         CreateIn: {
             /** Extensions */
             extensions?: string[];
+        };
+        /** CreateManagedIn */
+        CreateManagedIn: {
+            /** Extensions */
+            extensions?: string[];
+            /** Name */
+            name: string;
         };
         /** CreateOrganizationIn */
         CreateOrganizationIn: {
@@ -3382,6 +3509,34 @@ export interface components {
             type: string;
             /** Values */
             values: string[];
+        };
+        /** DatabaseListItem */
+        DatabaseListItem: {
+            /** Capabilities */
+            capabilities: string[];
+            /** Connection String */
+            connection_string: string;
+            /** Db Name */
+            db_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Paid Quota Blocks */
+            paid_quota_blocks: number;
+            /** Projects Count */
+            projects_count: number;
+            /** Provider */
+            provider: string;
+            /** Quota Bytes */
+            quota_bytes: number;
+            /** Size Bytes */
+            size_bytes?: number | null;
+            /** Status */
+            status: string;
         };
         /** DatabaseOut */
         DatabaseOut: {
@@ -8167,6 +8322,254 @@ export interface operations {
             };
             path: {
                 slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_databases_organizations__slug__databases_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatabaseListItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_managed_database_organizations__slug__databases_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateManagedIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecretOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    attach_external_database_organizations__slug__databases_external_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachExternalIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_database_by_id_organizations__slug__databases__db_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_projects_of_organizations__slug__databases__db_id__projects_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    connect_project_to_database_organizations__slug__databases__db_id__projects_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectProjectIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disconnect_project_from_database_organizations__slug__databases__db_id__projects__project_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                project_id: string;
             };
             cookie?: never;
         };
