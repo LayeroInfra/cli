@@ -5820,11 +5820,6 @@ export interface components {
          *     auto-suffixed on accept.
          */
         TransferInitIn: {
-            /**
-             * Keep Previous Owner As Editor
-             * @default true
-             */
-            keep_previous_owner_as_editor: boolean;
             /** Target Organization Slug */
             target_organization_slug: string;
         };
