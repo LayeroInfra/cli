@@ -1664,6 +1664,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Roles Of Database */
+        get: operations["list_roles_of_database_organizations__slug__databases__db_id__roles_get"];
+        put?: never;
+        /** Create Role In Database */
+        post: operations["create_role_in_database_organizations__slug__databases__db_id__roles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/roles/{role_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Drop Role In Database */
+        delete: operations["drop_role_in_database_organizations__slug__databases__db_id__roles__role_name__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Role In Database
+         * @description Перевыдать доступ роли: пароль, срок, лимит подключений.
+         */
+        patch: operations["update_role_in_database_organizations__slug__databases__db_id__roles__role_name__patch"];
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/schema": {
         parameters: {
             query?: never;
@@ -3485,6 +3524,11 @@ export interface components {
              */
             env_var_name: string;
             /**
+             * Own Role
+             * @default true
+             */
+            own_role: boolean;
+            /**
              * Project Id
              * Format: uuid
              */
@@ -5248,6 +5292,18 @@ export interface components {
             /** Revoked */
             revoked: number;
         };
+        /** RoleCreateIn */
+        RoleCreateIn: {
+            /**
+             * Level
+             * @default read
+             */
+            level: string;
+            /** Name */
+            name: string;
+            /** Valid Until */
+            valid_until?: string | null;
+        };
         /** RoleIn */
         RoleIn: {
             /**
@@ -5257,6 +5313,23 @@ export interface components {
             level: string;
             /** Name */
             name: string;
+        };
+        /** RoleUpdateIn */
+        RoleUpdateIn: {
+            /**
+             * Clear Valid Until
+             * @default false
+             */
+            clear_valid_until: boolean;
+            /** Connection Limit */
+            connection_limit?: number | null;
+            /**
+             * Reset Password
+             * @default false
+             */
+            reset_password: boolean;
+            /** Valid Until */
+            valid_until?: string | null;
         };
         /** RollbackRequest */
         RollbackRequest: {
@@ -8660,6 +8733,154 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_roles_of_database_organizations__slug__databases__db_id__roles_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_role_in_database_organizations__slug__databases__db_id__roles_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleCreateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecretOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    drop_role_in_database_organizations__slug__databases__db_id__roles__role_name__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                role_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_role_in_database_organizations__slug__databases__db_id__roles__role_name__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                role_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleUpdateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecretOut"] | {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
