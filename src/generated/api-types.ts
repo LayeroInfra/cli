@@ -294,6 +294,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/me/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Onboarding Answers
+         * @description Сохранить ответы онбординга — кто пришёл, зачем и откуда узнал.
+         *
+         *     Отдельно от /me/username намеренно. Имя аккаунта обязательное и создаёт
+         *     личную организацию; эти три вопроса пропускаются целиком, и связывать их
+         *     в один запрос значило бы, что сбой аналитики роняет саму регистрацию.
+         *
+         *     Идемпотентно: повторный вызов перезаписывает ответы. Пустое значение
+         *     стирает прежнее — пропуск шага это тоже ответ.
+         */
+        post: operations["save_onboarding_answers_auth_me_onboarding_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/me/reset-for-testing": {
         parameters: {
             query?: never;
@@ -4702,6 +4729,28 @@ export interface components {
             /** Support Emails */
             support_emails?: boolean | null;
         };
+        /**
+         * OnboardingAnswersIn
+         * @description Ответы на вопросы онбординга. Все поля необязательные — шаги
+         *     пропускаются, и пропуск приходит как null.
+         */
+        OnboardingAnswersIn: {
+            /** Goal */
+            goal?: string | null;
+            /** Profession */
+            profession?: string | null;
+            /** Source */
+            source?: string | null;
+        };
+        /** OnboardingAnswersOut */
+        OnboardingAnswersOut: {
+            /** Goal */
+            goal?: string | null;
+            /** Profession */
+            profession?: string | null;
+            /** Source */
+            source?: string | null;
+        };
         /** OrganizationInline */
         OrganizationInline: {
             /** Github Login */
@@ -6667,6 +6716,41 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_onboarding_answers_auth_me_onboarding_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OnboardingAnswersIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingAnswersOut"];
                 };
             };
             /** @description Validation Error */
