@@ -4446,6 +4446,11 @@ export interface components {
         DeploySessionStartIn: {
             /** Commit Sha */
             commit_sha?: string | null;
+            /**
+             * Confirm Repeated Failure
+             * @default false
+             */
+            confirm_repeated_failure: boolean;
         };
         /** DeploySessionStatusOut */
         DeploySessionStatusOut: {
@@ -5536,6 +5541,14 @@ export interface components {
              * @default true
              */
             auto_deploy_on_push: boolean;
+            /** Auto Deploy Pause Deploy Id */
+            auto_deploy_pause_deploy_id?: string | null;
+            /** Auto Deploy Pause Error */
+            auto_deploy_pause_error?: string | null;
+            /** Auto Deploy Pause Streak */
+            auto_deploy_pause_streak?: number | null;
+            /** Auto Deploy Paused At */
+            auto_deploy_paused_at?: string | null;
             /**
              * Auto Promote Default Branch
              * @default true
