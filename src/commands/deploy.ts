@@ -297,6 +297,21 @@ interface RepeatedFailureDetail {
   confirm_field: string;
 }
 
+/**
+ * Русская форма числительного. Шесть строк вместо зависимости: в CLI своего
+ * плюрализатора нет, а «2 сборок» в стоп-сообщении читается как небрежность
+ * ровно там, где нужно доверие. Порог настраивается платформой, поэтому
+ * подставить одну форму нельзя — при пороге 2 и при пороге 5 они разные.
+ */
+function pluralRu(n: number, one: string, few: string, many: string): string {
+  const a = Math.abs(n) % 100;
+  if (a >= 11 && a <= 14) return many;
+  const b = a % 10;
+  if (b === 1) return one;
+  if (b >= 2 && b <= 4) return few;
+  return many;
+}
+
 function parseRepeatedFailure(err: unknown): RepeatedFailureDetail | null {
   if (!(err instanceof ApiError) || err.status !== 409) return null;
   try {
@@ -348,7 +363,8 @@ async function startWithRepeatedFailureGuard(
     console.error("");
     console.error(
       chalk.red.bold(
-        `Стоп: ${detail.streak} сборок подряд упали с одной и той же ошибкой.`,
+        `Стоп: ${detail.streak} ${pluralRu(detail.streak, "сборка", "сборки", "сборок")} ` +
+          "подряд упали с одной и той же ошибкой.",
       ),
     );
     if (errorText) {
