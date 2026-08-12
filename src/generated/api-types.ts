@@ -1990,6 +1990,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/import/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Accounts
+         * @description Все аккаунты, из которых организация может импортировать код.
+         */
+        get: operations["list_accounts_organizations__slug__import_accounts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/import/repos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Repos
+         * @description Репозитории аккаунта в форме, одинаковой для всех операторов.
+         */
+        get: operations["list_repos_organizations__slug__import_repos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/invites": {
         parameters: {
             query?: never;
@@ -4649,6 +4689,57 @@ export interface components {
             /** Old */
             old: string;
         };
+        /**
+         * ImportAccountOut
+         * @description Аккаунт у оператора, из которого можно импортировать.
+         */
+        ImportAccountOut: {
+            /**
+             * Can Import
+             * @default true
+             */
+            can_import: boolean;
+            /** Configure Url */
+            configure_url?: string | null;
+            /** Key */
+            key: string;
+            /** Login */
+            login: string;
+            /** Provider */
+            provider: string;
+            /** Provider Title */
+            provider_title: string;
+            /** Status */
+            status: string;
+            /** Status Note */
+            status_note?: string | null;
+        };
+        /**
+         * ImportRepoOut
+         * @description Репозиторий в форме, одинаковой для всех операторов.
+         */
+        ImportRepoOut: {
+            /** Account Key */
+            account_key: string;
+            /** Clone Url */
+            clone_url: string;
+            /** Default Branch */
+            default_branch: string;
+            /** External Id */
+            external_id: string;
+            /** Imported Project Id */
+            imported_project_id?: string | null;
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /** Private */
+            private: boolean;
+            /** Provider */
+            provider: string;
+            /** Updated At */
+            updated_at?: string | null;
+        };
         /** InstanceTierIn */
         InstanceTierIn: {
             /** Runtime Instance Tier */
@@ -5168,12 +5259,16 @@ export interface components {
             package_manager?: ("npm" | "yarn" | "pnpm" | "bun") | null;
             /** Repo Full Name */
             repo_full_name?: string | null;
+            /** Repo Path */
+            repo_path?: string | null;
             /** Repo Url */
             repo_url?: string | null;
             /** Runtime Kind */
             runtime_kind?: ("ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web") | null;
             /** Slug */
             slug?: string | null;
+            /** Source Account Key */
+            source_account_key?: string | null;
             /**
              * Source Type
              * @default github
@@ -5540,6 +5635,8 @@ export interface components {
             runtime_memory_advisory_at?: string | null;
             /** Slug */
             slug: string;
+            /** Source Provider */
+            source_provider?: string | null;
             /**
              * Source Type
              * @default github
@@ -9984,6 +10081,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_accounts_organizations__slug__import_accounts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportAccountOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_repos_organizations__slug__import_repos_get: {
+        parameters: {
+            query: {
+                account: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportRepoOut"][];
                 };
             };
             /** @description Validation Error */
