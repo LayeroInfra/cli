@@ -72,6 +72,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/dev/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dev Login
+         * @description Войти на локальном стенде без внешнего провайдера.
+         *
+         *     ЗАЧЕМ. Вход через Яндекс локально невозможен в принципе: приложение
+         *     отдаёт `redirect_uri=http://localhost:8000/auth/yandex/callback`, а такой
+         *     адрес не зарегистрирован в OAuth-приложении — Яндекс отказывает до
+         *     экрана согласия. Оставался код на почту, но локально письма не уходят:
+         *     код печатается в лог контейнера, и вход превращался в grep по логам.
+         *
+         *     Аккаунт заводится и находится ТЕМ ЖЕ `_email_login_resolve`, что и
+         *     настоящий вход по коду, — то есть локально проверяется рабочий путь, а не
+         *     его дублёр. Разница ровно одна: не спрашиваем код.
+         *
+         *     404 при отказе, а не 403: ручки, которой нет, не существует и для того,
+         *     кто её ищет.
+         */
+        post: operations["dev_login_auth_dev_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/email/choose": {
         parameters: {
             query?: never;
@@ -4421,6 +4454,11 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** DevLoginIn */
+        DevLoginIn: {
+            /** Email */
+            email: string;
+        };
         /** DeviceApproveIn */
         DeviceApproveIn: {
             /** User Code */
@@ -5884,6 +5922,11 @@ export interface components {
         };
         /** ProvidersOut */
         ProvidersOut: {
+            /**
+             * Dev Login
+             * @default false
+             */
+            dev_login: boolean;
             /** Email Login */
             email_login: boolean;
             /** Providers */
@@ -6602,6 +6645,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DevicePollOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dev_login_auth_dev_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DevLoginIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
