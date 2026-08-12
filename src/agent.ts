@@ -127,6 +127,18 @@ export type Event =
   | ({ event: "setup_applied" } & EventCommon)
   | ({ event: "runtime_type_applied"; project_type: "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web" } & EventCommon)
   | ({ event: "runtime_type_apply_failed"; error: string } & EventCommon)
+  // Стоп на повторяющейся ошибке (V224): подряд идущие сборки падают с одной
+  // и той же причиной, и платформа отказывается выкатывать следующую вслепую.
+  // Событие обязано нести САМ ТЕКСТ ошибки: агент, дошедший до десятого
+  // повтора, её не читал — она приходит в конце длинного лога, а он смотрит
+  // на код возврата. Здесь она первая и единственная.
+  | ({
+      event: "repeated_failure_guard";
+      streak: number;
+      threshold: number;
+      failure_stage?: string;
+      error?: string;
+    } & EventCommon)
   | ({ event: "deploy_started"; deploy_id: string } & EventCommon)
   | ({ event: "build_log"; line: string; stream: string } & EventCommon)
   | ({ event: "stage"; name: string } & EventCommon)
@@ -261,6 +273,11 @@ function renderHuman(event: Event): void {
       process.stdout.write(
         `  Build may fail at detect; accept the suggestion in the dashboard if so.\n`,
       );
+      break;
+    case "repeated_failure_guard":
+      // В человеческом режиме подробности печатает сама команда: там они с
+      // цветом, в stderr и с вопросом. Дублировать их здесь значило бы
+      // показать одно и то же дважды.
       break;
     case "deploy_started":
       process.stdout.write(`→ Building...\n`);

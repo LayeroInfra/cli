@@ -420,6 +420,14 @@ async function main(): Promise<void> {
       "--org <slug>",
       "Layero organization slug for first-time project creation. Defaults to personal; required when you're a member of multiple orgs and want a non-personal home.",
     )
+    // Осознанное подтверждение выкатки, когда предыдущие сборки подряд падают
+    // с ОДНОЙ И ТОЙ ЖЕ ошибкой. Намеренно НЕ покрывается `--yes`: смысл стопа
+    // в том, чтобы прервать автоматический цикл, а `--yes` в скриптах уже
+    // стоит по умолчанию и снял бы стоп, ничего не остановив.
+    .option(
+      "--confirm-repeated-failure",
+      "proceed even though recent deploys keep failing with the SAME error (the platform stops repeat deploys until you confirm you know what changed)",
+    )
     .addHelpText(
       "after",
       "\nExamples:\n" +

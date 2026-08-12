@@ -41,6 +41,10 @@ interface DeployOptions {
   branch?: string;
   org?: string;
   json?: boolean;
+  // Осознанное «да, я вижу, что предыдущие сборки падают с одной и той же
+  // ошибкой». Отдельно от `--yes` намеренно: `--yes` в скриптах уже стоит,
+  // и покрой мы стоп им — он не остановил бы ровно тех, ради кого заведён.
+  confirmRepeatedFailure?: boolean;
   // --prebuilt [dir]: ship an already-built artifact directory (dist/,
   // build/, public/, _site/, ...). CLI packs only that directory, backend
   // skips clone/detect/install/build. `true` (no arg) auto-picks the
@@ -276,6 +280,126 @@ async function resolveSetupConfig(
     source,
     ...(detected.runtime_kind ? { runtime_kind: detected.runtime_kind } : {}),
   };
+}
+
+
+/**
+ * Тело ответа сервера, когда подряд идущие сборки падают с одной и той же
+ * ошибкой (V224). Платформа отказывается выкатывать одиннадцатую вслепую.
+ */
+interface RepeatedFailureDetail {
+  code: "repeated_failure";
+  streak: number;
+  threshold: number;
+  failure_stage?: string | null;
+  error?: string | null;
+  message: string;
+  confirm_field: string;
+}
+
+function parseRepeatedFailure(err: unknown): RepeatedFailureDetail | null {
+  if (!(err instanceof ApiError) || err.status !== 409) return null;
+  try {
+    const detail = JSON.parse(err.body)?.detail;
+    return detail?.code === "repeated_failure" ? (detail as RepeatedFailureDetail) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Запуск сборки со стопом на повторяющейся ошибке.
+ *
+ * СМЫСЛ СТОПА — ОСТАНОВИТЬ ТОГО, КТО ГОНИТ ВЫКАТКУ ВСЛЕПУЮ. Агент, десятый раз
+ * собирающий одно и то же, ошибку обычно НЕ читает: она приходит в конце
+ * длинного лога сборки, а он смотрит на код возврата и запускает снова. Поэтому
+ * здесь текст ошибки печатается ПЕРВЫМ и отдельно от всего остального, и лишь
+ * потом объясняется, что делать.
+ *
+ * В интерактивном терминале спрашиваем прямо; без TTY (агент, CI) — падаем с
+ * отдельным кодом ошибки. Автоматически продолжать нельзя: это ровно тот цикл,
+ * который правило и разрывает.
+ */
+async function startWithRepeatedFailureGuard(
+  api: ApiClient,
+  sessionId: string,
+  commitSha: string,
+  opts: DeployOptions,
+) {
+  try {
+    return await api.startDeploySession(sessionId, {
+      commit_sha: commitSha,
+      confirm_repeated_failure: opts.confirmRepeatedFailure === true,
+    });
+  } catch (err) {
+    const detail = parseRepeatedFailure(err);
+    if (!detail) throw err;
+
+    // Машиночитаемое событие — для агентов в режиме --json.
+    emit({
+      event: "repeated_failure_guard",
+      streak: detail.streak,
+      threshold: detail.threshold,
+      failure_stage: detail.failure_stage ?? undefined,
+      error: detail.error ?? undefined,
+    });
+
+    const errorText = (detail.error || "").trim();
+    console.error("");
+    console.error(
+      chalk.red.bold(
+        `Стоп: ${detail.streak} сборок подряд упали с одной и той же ошибкой.`,
+      ),
+    );
+    if (errorText) {
+      console.error("");
+      console.error(chalk.red(errorText));
+    }
+    if (detail.failure_stage) {
+      console.error(chalk.dim(`Стадия: ${detail.failure_stage}`));
+    }
+    console.error("");
+    console.error(
+      "Повторная выкатка без изменений даст тот же результат. Исправьте причину —",
+    );
+    console.error("или подтвердите, что изменили что-то, влияющее на неё.");
+    console.error("");
+
+    const mode = detectMode();
+    if (mode.interactive) {
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+      try {
+        const answer = (
+          await rl.question("Всё равно выкатить? [y/N]: ")
+        ).trim().toLowerCase();
+        if (answer !== "y" && answer !== "yes") {
+          throw new LayeroError(
+            "repeated_failure_declined",
+            "deploy cancelled: the same error keeps failing the build",
+            "fix the error above, then run `layero deploy` again",
+          );
+        }
+      } finally {
+        rl.close();
+      }
+      return await api.startDeploySession(sessionId, {
+        commit_sha: commitSha,
+        confirm_repeated_failure: true,
+      });
+    }
+
+    throw new LayeroError(
+      "repeated_failure",
+      `deploy stopped: the last ${detail.streak} deploys failed with the SAME error` +
+        (errorText ? ` — ${errorText}` : ""),
+      "read the error above and fix its cause. Re-running the same deploy will " +
+        "fail the same way. If you changed something that affects it, re-run with " +
+        "`--confirm-repeated-failure`.",
+    );
+  }
 }
 
 export async function deployCmd(opts: DeployOptions): Promise<void> {
@@ -534,9 +658,12 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     );
     emit({ event: "uploaded", archive_key: session.source_archive_key });
 
-    const started = await api.startDeploySession(session.session_id, {
-      commit_sha: pack.sha256,
-    });
+    const started = await startWithRepeatedFailureGuard(
+      api,
+      session.session_id,
+      pack.sha256,
+      opts,
+    );
     if (!started.deploy_id) {
       throw new LayeroError(
         "deploy_not_started",

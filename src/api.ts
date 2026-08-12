@@ -178,7 +178,7 @@ export class ApiClient {
 
   startDeploySession(
     sessionId: string,
-    input: { commit_sha: string },
+    input: { commit_sha: string; confirm_repeated_failure?: boolean },
   ): Promise<DeploySessionStatusOut> {
     return this.request<DeploySessionStatusOut>(
       "POST",
