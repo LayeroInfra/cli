@@ -5398,7 +5398,7 @@ export interface components {
              * @default package.json-script
              * @enum {string}
              */
-            build_cmd_source: "package.json-script" | "framework-cli" | "framework-default" | "layero.json";
+            build_cmd_source: "package.json-script" | "framework-cli" | "framework-default" | "layero.json" | "upload";
             /** Build Warning */
             build_warning?: string | null;
             /** Framework */
@@ -5424,7 +5424,7 @@ export interface components {
              * @default framework-default
              * @enum {string}
              */
-            output_dir_source: "framework-default" | "angular.json" | "layero.json";
+            output_dir_source: "framework-default" | "angular.json" | "layero.json" | "upload";
             /** Package Manager */
             package_manager: string;
             /** Runtime Framework */
