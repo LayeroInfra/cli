@@ -1674,6 +1674,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/connected/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Databases Of Project
+         * @description К каким базам подключён КОНКРЕТНЫЙ проект.
+         *
+         *     Карточка на странице проекта отвечала на этот вопрос через ручку в
+         *     единственном числе — то есть смотрела только на ПЕРВУЮ базу организации и
+         *     писала «не подключена» проекту, который подключён ко второй. С мультибазой
+         *     это уже не деталь: у организации баз сколько угодно, и «подключён» без
+         *     указания, к чему именно, ничего не значит.
+         */
+        get: operations["databases_of_project_organizations__slug__databases_connected__project_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/external": {
         parameters: {
             query?: never;
@@ -4196,10 +4222,17 @@ export interface components {
             purge_after?: string | null;
             /** Quota Bytes */
             quota_bytes: number;
+            /** Role Name */
+            role_name?: string | null;
             /** Size Bytes */
             size_bytes?: number | null;
             /** Status */
             status: string;
+            /**
+             * Synchronous Commit
+             * @default on
+             */
+            synchronous_commit: string;
         };
         /** DatabaseOut */
         DatabaseOut: {
@@ -9429,6 +9462,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SecretOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    databases_of_project_organizations__slug__databases_connected__project_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
