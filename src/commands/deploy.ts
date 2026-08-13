@@ -291,6 +291,9 @@ interface RepeatedFailureDetail {
   code: "repeated_failure";
   streak: number;
   threshold: number;
+  // "project" — серия набрана этим проектом; "owner" — суммой по проектам
+  // владельца (V225). Поля может не быть: сервер старее клиента.
+  scope?: "project" | "owner" | null;
   failure_stage?: string | null;
   error?: string | null;
   message: string;
@@ -351,10 +354,15 @@ async function startWithRepeatedFailureGuard(
     if (!detail) throw err;
 
     // Машиночитаемое событие — для агентов в режиме --json.
+    // `scope` отвечает на вопрос, который агент задаст первым: «я собирал в
+    // этом проекте три раза, откуда десять?». Серия могла набраться суммой по
+    // нескольким его проектам — перенос в новый проект правило не обходит.
+    const scope = detail.scope === "owner" ? "owner" : "project";
     emit({
       event: "repeated_failure_guard",
       streak: detail.streak,
       threshold: detail.threshold,
+      scope,
       failure_stage: detail.failure_stage ?? undefined,
       error: detail.error ?? undefined,
     });
@@ -364,7 +372,9 @@ async function startWithRepeatedFailureGuard(
     console.error(
       chalk.red.bold(
         `Стоп: ${detail.streak} ${pluralRu(detail.streak, "сборка", "сборки", "сборок")} ` +
-          "подряд упали с одной и той же ошибкой.",
+          (scope === "owner"
+            ? "в ваших проектах упали с одной и той же ошибкой."
+            : "подряд упали с одной и той же ошибкой."),
       ),
     );
     if (errorText) {
@@ -375,6 +385,13 @@ async function startWithRepeatedFailureGuard(
       console.error(chalk.dim(`Стадия: ${detail.failure_stage}`));
     }
     console.error("");
+    if (scope === "owner") {
+      console.error(
+        "Ошибка повторяется в разных проектах — значит, дело не в конкретном",
+      );
+      console.error("проекте, а в коде приложения или в настройках сборки.");
+      console.error("");
+    }
     console.error(
       "Повторная выкатка без изменений даст тот же результат. Исправьте причину —",
     );

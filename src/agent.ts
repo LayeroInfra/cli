@@ -136,6 +136,10 @@ export type Event =
       event: "repeated_failure_guard";
       streak: number;
       threshold: number;
+      // Чем набрана серия: "project" — отказами этого проекта, "owner" —
+      // суммой по всем проектам владельца. Агенту это меняет вывод: во
+      // втором случае новый проект правило не обходит.
+      scope: "project" | "owner";
       failure_stage?: string;
       error?: string;
     } & EventCommon)
