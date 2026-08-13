@@ -5578,6 +5578,8 @@ export interface components {
             auto_deploy_pause_deploy_id?: string | null;
             /** Auto Deploy Pause Error */
             auto_deploy_pause_error?: string | null;
+            /** Auto Deploy Pause Scope */
+            auto_deploy_pause_scope?: string | null;
             /** Auto Deploy Pause Streak */
             auto_deploy_pause_streak?: number | null;
             /** Auto Deploy Paused At */
