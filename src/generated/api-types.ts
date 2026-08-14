@@ -2099,6 +2099,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/functions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Functions
+         * @description Функции схемы `api`: контракт, кто может вызвать, риск, когда изменена.
+         *
+         *     Побочный эффект намеренный: при открытии сверяем определения с журналом и
+         *     дописываем правки, сделанные мимо панели — иначе история показывала бы
+         *     только наши изменения и молчала о чужих.
+         */
+        get: operations["list_functions_organizations__slug__databases__db_id__functions_get"];
+        /**
+         * Save Function
+         * @description Применяет функцию и записывает версию.
+         *
+         *     `SECURITY DEFINER` без `SET search_path` не сохраняем: вызывающий подменит
+         *     путь поиска и исполнит свой код с правами владельца базы.
+         */
+        put: operations["save_function_organizations__slug__databases__db_id__functions_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/functions/call": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Call Function Probe
+         * @description Пробный вызов из панели, всегда с откатом.
+         *
+         *     Postgres не разбирает тело PL/pgSQL до первого вызова: «применилось» не
+         *     значит «работает», и без этой кнопки бэкенд отлаживают через фронтенд.
+         */
+        post: operations["call_function_probe_organizations__slug__databases__db_id__functions_call_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/functions/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Function History */
+        get: operations["function_history_organizations__slug__databases__db_id__functions_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/metrics": {
         parameters: {
             query?: never;
@@ -5048,6 +5119,20 @@ export interface components {
             package_manager: string;
             /** Reason */
             reason: string;
+        };
+        /** FunctionCallIn */
+        FunctionCallIn: {
+            /** Args */
+            args?: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name: string;
+        };
+        /** FunctionSaveIn */
+        FunctionSaveIn: {
+            /** Definition */
+            definition: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -10712,6 +10797,153 @@ export interface operations {
                 "application/json": components["schemas"]["RestoreIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_functions_organizations__slug__databases__db_id__functions_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_function_organizations__slug__databases__db_id__functions_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FunctionSaveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    call_function_probe_organizations__slug__databases__db_id__functions_call_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FunctionCallIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    function_history_organizations__slug__databases__db_id__functions_history_get: {
+        parameters: {
+            query: {
+                name: string;
+                args?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
