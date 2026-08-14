@@ -1779,6 +1779,114 @@ export interface paths {
         patch: operations["rename_database_organizations__slug__databases__db_id__patch"];
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Api Disable */
+        post: operations["api_disable_organizations__slug__databases__db_id__api_disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Enable
+         * @description Включает Data API: схема `api`, роли с нулевыми грантами, первый ключ.
+         *
+         *     Идемпотентна: повторное нажатие не плодит ключи — человек жмёт ещё раз,
+         *     когда не понял, включилось ли.
+         */
+        post: operations["api_enable_organizations__slug__databases__db_id__api_enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Grant Table
+         * @description Открывает таблицу по API: грант и RLS одной операцией.
+         *
+         *     Возвращает применённый SQL — экран показывает настоящие команды, а не
+         *     «настройки сохранены»: человек учится модели, а не нашим кнопкам.
+         */
+        post: operations["api_grant_table_organizations__slug__databases__db_id__api_grants_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api List Keys
+         * @description Список ключей: префикс, кем создан, когда использовался. Значений здесь
+         *     нет и быть не может — они не хранятся.
+         */
+        get: operations["api_list_keys_organizations__slug__databases__db_id__api_keys_get"];
+        put?: never;
+        /**
+         * Api Issue Key
+         * @description Выдаёт ключ. Значение возвращается ОДИН раз — как токены CLI.
+         */
+        post: operations["api_issue_key_organizations__slug__databases__db_id__api_keys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/keys/{key_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Api Revoke Key
+         * @description Отзыв ключа никого не роняет — в отличие от смены пароля роли.
+         */
+        delete: operations["api_revoke_key_organizations__slug__databases__db_id__api_keys__key_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/backups": {
         parameters: {
             query?: never;
@@ -3991,6 +4099,28 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+        };
+        /** ApiGrantIn */
+        ApiGrantIn: {
+            /**
+             * Role Kind
+             * @default public
+             */
+            role_kind: string;
+            /** Schema Name */
+            schema_name: string;
+            /** Table */
+            table: string;
+        };
+        /** ApiKeyIn */
+        ApiKeyIn: {
+            /**
+             * Kind
+             * @default public
+             */
+            kind: string;
+            /** Label */
+            label?: string | null;
         };
         /** ApiTokenCreateIn */
         ApiTokenCreateIn: {
@@ -9632,6 +9762,219 @@ export interface operations {
                 "application/json": components["schemas"]["RenameIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_disable_organizations__slug__databases__db_id__api_disable_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_enable_organizations__slug__databases__db_id__api_enable_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_grant_table_organizations__slug__databases__db_id__api_grants_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiGrantIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_list_keys_organizations__slug__databases__db_id__api_keys_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_issue_key_organizations__slug__databases__db_id__api_keys_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiKeyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_revoke_key_organizations__slug__databases__db_id__api_keys__key_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                key_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
