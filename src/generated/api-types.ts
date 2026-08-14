@@ -1779,6 +1779,66 @@ export interface paths {
         patch: operations["rename_database_organizations__slug__databases__db_id__patch"];
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/call-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api Call Log
+         * @description Журнал вызовов: код ответа, длительность, причина отказа. Без тел и
+         *     аргументов — в них персональные данные посетителей арендатора.
+         */
+        get: operations["api_call_log_organizations__slug__databases__db_id__api_call_log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Api List Calls */
+        get: operations["api_list_calls_organizations__slug__databases__db_id__api_calls_get"];
+        /**
+         * Api Upsert Call
+         * @description Описанный вызов. Каталога интеграций у нас нет: описание пишет
+         *     пользователь или его агент, а мы даём механизм, в котором оно безопасно.
+         */
+        put: operations["api_upsert_call_organizations__slug__databases__db_id__api_calls_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/calls/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Api Delete Call */
+        delete: operations["api_delete_call_organizations__slug__databases__db_id__api_calls__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/disable": {
         parameters: {
             query?: never;
@@ -1842,6 +1902,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/hosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Api List Hosts */
+        get: operations["api_list_hosts_organizations__slug__databases__db_id__api_hosts_get"];
+        put?: never;
+        /**
+         * Api Add Host
+         * @description Разрешает хост. Без списка мы открытый прокси: через нас звали бы что
+         *     угодно, а отвечал бы наш адрес.
+         */
+        post: operations["api_add_host_organizations__slug__databases__db_id__api_hosts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/hosts/{host}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Api Delete Host */
+        delete: operations["api_delete_host_organizations__slug__databases__db_id__api_hosts__host__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/keys": {
         parameters: {
             query?: never;
@@ -1882,6 +1981,44 @@ export interface paths {
          * @description Отзыв ключа никого не роняет — в отличие от смены пароля роли.
          */
         delete: operations["api_revoke_key_organizations__slug__databases__db_id__api_keys__key_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/secrets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api List Secrets
+         * @description Только имена. Значения не отдаются ни здесь, ни где-либо ещё.
+         */
+        get: operations["api_list_secrets_organizations__slug__databases__db_id__api_secrets_get"];
+        /** Api Set Secret */
+        put: operations["api_set_secret_organizations__slug__databases__db_id__api_secrets_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/secrets/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Api Delete Secret */
+        delete: operations["api_delete_secret_organizations__slug__databases__db_id__api_secrets__name__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4230,6 +4367,36 @@ export interface components {
             /** Slug */
             slug: string;
         };
+        /** CallIn */
+        CallIn: {
+            /**
+             * Allow Anon
+             * @default false
+             */
+            allow_anon: boolean;
+            /** Body Template */
+            body_template?: {
+                [key: string]: unknown;
+            } | null;
+            /** Headers */
+            headers?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Hourly Limit
+             * @default 600
+             */
+            hourly_limit: number;
+            /**
+             * Method
+             * @default POST
+             */
+            method: string;
+            /** Name */
+            name: string;
+            /** Url Template */
+            url_template: string;
+        };
         /** ConnectProjectIn */
         ConnectProjectIn: {
             /** Env Var Name */
@@ -4918,6 +5085,11 @@ export interface components {
             target: string;
             /** Url */
             url: string;
+        };
+        /** HostIn */
+        HostIn: {
+            /** Host */
+            host: string;
         };
         /** HostnameMove */
         HostnameMove: {
@@ -6383,6 +6555,13 @@ export interface components {
             status: string;
             /** Url */
             url: string;
+        };
+        /** SecretIn */
+        SecretIn: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: string;
         };
         /** SecretOut */
         SecretOut: {
@@ -9800,6 +9979,149 @@ export interface operations {
             };
         };
     };
+    api_call_log_organizations__slug__databases__db_id__api_call_log_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_list_calls_organizations__slug__databases__db_id__api_calls_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_upsert_call_organizations__slug__databases__db_id__api_calls_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CallIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_delete_call_organizations__slug__databases__db_id__api_calls__name__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     api_disable_organizations__slug__databases__db_id__api_disable_post: {
         parameters: {
             query?: never;
@@ -9906,6 +10228,113 @@ export interface operations {
             };
         };
     };
+    api_list_hosts_organizations__slug__databases__db_id__api_hosts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_add_host_organizations__slug__databases__db_id__api_hosts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_delete_host_organizations__slug__databases__db_id__api_hosts__host__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                host: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     api_list_keys_organizations__slug__databases__db_id__api_keys_get: {
         parameters: {
             query?: never;
@@ -9988,6 +10417,113 @@ export interface operations {
                 slug: string;
                 db_id: string;
                 key_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_list_secrets_organizations__slug__databases__db_id__api_secrets_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_set_secret_organizations__slug__databases__db_id__api_secrets_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SecretIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_delete_secret_organizations__slug__databases__db_id__api_secrets__name__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                name: string;
             };
             cookie?: never;
         };
