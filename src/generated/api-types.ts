@@ -11855,6 +11855,7 @@ export interface operations {
         parameters: {
             query?: {
                 root?: string | null;
+                ref?: string | null;
             };
             header?: {
                 authorization?: string | null;
