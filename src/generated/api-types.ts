@@ -11891,6 +11891,7 @@ export interface operations {
         parameters: {
             query?: {
                 root?: string | null;
+                ref?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -12692,7 +12693,9 @@ export interface operations {
     };
     get_layero_config_projects__project_id__layero_config_get: {
         parameters: {
-            query?: never;
+            query?: {
+                ref?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -13982,7 +13985,9 @@ export interface operations {
     };
     project_repo_tree_projects__project_id__tree_get: {
         parameters: {
-            query?: never;
+            query?: {
+                ref?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
