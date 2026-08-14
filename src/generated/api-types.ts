@@ -4332,6 +4332,11 @@ export interface components {
         /** DatabaseListItem */
         DatabaseListItem: {
             /**
+             * Api Enabled
+             * @default false
+             */
+            api_enabled: boolean;
+            /**
              * Billable
              * @default false
              */
@@ -4349,6 +4354,8 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /** Name Slug */
+            name_slug?: string | null;
             /**
              * Price Kopecks
              * @default 0
