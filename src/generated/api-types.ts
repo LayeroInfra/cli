@@ -1779,6 +1779,30 @@ export interface paths {
         patch: operations["rename_database_organizations__slug__databases__db_id__patch"];
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/auth/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Enable Auth
+         * @description Включает авторизацию: схема-пакет `auth` и секрет подписи — одним
+         *     действием (DATA-26).
+         *
+         *     Функции `auth.uid()`/`auth.role()`/`auth.jwt()` заводятся в форме Supabase,
+         *     поэтому политики RLS переносимого проекта работают без правок.
+         */
+        post: operations["api_enable_auth_organizations__slug__databases__db_id__api_auth_enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/call-log": {
         parameters: {
             query?: never;
@@ -10114,6 +10138,40 @@ export interface operations {
                 "application/json": components["schemas"]["RenameIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_enable_auth_organizations__slug__databases__db_id__api_auth_enable_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
