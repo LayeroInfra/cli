@@ -1879,6 +1879,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/functions/grant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Grant Function
+         * @description Кто может вызывать функцию: посетитель сайта или только сервер.
+         *
+         *     Одна ручка на выдачу и отзыв: право «позвать мой бэкенд из интернета»
+         *     выдаётся нажатием, и снимать его тоже надо нажатием, а не через psql.
+         */
+        post: operations["api_grant_function_organizations__slug__databases__db_id__api_functions_grant_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/grants": {
         parameters: {
             query?: never;
@@ -4317,6 +4340,21 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+        };
+        /** ApiFunctionGrantIn */
+        ApiFunctionGrantIn: {
+            /**
+             * Revoke
+             * @default false
+             */
+            revoke: boolean;
+            /**
+             * Role Kind
+             * @default public
+             */
+            role_kind: string;
+            /** Signature */
+            signature: string;
         };
         /** ApiGrantIn */
         ApiGrantIn: {
@@ -10254,6 +10292,44 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_grant_function_organizations__slug__databases__db_id__api_functions_grant_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiFunctionGrantIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
