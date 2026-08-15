@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+"""Гейт: прямые чтения источников в ручках API могут только УБЫВАТЬ.
+
+Ручка, которая сама лезет в GitHub, к клиенту провайдера или в архив в S3, —
+это ещё один вход анализа со своей полнотой снимка. Их уже четыре, и ровно
+поэтому мастер говорит одно, а билдер другое: расходятся не правила детекта,
+а входы (`services/project_snapshot.py`, докстрока).
+
+Правильный вход один — снимок. Он написан, работает и имеет РОВНО ОДНОГО
+потребителя при 21 прямом чтении рядом. Это третий случай подряд, когда
+верная абстракция остаётся в одиночестве (до неё — `BuildPlan`/`BuildUnit`
+внутри детекта), и вывод из него один: план обязан заканчиваться гейтом на
+принятие, иначе принятия не будет.
+
+ПОЧЕМУ ПОТОЛОК, А НЕ ЗАПРЕТ. Запретить сразу нельзя — 21 чтение не убирается
+одной правкой, а красный гейт, который нельзя починить, отключают в тот же
+день. Поэтому фиксируем текущее число и не даём ему расти: снимаемые чтения
+опускают потолок, новое чтение роняет сборку.
+
+🚨 ПОТОЛОК ОПУСКАЮТ, СНЯВ ЧТЕНИЕ, А НЕ ПОДНЯВ ЧИСЛО. Если правка требует
+нового прямого чтения — она требует не правки гейта, а нового потребителя
+снимка.
+
+Запуск:  python3 core/cli/check-source-coverage.py
+"""
+from __future__ import annotations
+
+import pathlib
+import re
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+ROUTES = ROOT / "backend" / "app" / "api" / "routes"
+
+# Что считается прямым чтением источника: клиент GitHub, клиент внешнего
+# провайдера, разбор пользовательского архива. Именно эти три способа сегодня
+# и размазаны по ручкам.
+_READS = re.compile(
+    r"gh\.GitHubClient\(|client_for_connection\(|source_archive_detect\."
+)
+
+# Потолки на файл. Замер 15.08.2026. Числа ниже — не цель, а граница:
+# опускать их обязан каждый, кто переводит ручку на снимок.
+#
+# `import_sources.py` и `source_connections.py` — фасады подключения и
+# импорта: они по своей природе ходят к оператору (список аккаунтов, список
+# репозиториев, проверка токена) и снимком не заменяются. Оставлены в списке,
+# чтобы их рост тоже был виден.
+CEILINGS: dict[str, int] = {
+    "projects.py": 21,
+    "github.py": 4,
+    "deploy_hooks.py": 2,
+    "project_transfer.py": 2,
+    "source_connections.py": 2,
+    "auth.py": 1,
+    "github_app.py": 1,
+    "import_sources.py": 1,
+}
+
+
+def _count(path: pathlib.Path) -> int:
+    """Вхождения в КОДЕ. Комментарии не считаем: в них эти имена стоят как
+    объяснение, почему так делать не надо, — и такой текст обязан быть
+    дешёвым, иначе его перестанут писать."""
+    code = "\n".join(
+        ln for ln in path.read_text(encoding="utf-8").splitlines()
+        if not ln.lstrip().startswith("#")
+    )
+    return len(_READS.findall(code))
+
+
+def main() -> int:
+    if not ROUTES.is_dir():
+        print(f"✗ нет каталога {ROUTES} — гейт смотрит не туда, поправьте путь")
+        return 1
+
+    failures: list[str] = []
+    total = 0
+    lowered: list[str] = []
+
+    for path in sorted(ROUTES.glob("*.py")):
+        got = _count(path)
+        total += got
+        ceiling = CEILINGS.get(path.name, 0)
+        if got > ceiling:
+            failures.append(
+                f"{path.name}: прямых чтений источника {got}, потолок {ceiling}. "
+                "Новое чтение в ручке — это новый вход анализа со своей полнотой "
+                "снимка; читайте через services/project_snapshot"
+            )
+        elif got < ceiling:
+            lowered.append(f"{path.name}: {ceiling} → {got}")
+
+    print(f"прямых чтений источников в api/routes: {total}")
+    for line in lowered:
+        print(f"  ↓ потолок снят не до конца — {line}; обновите CEILINGS")
+    for line in failures:
+        print(f"  ✗ {line}")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
