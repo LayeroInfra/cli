@@ -1988,6 +1988,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/import/supabase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Import Supabase
+         * @description Перенос проекта с Supabase (DATA-27).
+         *
+         *     Без `apply` возвращает отчёт: что приедет, что выброшено и какие политики
+         *     после переноса поменяют смысл. С `apply` применяет одной транзакцией.
+         */
+        post: operations["api_import_supabase_organizations__slug__databases__db_id__api_import_supabase_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/keys": {
         parameters: {
             query?: never;
@@ -7000,6 +7023,16 @@ export interface components {
             /** Ticket */
             ticket: string;
         };
+        /** SupabaseImportIn */
+        SupabaseImportIn: {
+            /**
+             * Apply
+             * @default false
+             */
+            apply: boolean;
+            /** Dump */
+            dump: string;
+        };
         /**
          * TransferInitIn
          * @description The initiator picks an organization — nothing else.
@@ -10566,6 +10599,44 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_import_supabase_organizations__slug__databases__db_id__api_import_supabase_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupabaseImportIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
