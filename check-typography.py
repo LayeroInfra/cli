@@ -69,6 +69,11 @@ STRICT = (
     "frontend/control-plane/src/pages/Database/List.tsx",
     "frontend/control-plane/src/pages/Database/Projects.tsx",
     "frontend/control-plane/src/pages/Project/DatabaseCard.tsx",
+    # 15.08.2026: `Api.tsx` в тот список не попал, хотя это самая текстовая
+    # карточка раздела — «во всех пяти экранах» оказалось не про все экраны
+    # каталога. Нашлось вычиткой DATA-31: в файле было НОЛЬ неразрывных
+    # пробелов, включая свежие подписи провайдеров входа.
+    "frontend/control-plane/src/pages/Database/Api.tsx",
 )
 
 # Что проверяем по умолчанию, если пути не заданы явно.
