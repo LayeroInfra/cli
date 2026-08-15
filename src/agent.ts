@@ -166,6 +166,12 @@ export type Event =
   // Ни значений, ни префиксов: только имена и длины. Всё, что попало в
   // вывод агента, оседает в истории переписки.
   | ({ event: "env_vars"; project: string; vars: Array<{ key: string; length: number }> } & EventCommon)
+  // Единственное событие со ЗНАЧЕНИЯМИ, и это осознанно: адрес Data API и
+  // публичный ключ уезжают в бандл фронтенда, то есть видны любому посетителю
+  // сайта. Скрывать их от агента, который этот фронтенд и пишет, — обряд:
+  // без них он не соберёт первый же запрос к базе. Секретного ключа здесь не
+  // бывает никогда — платформа его не хранит.
+  | ({ event: "data_env"; project: string; vars: Record<string, string> } & EventCommon)
   | ({ event: "env_set"; project: string; keys: string[]; total: number } & EventCommon)
   | ({ event: "env_unset"; project: string; keys: string[] } & EventCommon)
   | ({ event: "analytics_status"; connected: boolean; counter_id?: number; status: string; injection_mode: string; tracked_branch?: string } & EventCommon)

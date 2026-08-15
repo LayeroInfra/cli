@@ -2912,6 +2912,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/data-env": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Data Env
+         * @description Адрес и ПУБЛИЧНЫЙ ключ Data API — те же, что уедут в сборку (DATA-07).
+         *
+         *     🚨 Здесь платформа СОЗНАТЕЛЬНО отдаёт значение, хотя `GET /env` рядом не
+         *     отдаёт их никогда. Разница не в строгости, а в природе: публичный ключ по
+         *     конструкции уезжает в бандл и виден любому посетителю сайта — прятать его
+         *     от владельца проекта было бы обрядом, а не защитой. Секретный ключ не
+         *     отдаётся ни здесь, ни где-либо ещё.
+         *
+         *     Нужно ради локальной разработки: без этих двух значений на своей машине
+         *     человек не напишет и первой строки фронтенда, а вписав их руками в
+         *     исходник — потеряет возможность отзывать ключ из панели.
+         */
+        get: operations["data_env_projects__project_id__data_env_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/deploy": {
         parameters: {
             query?: never;
@@ -12525,6 +12555,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConnectSourceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    data_env_projects__project_id__data_env_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
                 };
             };
             /** @description Validation Error */

@@ -15,6 +15,7 @@ import { orgsListCmd } from "../commands/orgs.js";
 import { initCmd } from "../commands/init.js";
 import { diagnoseCmd, logsCmd } from "../commands/diagnose.js";
 import { perfCheckCmd, perfShowCmd } from "../commands/perf.js";
+import { dataEnvCmd } from "../commands/data.js";
 import { envListCmd, envSetCmd, envUnsetCmd } from "../commands/env.js";
 import {
   analyticsConnectCmd,
@@ -255,6 +256,25 @@ async function main(): Promise<void> {
   ).action(async (keys: string[], opts: any) =>
     envUnsetCmd(keys, { ...opts, json: program.opts().json }),
   );
+
+  const data = program
+    .command("data")
+    .description("Data API: адрес и публичный ключ базы для фронтенда.");
+  data
+    .command("env")
+    .description("Показать VITE_/NEXT_PUBLIC_ переменные Data API; --write кладёт их в .env.local.")
+    .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)")
+    .option("-w, --write", "записать в файл, а не печатать")
+    .option("--file <path>", "имя файла (по умолчанию .env.local)")
+    .addHelpText(
+      "after",
+      "\nПримеры:\n" +
+        "  $ layero data env                       # посмотреть\n" +
+        "  $ layero data env --write               # положить в .env.local\n" +
+        "\nОтдаётся только ПУБЛИЧНЫЙ ключ — тот, что и так уезжает в бандл.\n" +
+        "Секретный ключ платформа не хранит и не отдаёт: он для сервера.",
+    )
+    .action(async (opts: any) => dataEnvCmd({ ...opts, json: program.opts().json }));
 
   const analytics = program
     .command("analytics")
