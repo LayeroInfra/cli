@@ -1803,6 +1803,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/auth/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api List Auth Providers
+         * @description Кто из провайдеров настроен и какой адрес вписывать им в консоль.
+         */
+        get: operations["api_list_auth_providers_organizations__slug__databases__db_id__api_auth_providers_get"];
+        /**
+         * Api Set Auth Provider
+         * @description Включает вход через Google, Яндекс или GitHub (DATA-31).
+         *
+         *     Пара «Client ID + Client Secret» уезжает в хранилище секретов и живёт
+         *     только там: в базу арендатора и в бандл фронтенда она не попадает никогда,
+         *     обмен кода делает шлюз.
+         */
+        put: operations["api_set_auth_provider_organizations__slug__databases__db_id__api_auth_providers_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/auth/providers/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Api Delete Auth Provider */
+        delete: operations["api_delete_auth_provider_organizations__slug__databases__db_id__api_auth_providers__provider__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/auth/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Api Set Auth Settings
+         * @description Требовать ли подтверждение почты при регистрации.
+         */
+        put: operations["api_set_auth_settings_organizations__slug__databases__db_id__api_auth_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/call-log": {
         parameters: {
             query?: never;
@@ -4511,6 +4576,20 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** AuthProviderIn */
+        AuthProviderIn: {
+            /** Client Id */
+            client_id: string;
+            /** Client Secret */
+            client_secret: string;
+            /** Provider */
+            provider: string;
+        };
+        /** AuthSettingsIn */
+        AuthSettingsIn: {
+            /** Confirm Email */
+            confirm_email: boolean;
+        };
         /**
          * BackupCreateIn
          * @description Копия в хранилище. Тип больше не выбирается.
@@ -4684,6 +4763,11 @@ export interface components {
         };
         /** DatabaseListItem */
         DatabaseListItem: {
+            /**
+             * Api Auth Enabled
+             * @default false
+             */
+            api_auth_enabled: boolean;
             /**
              * Api Enabled
              * @default false
@@ -10205,6 +10289,151 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_list_auth_providers_organizations__slug__databases__db_id__api_auth_providers_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_set_auth_provider_organizations__slug__databases__db_id__api_auth_providers_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthProviderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_delete_auth_provider_organizations__slug__databases__db_id__api_auth_providers__provider__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_set_auth_settings_organizations__slug__databases__db_id__api_auth_settings_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthSettingsIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
