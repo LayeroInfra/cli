@@ -5289,8 +5289,11 @@ export interface components {
             default_branch: string;
             /** External Id */
             external_id: string;
-            /** Imported Project Id */
-            imported_project_id?: string | null;
+            /**
+             * Imported Project Ids
+             * @default []
+             */
+            imported_project_ids: string[];
             /** Name */
             name: string;
             /** Path */
