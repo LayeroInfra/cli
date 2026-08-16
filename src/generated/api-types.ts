@@ -4937,6 +4937,11 @@ export interface components {
              */
             api_enabled: boolean;
             /**
+             * Api Storage Enabled
+             * @default false
+             */
+            api_storage_enabled: boolean;
+            /**
              * Billable
              * @default false
              */
