@@ -22,7 +22,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 API_SRC = ROOT / "backend" / "app" / "services" / "userdb_api.py"
-GATEWAY_SRC = ROOT / "data-api" / "app" / "oauth.py"
+GATEWAY_SRC = ROOT / "data-api" / "app" / "auth" / "providers.py"
 
 
 def _providers(text: str, marker: str) -> set[str]:
@@ -44,6 +44,15 @@ def _pattern(text: str) -> str | None:
 
 
 def main() -> int:
+    # ⚠️ Проверка читает файлы по путям — значит переезд модуля её ослепляет.
+    # 15.08 так и вышло: `oauth.py` уехал в `auth/providers.py`, и сторож стал
+    # падать трассировкой вместо внятного «не нашёл». Скажем прямо, что
+    # проверять нечего, — молчаливого «сходится» тут быть не должно.
+    for path in (API_SRC, GATEWAY_SRC):
+        if not path.exists():
+            print(f"✘ провайдеры входа: не нашёл {path} — проверка ослепла, "
+                  "поправьте путь в скрипте")
+            return 1
     api = API_SRC.read_text(encoding="utf-8")
     gateway = GATEWAY_SRC.read_text(encoding="utf-8")
 
