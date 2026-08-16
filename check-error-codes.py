@@ -97,6 +97,14 @@ def main() -> int:
 
     failures = 0
     checked = 0
+    # Счётчики по КЛАССАМ отказа: разбор печатается один раз на класс, а не
+    # к каждой находке. Двенадцать одинаковых блоков WHY/FIX — это шум,
+    # в котором теряется сам список.
+    hit_missing_surface = 0
+    hit_dead_code = 0
+    hit_undocumented = 0
+    hit_missing_reference = 0
+
     for rel in SURFACES:
         path = root / rel
         if not path.is_file():
@@ -104,8 +112,9 @@ def main() -> int:
             # удалён, охват проверки молча падает, а она продолжает рапортовать
             # успех. 28.07 так и вышло: `layero-docs/static/llms.txt` удалён при
             # переходе на генератор, поверхностей стало 9 вместо 10, выход 0.
-            print(f"  ✗ поверхность отсутствует: {rel} — обновите SURFACES")
+            print(f"  ✗ поверхность отсутствует: {rel}")
             failures += 1
+            hit_missing_surface += 1
             continue
         checked += 1
         lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
@@ -122,6 +131,7 @@ def main() -> int:
                 if dead in line:
                     print(f"  ✗ {rel}:{num} — код `{dead}` не выдаётся CLI")
                     failures += 1
+                    hit_dead_code += 1
 
     print(f"проверено поверхностей: {checked}")
 
@@ -145,12 +155,54 @@ def main() -> int:
             for code in undocumented:
                 print(f"  ✗ {reference.name} — код `{code}` выдаётся CLI, но не описан")
             failures += len(undocumented)
+            hit_undocumented += len(undocumented)
     else:
         print(f"  ✗ справочник отсутствует: {reference}")
         failures += 1
+        hit_missing_reference += 1
 
     if failures:
         print(f"\nрасхождений: {failures}")
+        if hit_missing_surface:
+            print(
+                "\nWHAT: поверхность из списка SURFACES не найдена на диске.\n"
+                "WHY:  это НЕ пропуск. Молча усохший охват — тихая потеря проверки:\n"
+                "      28.07 так и вышло, `layero-docs/static/llms.txt` удалили при\n"
+                "      переходе на генератор, поверхностей стало 9 вместо 10, а выход 0.\n"
+                "FIX:  1) файл переехал — поправьте путь в SURFACES внутри этого скрипта;\n"
+                "      2) файл удалён намеренно — уберите строку из SURFACES;\n"
+                "      3) запускать надо из рабочего корня либо с --root <путь>."
+            )
+        if hit_dead_code:
+            print(
+                "\nWHAT: текст называет код ошибки, которого CLI не выдаёт.\n"
+                "WHY:  читатель — человек или агент — напишет обработчик кода,\n"
+                "      который никогда не придёт. Отказ будет выглядеть как молчание.\n"
+                "FIX:  1) код сняли — уберите упоминание из текста;\n"
+                "      2) код нужен — заведите конструктор LayeroError в cli/src;\n"
+                "      3) упоминание намеренно (пример «таких кодов нет») — добавьте\n"
+                f"         рядом маркер намеренности, например: {', '.join(sorted(set(ALLOW_MARKERS))[:3])};\n"
+                "      4) список живых кодов: python3 check-error-codes.py"
+            )
+        if hit_undocumented:
+            print(
+                "\nWHAT: CLI выдаёт код, которого нет в справочнике json-events.\n"
+                "WHY:  проверка была односторонней и ловила только мёртвые коды.\n"
+                "      28.07 добавили `rollback_unsupported` — и она смолчала:\n"
+                "      новый код нигде не описан, а претензий нет.\n"
+                "FIX:  опишите код в layero-docs/docs/cli/json-events.md — обратным\n"
+                "      кавычками, `так`. Сверяется только этот справочник: llms.txt\n"
+                "      и правила для агентов перечисляют коды выборочно, и требовать\n"
+                "      от них полноты неправильно."
+            )
+        if hit_missing_reference:
+            print(
+                "\nWHAT: справочника json-events.md нет на диске.\n"
+                "WHY:  без него обратная сверка не работает вовсе, и проверка\n"
+                "      выродится в одностороннюю — ровно ту, что уже пропускала дефекты.\n"
+                "FIX:  проверьте --root; если файл переименован — поправьте путь\n"
+                "      `reference` в этом скрипте."
+            )
         return 1
     print("список кодов сходится с CLI в обе стороны")
     return 0
