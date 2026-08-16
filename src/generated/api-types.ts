@@ -2191,6 +2191,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/storage/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Enable Storage
+         * @description Включает хранилище файлов: схема-пакет `storage` — одним действием (STOR-02).
+         *
+         *     Таблицы `storage.buckets`/`storage.objects` и функции `storage.foldername()`
+         *     заводятся в форме Supabase, поэтому политики доступа к файлам переносимого
+         *     проекта работают без правок. Байты при этом лежат в S3, а не в базе.
+         */
+        post: operations["api_enable_storage_organizations__slug__databases__db_id__api_storage_enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/backups": {
         parameters: {
             query?: never;
@@ -11248,6 +11272,40 @@ export interface operations {
                 slug: string;
                 db_id: string;
                 name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_enable_storage_organizations__slug__databases__db_id__api_storage_enable_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
             };
             cookie?: never;
         };
