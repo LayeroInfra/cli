@@ -4590,7 +4590,10 @@ export interface components {
         };
         /** AnalysisRequestIn */
         AnalysisRequestIn: {
-            /** Ref */
+            /**
+             * Ref
+             * @default
+             */
             ref: string;
             /**
              * Root Directory
