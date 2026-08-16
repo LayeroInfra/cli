@@ -404,7 +404,8 @@ async function main(): Promise<void> {
     )
     .option(
       "-t, --type <preset>",
-      "framework override (vite | vitepress | next | astro | cra | sveltekit | nuxt | gatsby | docusaurus | storybook | eleventy | hugo | static)",
+      "type override — static preset (vite | vitepress | next | astro | cra | sveltekit | nuxt | gatsby | docusaurus | storybook | eleventy | hugo | static) " +
+        "or runtime kind for apps the platform RUNS (node_web | python_web | flask | streamlit | gradio | ssr_next; aliases: express, fastapi, django, node, python)",
     )
     .option("--name <name>", "project name (only used on first deploy)")
     .option("--project <id_or_slug>", "deploy into an existing project, ignoring local config")
@@ -457,6 +458,7 @@ async function main(): Promise<void> {
         "  $ layero deploy --promote            # preview deploy + pin apex (one-shot publish)\n" +
         "  $ layero deploy --branch=staging     # preview on a specific branch\n" +
         "  $ layero deploy --type vite          # force a framework preset\n" +
+        "  $ layero deploy --type express       # Node backend: platform RUNS it, not serves files\n" +
         "  $ layero deploy --json               # machine-readable output for agents",
     )
     .action(async (opts) => {

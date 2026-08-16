@@ -79,6 +79,50 @@ const VALID_TYPES = new Set([
   "storybook",
 ]);
 
+/**
+ * Runtime kinds — приложения, которые платформа ЗАПУСКАЕТ, а не раздаёт
+ * файлами.
+ *
+ * 🚨 Их здесь не было вовсе, и это стоило переноса. `--type` принимал только
+ * статические пресеты, а Express-репозиторий детект уверенно опознавал как
+ * `vite` — из-за devDependency `vite`, которую тянет `vitest`. Первый деплой
+ * умирал на «собранный сайт не содержит index.html», и единственным выходом
+ * оставался curl в недокументированную ручку `/projects/<id>/runtime-type`.
+ * Найдено переносом настоящего приложения 16.08.2026.
+ *
+ * Слева — то, что человек напишет, справа — то, что понимает платформа.
+ * Синонимы не украшение: `--type express` пишут чаще, чем `--type node_web`,
+ * и отказ на нём отправляет читать исходники, а не деплоить.
+ */
+const RUNTIME_TYPES: Record<string, string> = {
+  node_web: "node_web",
+  node: "node_web",
+  express: "node_web",
+  fastify: "node_web",
+  nest: "node_web",
+  nestjs: "node_web",
+  koa: "node_web",
+  python_web: "python_web",
+  python: "python_web",
+  fastapi: "python_web",
+  django: "python_web",
+  flask: "flask",
+  streamlit: "streamlit",
+  gradio: "gradio",
+  ssr_next: "ssr_next",
+  "next-ssr": "ssr_next",
+};
+
+/** То же множество, что принимает сессия деплоя (без `spa`). */
+type RuntimeKindHint =
+  | "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web";
+
+/** Каноничный runtime-kind по тому, что написал человек, либо `null`. */
+export function runtimeTypeOf(raw: string | undefined): string | null {
+  if (!raw) return null;
+  return RUNTIME_TYPES[raw.trim().toLowerCase()] ?? null;
+}
+
 function dashboardOrigin(apiUrl: string): string {
   const override = process.env.LAYERO_DASHBOARD_URL;
   if (override) return override.replace(/\/+$/, "");
@@ -258,8 +302,15 @@ async function resolveSetupConfig(
     ...(detected.ssr_warning ? { ssr_warning: detected.ssr_warning } : {}),
   });
 
+  // ⚠️ Runtime-тип в `framework_hint` не уходит: это разные вопросы. Хинт
+  // отвечает «чем собирать» (vite, next, …), а runtime-kind — «запускать или
+  // раздавать файлами». Положи мы сюда `node_web`, сборщик получил бы имя
+  // фреймворка, которого не существует.
+  const asRuntime = runtimeTypeOf(opts.type);
   const framework_hint =
-    opts.type ?? existing?.framework_hint ?? detected.framework_hint;
+    (asRuntime ? undefined : opts.type) ??
+    existing?.framework_hint ??
+    detected.framework_hint;
   const build_cmd = existing?.build_cmd ?? detected.build_cmd;
   const output_dir = existing?.output_dir ?? detected.output_dir;
 
@@ -278,7 +329,13 @@ async function resolveSetupConfig(
     build_cmd,
     output_dir,
     source,
-    ...(detected.runtime_kind ? { runtime_kind: detected.runtime_kind } : {}),
+    // Явный `--type` сильнее детекта: человек уже видел, как детект ошибся,
+    // иначе бы не писал флаг.
+    ...(asRuntime
+      ? { runtime_kind: asRuntime as RuntimeKindHint }
+      : detected.runtime_kind
+        ? { runtime_kind: detected.runtime_kind }
+        : {}),
   };
 }
 
@@ -438,11 +495,19 @@ async function startWithRepeatedFailureGuard(
 export async function deployCmd(opts: DeployOptions): Promise<void> {
   const mode = detectMode();
 
-  if (opts.type && !VALID_TYPES.has(opts.type.toLowerCase())) {
+  if (
+    opts.type &&
+    !VALID_TYPES.has(opts.type.toLowerCase()) &&
+    !runtimeTypeOf(opts.type)
+  ) {
     throw new LayeroError(
       "invalid_type",
       `unknown --type "${opts.type}"`,
-      `valid types: ${[...VALID_TYPES].join(", ")}`,
+      // Две группы, а не один список: у них разная судьба. Статический пресет
+      // говорит, ЧЕМ собирать; runtime-тип — что приложение надо ЗАПУСКАТЬ.
+      `static presets: ${[...VALID_TYPES].join(", ")}\n` +
+        `runtime kinds: ${[...new Set(Object.values(RUNTIME_TYPES))].join(", ")} ` +
+        `(aliases: ${Object.keys(RUNTIME_TYPES).join(", ")})`,
     );
   }
 
@@ -623,6 +688,37 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
         },
   );
   emit({ event: "setup_applied" });
+
+  // 🚨 На ПЕРВОЙ настройке хватает `runtime_kind` в сессии, а у уже
+  // существующего проекта побеждает его `project_type` — и `--type node_web`
+  // молча не делал ничего. Ровно здесь человек и упирался: тип приходилось
+  // менять curl'ом в `/projects/<id>/runtime-type`.
+  //
+  // Момент выбран не случайно: сессия создана (значит, id проекта известен),
+  // но архив ещё не упакован и сборка не запущена — флип успевает повлиять на
+  // ту же выкатку.
+  const wantRuntime = runtimeTypeOf(opts.type);
+  if (wantRuntime && project.project_type !== wantRuntime) {
+    try {
+      await api.setRuntimeType(project.id, wantRuntime as RuntimeKindHint);
+    } catch (err) {
+      // 409 — платформа возражает: репозиторий не похож на этот тип. Возражение
+      // обязано быть заметным, но не запирающим: человек написал флаг явно, и
+      // спорить с ним мы перестали намеренно (та же логика, что у панели).
+      if (err instanceof ApiError && err.status === 409) {
+        process.stderr.write(
+          chalk.yellow(
+            `! platform disagrees with --type ${wantRuntime}: ${err.body.slice(0, 200)}\n` +
+              `  applying anyway because you asked explicitly\n`,
+          ),
+        );
+        await api.setRuntimeType(project.id, wantRuntime as RuntimeKindHint, true);
+      } else {
+        throw err;
+      }
+    }
+    emit({ event: "runtime_type_applied", project_type: wantRuntime as RuntimeKindHint });
+  }
 
   await persistProjectLinking(
     cwd,

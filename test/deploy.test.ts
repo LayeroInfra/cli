@@ -30,6 +30,7 @@ const {
   listOrganizations,
   listProjects,
   loadProjectConfig,
+  setRuntimeType,
 } = vi.hoisted(() => ({
   getProject: vi.fn(),
   createCliProject: vi.fn(),
@@ -44,6 +45,7 @@ const {
   listOrganizations: vi.fn(),
   listProjects: vi.fn(),
   loadProjectConfig: vi.fn(),
+  setRuntimeType: vi.fn(),
 }));
 
 vi.mock("../src/api.js", () => {
@@ -65,6 +67,7 @@ vi.mock("../src/api.js", () => {
     me = me;
     listOrganizations = listOrganizations;
     listProjects = listProjects;
+    setRuntimeType = setRuntimeType;
   }
   return { ApiClient, ApiError, uploadArchive: vi.fn(async () => undefined) };
 });
@@ -151,6 +154,7 @@ beforeEach(() => {
     error: null,
   });
   getDeploy.mockResolvedValue({ id: "dep-1", environment_id: "env-1", status: "ready", commit_sha: "deadbeef" });
+  setRuntimeType.mockResolvedValue({ ...PROJECT, project_type: "node_web" });
   probeEnvironment.mockResolvedValue({
     available: true,
     canonical_url: "https://valya-smoke.layero.ru/",
@@ -261,7 +265,8 @@ describe("B3/B4: ready event carries the public URL + preview", () => {
 
   it("switches url to the canonical apex once CDN is ready", async () => {
     loadProjectConfig.mockResolvedValue(null);
-    probeEnvironment.mockResolvedValue({
+    setRuntimeType.mockResolvedValue({ ...PROJECT, project_type: "node_web" });
+  probeEnvironment.mockResolvedValue({
       available: true,
       canonical_url: "https://valya-smoke.layero.ru/",
       preview_url: "https://valya-smoke-deadbee.preview.layero.ru/",
@@ -343,5 +348,82 @@ describe("AGENT-13: --project принимает и id, и слаг", () => {
     expect(arg.name).toBe("my-site");
     expect(arg.create_if_missing).toBe(false);
     expect(arg.project_id).toBeUndefined();
+  });
+});
+
+// ── `--type` для приложений, которые платформа ЗАПУСКАЕТ ────────────────────
+//
+// 🚨 Их не было в `--type` вовсе, и это стоило переноса настоящего приложения
+// 16.08.2026: Express-репозиторий детект уверенно опознавал как `vite` (из-за
+// devDependency, которую тянет `vitest`), первый деплой умирал на «собранный
+// сайт не содержит index.html», а единственным выходом оставался curl в
+// недокументированную ручку.
+
+describe("runtime --type", () => {
+  it("принимает имя рантайма и не выдаёт его за фреймворк", async () => {
+    loadProjectConfig.mockResolvedValue(null);
+    await deployCmd({ yes: true, type: "express" } as any);
+    const arg = createDeploySession.mock.calls[0]![0] as any;
+    // Платформа получает КАНОНИЧНОЕ имя, а не то, что удобнее человеку.
+    expect(arg.runtime_kind).toBe("node_web");
+    // ⚠️ И не получает его как framework_hint: хинт отвечает «чем собирать»,
+    // а такого фреймворка не существует.
+    expect(arg.framework_hint).not.toBe("node_web");
+    expect(arg.framework_hint).not.toBe("express");
+  });
+
+  it("переключает тип у уже существующего проекта", async () => {
+    // У активного проекта побеждает его project_type — поэтому одного
+    // runtime_kind в сессии мало, и раньше `--type` тут молча не делал ничего.
+    createDeploySession.mockResolvedValue({
+      session_id: "sess-1",
+      project: { ...PROJECT, status: "active", project_type: "spa" },
+      created_project: false,
+      upload_url: "https://s3/x",
+      upload_headers: {},
+      source_archive_key: "k",
+      expires_in: 600,
+    });
+    await deployCmd({ yes: true, type: "node_web" } as any);
+    expect(setRuntimeType).toHaveBeenCalledWith("proj-123", "node_web");
+  });
+
+  it("не трогает тип, если он уже верный", async () => {
+    createDeploySession.mockResolvedValue({
+      session_id: "sess-1",
+      project: { ...PROJECT, status: "active", project_type: "node_web" },
+      created_project: false,
+      upload_url: "https://s3/x",
+      upload_headers: {},
+      source_archive_key: "k",
+      expires_in: 600,
+    });
+    await deployCmd({ yes: true, type: "express" } as any);
+    expect(setRuntimeType).not.toHaveBeenCalled();
+  });
+
+  it("возражение платформы не запирает: пишем принудительно и говорим вслух", async () => {
+    createDeploySession.mockResolvedValue({
+      session_id: "sess-1",
+      project: { ...PROJECT, status: "active", project_type: "spa" },
+      created_project: false,
+      upload_url: "https://s3/x",
+      upload_headers: {},
+      source_archive_key: "k",
+      expires_in: 600,
+    });
+    const { ApiError } = await import("../src/api.js");
+    setRuntimeType.mockRejectedValueOnce(
+      new (ApiError as any)("conflict", 409, '{"detected":"vite"}'),
+    );
+    setRuntimeType.mockResolvedValueOnce({ ...PROJECT, project_type: "node_web" });
+    await deployCmd({ yes: true, type: "fastapi" } as any);
+    expect(setRuntimeType).toHaveBeenLastCalledWith("proj-123", "python_web", true);
+  });
+
+  it("неизвестный тип называет обе группы", async () => {
+    await expect(deployCmd({ yes: true, type: "wat" } as any)).rejects.toThrow(
+      /unknown --type/,
+    );
   });
 });

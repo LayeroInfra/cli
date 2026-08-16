@@ -15,6 +15,16 @@ import type { components } from "./generated/api-types.js";
 type Schemas = components["schemas"];
 
 export type ProjectSummary = Schemas["ProjectOut"];
+
+/** Типы, которые платформа ЗАПУСКАЕТ, плюс `spa` — то, что она раздаёт. */
+export type RuntimeKind =
+  | "ssr_next"
+  | "streamlit"
+  | "gradio"
+  | "flask"
+  | "python_web"
+  | "node_web"
+  | "spa";
 export type MeOut = Schemas["MeOut"];
 export type UploadInit = Schemas["UploadInitOut"];
 export type DeployOut = Schemas["DeployOut"];
@@ -224,14 +234,22 @@ export class ApiClient {
     );
   }
 
+  /**
+   * Сменить тип проекта.
+   *
+   * `force` — записать вопреки возражению платформы (409). Владелец имеет на
+   * это право: детект ошибается, и репозиторий, который эвристика считает «не
+   * бэкендом», прекрасно работает одним сервисом.
+   */
   setRuntimeType(
     projectId: string,
-    projectType: "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web" | "spa",
+    projectType: RuntimeKind,
+    force = false,
   ): Promise<ProjectSummary> {
     return this.request<ProjectSummary>(
       "POST",
       `/projects/${projectId}/runtime-type`,
-      { project_type: projectType },
+      { project_type: projectType, force },
     );
   }
 
