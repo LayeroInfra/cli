@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/analysis-requests/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Analysis Request */
+        get: operations["get_analysis_request_analysis_requests__request_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/cli/device": {
         parameters: {
             query?: never;
@@ -2515,6 +2532,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/tables/{schema_name}/{table}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Table Rows
+         * @description Строки таблицы (DATA-16).
+         *
+         *     Вкладка «Таблицы» показывала только структуру: колонки, типы, размеры.
+         *     После `POST /rpc/order_create` посмотреть заказ было негде, кроме как
+         *     писать `SELECT` в редакторе — а для BaaS просмотр строк это то, чем
+         *     проверяют, что всё получилось.
+         */
+        get: operations["table_rows_organizations__slug__databases__db_id__tables__schema_name___table__rows_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/import/accounts": {
         parameters: {
             query?: never;
@@ -2936,6 +2978,30 @@ export interface paths {
         get: operations["check_project_address_projects__project_id__address_check_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Analysis
+         * @description Попросить индекс для ветки. Идемпотентно.
+         *
+         *     Уже посчитанный индекс не пересчитывается: идентичность снимка контентная,
+         *     а строка `analysis_requests` — про работу. Повторное открытие мастера не
+         *     занимает слот флота.
+         */
+        post: operations["request_analysis_projects__project_id__analysis_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4398,6 +4464,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/snapshots/{snapshot_id}/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Snapshot Index
+         * @description Индекс снимка целиком: дерево, манифесты, план.
+         *
+         *     Ключ кеша у панели — `["snapshot", id]`, и он ИММУТАБЕЛЕН: снимок
+         *     описывает состояние кода, протухать в нём нечему. Прежние ключи с веткой
+         *     (`["project-tree", id, branch]`) были формой того же, только протухающей.
+         */
+        get: operations["get_snapshot_index_snapshots__snapshot_id__index_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/speed/runs/{run_id}": {
         parameters: {
             query?: never;
@@ -4497,6 +4587,37 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+        };
+        /** AnalysisRequestIn */
+        AnalysisRequestIn: {
+            /** Ref */
+            ref: string;
+            /**
+             * Root Directory
+             * @default
+             */
+            root_directory: string;
+        };
+        /**
+         * AnalysisState
+         * @description Состояние анализа для мастера.
+         *
+         *     `snapshot_id` появляется РОВНО тогда, когда индекс есть; читатель не должен
+         *     гадать по статусу. Это тот же приём, что и `fidelity` у снимка: полнота
+         *     ответа объявляется, а не выводится.
+         */
+        AnalysisState: {
+            /** Error */
+            error?: string | null;
+            /** Request Id */
+            request_id?: string | null;
+            /** Snapshot Id */
+            snapshot_id?: string | null;
+            /**
+             * Status
+             * @description ready | queued | running | failed
+             */
+            status: string;
         };
         /** ApiFunctionGrantIn */
         ApiFunctionGrantIn: {
@@ -7268,6 +7389,39 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_analysis_request_analysis_requests__request_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cli_device_start_auth_cli_device_post: {
         parameters: {
             query?: never;
@@ -11878,6 +12032,45 @@ export interface operations {
             };
         };
     };
+    table_rows_organizations__slug__databases__db_id__tables__schema_name___table__rows_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                schema_name: string;
+                table: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_accounts_organizations__slug__import_accounts_get: {
         parameters: {
             query?: never;
@@ -12793,6 +12986,43 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_analysis_projects__project_id__analysis_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalysisRequestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisState"];
                 };
             };
             /** @description Validation Error */
@@ -15409,6 +15639,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_snapshot_index_snapshots__snapshot_id__index_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description Validation Error */
             422: {
