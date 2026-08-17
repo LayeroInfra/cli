@@ -2215,6 +2215,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/storage/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api Storage Policies
+         * @description Политики доступа к файлам и имена ролей базы (STOR-12).
+         *
+         *     Отдаёт ВСЕ политики на `storage.objects` — и заведённые шаблоном, и
+         *     написанные руками. Панель, делающая вид, что чужих политик нет, показывала
+         *     бы не доступ, а своё представление о нём.
+         *
+         *     Здесь же имена ролей: человек не обязан знать, что глобальной
+         *     `authenticated` у нас не существует и что роль его базы называется
+         *     `u_<hex>_<слаг>_auth`.
+         */
+        get: operations["api_storage_policies_organizations__slug__databases__db_id__api_storage_policies_get"];
+        put?: never;
+        /**
+         * Api Storage Policy Apply
+         * @description Раскладывает готовый шаблон политик на бакет — то самое «в один клик».
+         *
+         *     Политика это DDL, а DDL умеет только владелец таблицы: сервисная роль,
+         *     которой работает шлюз, `CREATE POLICY` выполнить не может. Поэтому путь
+         *     здесь, а не в шлюзе, и идёт он тем же владельцем, что и SQL-редактор.
+         */
+        post: operations["api_storage_policy_apply_organizations__slug__databases__db_id__api_storage_policies_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/storage/policies/drop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Storage Policy Drop
+         * @description Снимает политику, заведённую шаблоном. Чужие руками писанные — нет:
+         *     кнопка, ломающая доступ по недосмотру, стояла бы рядом с безобидными.
+         */
+        post: operations["api_storage_policy_drop_organizations__slug__databases__db_id__api_storage_policies_drop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/storage/session": {
         parameters: {
             query?: never;
@@ -7295,6 +7352,18 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** StoragePolicyDropIn */
+        StoragePolicyDropIn: {
+            /** Name */
+            name: string;
+        };
+        /** StoragePolicyIn */
+        StoragePolicyIn: {
+            /** Bucket */
+            bucket: string;
+            /** Template */
+            template: string;
+        };
         /** StreamTicketOut */
         StreamTicketOut: {
             /** Expires In */
@@ -11342,6 +11411,116 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_storage_policies_organizations__slug__databases__db_id__api_storage_policies_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_storage_policy_apply_organizations__slug__databases__db_id__api_storage_policies_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoragePolicyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_storage_policy_drop_organizations__slug__databases__db_id__api_storage_policies_drop_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoragePolicyDropIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
