@@ -69,11 +69,26 @@ check(
 )
 
 # 3. Правила, которые переклассифицируют, — только на первой сборке.
+#
+# ⚠️ Проверяем СВОЙСТВО, а не строку. Раньше здесь искалась буквальная
+# `RULES_V2 if first_build_free`, и вынос условий в общую функцию (17.08, чтобы
+# сдача индекса не читала переменную из чужой области видимости) покрасил гейт
+# при неизменном поведении. Гейт, краснеющий на рефакторинге, учат обходить.
 p = read("builder/src/pipeline.py")
+_rules_fn = p.split("def build_rules(")[1].split("\ndef ")[0] if "def build_rules(" in p else ""
 check(
-    "first_build_free" in p and "RULES_V2 if first_build_free" in p,
-    "RULES_V2 включаются только при first_build_free",
+    bool(_rules_fn)
+    and "RULES_V2 if free else None" in _rules_fn
+    and 'ctx.get("first_build")' in _rules_fn
+    and '!= "user"' in _rules_fn
+    and 'ctx.get("prebuilt"' in _rules_fn,
+    "RULES_V2 включаются только на первой сборке, при неявном типе и без prebuilt",
     "правила, меняющие вердикт, не должны применяться к живому проекту",
+)
+check(
+    "build_rules(ctx)" in p and "_dcr.RULES_V2" not in p.replace(_rules_fn, ""),
+    "правила берутся ОДНОЙ функцией, а не собираются на месте",
+    "вторая сборка условий рядом разъедется с первой — и молча",
 )
 check(
     '!= "user"' in p,
