@@ -5,7 +5,7 @@ import { whoamiCmd } from "../commands/whoami.js";
 import { logoutCmd } from "../commands/logout.js";
 import { projectsListCmd } from "../commands/projects.js";
 import { linkCmd } from "../commands/link.js";
-import { tokenSetCmd } from "../commands/token.js";
+import { tokenCreateCmd, tokenListCmd, tokenRevokeCmd, tokenSetCmd } from "../commands/token.js";
 import { deployCmd } from "../commands/deploy.js";
 import { deploysListCmd, rollbackCmd } from "../commands/deploys.js";
 import { promoteCmd } from "../commands/promote.js";
@@ -16,6 +16,7 @@ import { initCmd } from "../commands/init.js";
 import { diagnoseCmd, logsCmd } from "../commands/diagnose.js";
 import { perfCheckCmd, perfShowCmd } from "../commands/perf.js";
 import { dataEnvCmd } from "../commands/data.js";
+import { dbConnectCmd, dbCreateCmd, dbListCmd, dbSqlCmd } from "../commands/db.js";
 import { envListCmd, envSetCmd, envUnsetCmd } from "../commands/env.js";
 import {
   analyticsConnectCmd,
@@ -55,9 +56,18 @@ async function main(): Promise<void> {
   program
     .command("login")
     .description(
-      "Authenticate via browser (email code or Yandex ID). Opens a one-time URL — no localhost server required.",
+      "Вход через браузер (код из почты или Yandex ID): печатает одноразовый адрес и код.",
     )
-    .addHelpText("after", "\nExamples:\n  $ layero login\n  $ npx layero login")
+    .option("--no-browser", "не открывать браузер — только напечатать адрес и код")
+    .addHelpText(
+      "after",
+      "\nПримеры:\n" +
+        "  $ layero login\n" +
+        "  $ layero login --no-browser        # SSH, контейнер, среда агента\n" +
+        "\nДля CI и агентов вход человеком не годится — нужен долгоживущий токен:\n" +
+        "  $ layero token create ci\n" +
+        "  $ LAYERO_TOKEN=<токен> npx layero@latest deploy",
+    )
     .action(async (opts) => {
       await loginCmd(opts);
     });
@@ -276,6 +286,37 @@ async function main(): Promise<void> {
     )
     .action(async (opts: any) => dataEnvCmd({ ...opts, json: program.opts().json }));
 
+  const db = program
+    .command("db")
+    .description("Базы организации: завести, посмотреть, подключить к проекту, выполнить SQL.");
+  const withOrg = (c: any) => c.option("--org <slug>", "организация (по умолчанию единственная)");
+  withOrg(db.command("list").description("Базы организации."))
+    .action(async (opts: any) => dbListCmd({ ...opts, json: program.opts().json }));
+  withOrg(
+    db
+      .command("create <name>")
+      .description("Завести базу. Строка подключения печатается ОДИН раз.")
+      .option("--gb <number>", "объём платной базы в гигабайтах", (v: string) => parseInt(v, 10)),
+  ).action(async (name: string, opts: any) =>
+    dbCreateCmd(name, { ...opts, json: program.opts().json }),
+  );
+  withOrg(
+    db
+      .command("connect <database>")
+      .description("Подключить проект к базе: строка подключения приедет в его переменные.")
+      .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)"),
+  ).action(async (database: string, opts: any) =>
+    dbConnectCmd(database, { ...opts, json: program.opts().json }),
+  );
+  withOrg(
+    db
+      .command("sql <database>")
+      .description("Выполнить SQL в базе. Скрипт из нескольких операторов — одной транзакцией.")
+      .requiredOption("-c, --command <sql>", "запрос или скрипт"),
+  ).action(async (database: string, opts: any) =>
+    dbSqlCmd(database, { ...opts, json: program.opts().json }),
+  );
+
   const analytics = program
     .command("analytics")
     .description("Яндекс.Метрика: подключение и статистика сайта.");
@@ -390,10 +431,34 @@ async function main(): Promise<void> {
     .command("token")
     .description("Manage the auth token directly (advanced).");
   token
+    .command("create <name>")
+    .description(
+      "Выпустить долгоживущий токен для CI и агентов. " +
+        "Показывается ОДИН раз. По умолчанию read+deploy, без необратимого.",
+    )
+    .option("--scope <list>", "через запятую: read, deploy, admin")
+    .addHelpText(
+      "after",
+      "\nПримеры:\n" +
+        "  $ layero token create ci                       # read+deploy\n" +
+        "  $ layero token create ci --scope read          # только чтение\n" +
+        "\nВ CI:  LAYERO_TOKEN=<токен> npx layero@latest deploy",
+    )
+    .action(async (name: string, opts: any) =>
+      tokenCreateCmd(name, { ...opts, json: program.opts().json }),
+    );
+  token
+    .command("list")
+    .description("Выпущенные токены: имя, подсказка, права, последнее использование.")
+    .action(async () => tokenListCmd({ json: program.opts().json }));
+  token
+    .command("revoke <id>")
+    .description("Отозвать токен. Действует немедленно.")
+    .action(async (id: string) => tokenRevokeCmd(id, { json: program.opts().json }));
+  token
     .command("set <jwt>")
     .description(
-      "Persist a JWT obtained out-of-band (e.g. from the web UI). " +
-        "Use this until `layero login` is fully wired up.",
+      "Сохранить токен, полученный иначе (например, `layero token create` на другой машине).",
     )
     .action(tokenSetCmd);
 
@@ -528,6 +593,55 @@ function asAccountStateError(err: unknown): LayeroError | null {
     );
   }
 
+  // 🚨 Понятный отказ сервера не имеет права превращаться в нашу поломку.
+  // 409 с `reason: reserved` и текстом «имя зарезервировано платформой»
+  // печатался как `code: internal` с советом «re-run with --debug for a stack
+  // trace» — человек шёл искать стек вместо того, чтобы сменить имя.
+  //
+  // Разбираем ЛЮБОЙ 4xx с телом, а не отдельные коды: заплатка на один код
+  // означала бы, что следующий понятный отказ снова станет «внутренней
+  // ошибкой». 5xx сюда не попадает намеренно — это как раз наша авария.
+  if (err.status >= 400 && err.status < 500) {
+    const detail = detailOf(err.body);
+    if (detail) {
+      return new LayeroError(
+        detail.code ?? `http_${err.status}`,
+        detail.message,
+        detail.next_action ?? "исправьте запрос и повторите",
+      );
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Достаёт человеческую часть отказа из тела ответа.
+ *
+ * FastAPI кладёт её в `detail` — либо строкой, либо объектом с `code`,
+ * `reason` и `message`. Обе формы живые, и обе должны доезжать до человека.
+ */
+function detailOf(
+  body: string,
+): { code?: string; message: string; next_action?: string } | null {
+  let parsed: any;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  const detail = parsed?.detail ?? parsed;
+  if (typeof detail === "string" && detail.trim()) return { message: detail };
+  if (detail && typeof detail === "object") {
+    const message = detail.message ?? detail.detail ?? detail.reason;
+    if (typeof message === "string" && message.trim()) {
+      return {
+        code: typeof detail.code === "string" ? detail.code : undefined,
+        message,
+        next_action: typeof detail.next_action === "string" ? detail.next_action : undefined,
+      };
+    }
+  }
   return null;
 }
 

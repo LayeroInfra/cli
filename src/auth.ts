@@ -22,7 +22,10 @@ const MAX_WAIT_MS = 15 * 60 * 1000;
  * Throws LayeroError("auth_expired" | "auth_timeout") if the user doesn't
  * approve in time.
  */
-export async function runDeviceLogin(cfg: CliConfig): Promise<CliConfig> {
+export async function runDeviceLogin(
+  cfg: CliConfig,
+  opts: { noBrowser?: boolean } = {},
+): Promise<CliConfig> {
   const mode = detectMode();
   const api = new ApiClient(cfg);
 
@@ -37,10 +40,12 @@ export async function runDeviceLogin(cfg: CliConfig): Promise<CliConfig> {
     console.log(chalk.bold(`  ${verification_url}`));
     console.log(chalk.dim(`\n  Confirmation code: `) + chalk.white.bold(user_code));
     console.log(chalk.dim(`  (expires in ${device.expires_in}s)\n`));
-    try {
-      await open(verification_url);
-    } catch {
-      // non-fatal — user can paste the URL manually
+    if (!opts.noBrowser) {
+      try {
+        await open(verification_url);
+      } catch {
+        // non-fatal — user can paste the URL manually
+      }
     }
   }
 

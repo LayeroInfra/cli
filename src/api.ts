@@ -51,6 +51,19 @@ export class ApiError extends Error {
 }
 
 
+export interface DatabaseSummary {
+  id: string;
+  name: string;
+  provider: string;
+  status: string;
+  db_name: string;
+  name_slug: string | null;
+  api_enabled: boolean;
+  projects_count: number;
+  quota_bytes: number;
+  size_bytes: number | null;
+}
+
 export interface DeployHookOut {
   id: string;
   name: string;
@@ -337,6 +350,91 @@ export class ApiClient {
    * из правила выше, а другая природа: публичный ключ уезжает в бандл и виден
    * любому посетителю сайта. Секретного здесь не бывает.
    */
+  // ── Базы организации (DX-03) ──────────────────────────────────────────
+  //
+  // 🚨 Заведено потому, что базу нельзя было создать ничем, кроме панели: у
+  // CLI была одна команда `data env` — показать ключ УЖЕ существующей базы.
+  // Адрес ручки и форму тела приходилось читать в исходниках платформы.
+
+  listDatabases(org: string): Promise<DatabaseSummary[]> {
+    return this.request<DatabaseSummary[]>("GET", `/organizations/${org}/databases`);
+  }
+
+  createDatabase(
+    org: string,
+    input: { name: string; quota_gb?: number; extensions?: string[] },
+  ): Promise<{ connection_string: string; password: string }> {
+    return this.request("POST", `/organizations/${org}/databases`, {
+      name: input.name,
+      quota_gb: input.quota_gb ?? null,
+      extensions: input.extensions ?? [],
+    });
+  }
+
+  connectDatabaseToProject(
+    org: string,
+    dbId: string,
+    projectId: string,
+  ): Promise<unknown> {
+    return this.request("POST", `/organizations/${org}/databases/${dbId}/projects`, {
+      project_id: projectId,
+    });
+  }
+
+  queryDatabase(
+    org: string,
+    dbId: string,
+    sql: string,
+  ): Promise<{
+    columns: string[];
+    rows: unknown[][];
+    row_count: number;
+    status: string | null;
+    truncated: boolean;
+    statements?: Array<{ sql: string; status: string | null; row_count: number }>;
+  }> {
+    return this.request("POST", `/organizations/${org}/databases/${dbId}/query`, {
+      sql,
+      read_only: false,
+    });
+  }
+
+  // ── Долгоживущие токены для CI (DX-02) ────────────────────────────────
+  //
+  // 🚨 Заведено потому, что неинтерактивного пути входа у CLI не было вовсе.
+  // `layero login` требует человека с браузером, а единственной подсказкой
+  // была команда `token set <jwt>` с подписью «пока login не доделан» — то
+  // есть «раздобудьте токен где-нибудь ещё». В CI на этом месте вставали
+  // насмерть. Ручка на сервере существовала с AGENT-02, у CLI её не было.
+
+  createApiToken(input: {
+    name: string;
+    scopes?: Array<"read" | "deploy" | "admin">;
+  }): Promise<{ id: string; name: string; token: string; scopes: string[]; hint: string }> {
+    return this.request("POST", "/auth/tokens", {
+      name: input.name,
+      scopes: input.scopes ?? null,
+    });
+  }
+
+  listApiTokens(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      hint: string;
+      scopes: string[];
+      created_at: string;
+      last_used_at: string | null;
+      expires_at: string | null;
+    }>
+  > {
+    return this.request("GET", "/auth/tokens");
+  }
+
+  revokeApiToken(id: string): Promise<void> {
+    return this.request("DELETE", `/auth/tokens/${id}`);
+  }
+
   dataEnv(projectId: string): Promise<Record<string, string>> {
     return this.request<Record<string, string>>("GET", `/projects/${projectId}/data-env`);
   }

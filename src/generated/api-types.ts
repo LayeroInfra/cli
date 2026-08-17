@@ -1811,6 +1811,35 @@ export interface paths {
         patch: operations["rename_database_organizations__slug__databases__db_id__patch"];
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/app-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api App Session
+         * @description Сессия панели → сессия базы: пара токенов, подписанных секретом базы.
+         *
+         *     🚨 Это и есть та бесшовность, которую первопартийные приложения на Data API
+         *     обещают, а выполнить было нечем: секрет подписи — на базу и известен только
+         *     платформе, `/auth/v1/admin/*` в шлюзе не реализован. Без ручки человек,
+         *     вошедший в панель, заводил в приложении ВТОРОЙ пароль.
+         *
+         *     ⚠️ Прав не расширяет: токен несёт роль `authenticated` этой базы, дальше
+         *     решают гранты и RLS. Достаточно членства в команде организации — тем же
+         *     правом человек и так открывает SQL-редактор этой базы.
+         */
+        post: operations["api_app_session_organizations__slug__databases__db_id__api_app_session_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/auth/enable": {
         parameters: {
             query?: never;
@@ -2148,6 +2177,66 @@ export interface paths {
          * @description Отзыв ключа никого не роняет — в отличие от смены пароля роли.
          */
         delete: operations["api_revoke_key_organizations__slug__databases__db_id__api_keys__key_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/origins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api List Origins
+         * @description Источники приёма: свои и унаследованные от подключённых проектов.
+         */
+        get: operations["api_list_origins_organizations__slug__databases__db_id__api_origins_get"];
+        put?: never;
+        /**
+         * Api Add Origin
+         * @description Разрешает домену звать эту базу из браузера — и только это.
+         *
+         *     🚨 Прав на данные не выдаёт: ни грантов, ни строки подключения. До этой
+         *     ручки единственным способом пустить чужой сайт было подключить его проект
+         *     к базе, а подключение отдаёт ему CRUD на все таблицы.
+         */
+        post: operations["api_add_origin_organizations__slug__databases__db_id__api_origins_post"];
+        /**
+         * Api Delete Origin
+         * @description Источник приходит параметром запроса, а не куском пути: в нём есть
+         *     `://` и точки, и в пути он превращается в чужой маршрут.
+         */
+        delete: operations["api_delete_origin_organizations__slug__databases__db_id__api_origins_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Probe As Role
+         * @description Выполнить запрос ОТ РОЛИ ключа и откатить транзакцию.
+         *
+         *     🚨 Единственный способ владельцу проверить свою же RLS руками. Роли базы
+         *     создаёт только платформа (они кластерные), поэтому «заведу роль и проверю
+         *     сам» не работает, а для общей базы продукта RLS — единственная стенка.
+         *
+         *     Проба идёт настоящей ролью и настоящим подключением: ответ совпадает с
+         *     тем, что получит чужой клиент через шлюз, а не с нашей моделью этого.
+         */
+        post: operations["api_probe_as_role_organizations__slug__databases__db_id__api_probe_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -6040,6 +6129,13 @@ export interface components {
             /** Slug */
             slug: string;
         };
+        /** OriginIn */
+        OriginIn: {
+            /** Note */
+            note?: string | null;
+            /** Origin */
+            origin: string;
+        };
         /**
          * PackageScriptOut
          * @description One entry from package.json `scripts`. `is_build_like` flags scripts
@@ -6125,6 +6221,18 @@ export interface components {
             p95_ms?: number | null;
             /** Requests */
             requests: number;
+        };
+        /** ProbeIn */
+        ProbeIn: {
+            /** Auth Uid */
+            auth_uid?: string | null;
+            /**
+             * Role
+             * @default anon
+             */
+            role: string;
+            /** Sql */
+            sql: string;
         };
         /**
          * ProbeOut
@@ -10573,6 +10681,40 @@ export interface operations {
             };
         };
     };
+    api_app_session_organizations__slug__databases__db_id__api_app_session_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     api_enable_auth_organizations__slug__databases__db_id__api_auth_enable_post: {
         parameters: {
             query?: never;
@@ -11270,6 +11412,152 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_list_origins_organizations__slug__databases__db_id__api_origins_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_add_origin_organizations__slug__databases__db_id__api_origins_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OriginIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_delete_origin_organizations__slug__databases__db_id__api_origins_delete: {
+        parameters: {
+            query: {
+                origin: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_probe_as_role_organizations__slug__databases__db_id__api_probe_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProbeIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

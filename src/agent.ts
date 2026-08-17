@@ -172,6 +172,30 @@ export type Event =
   // без них он не соберёт первый же запрос к базе. Секретного ключа здесь не
   // бывает никогда — платформа его не хранит.
   | ({ event: "data_env"; project: string; vars: Record<string, string> } & EventCommon)
+  // Базы организации (DX-03). `database_created` несёт строку подключения:
+  // пароль показывается ОДИН раз, и агенту он нужен ровно так же, как человеку.
+  | ({ event: "token_created"; id: string; name: string; token: string; scopes: string[] } & EventCommon)
+  | ({ event: "tokens"; tokens: unknown[] } & EventCommon)
+  | ({ event: "token_revoked"; id: string } & EventCommon)
+  | ({ event: "databases"; org: string; databases: unknown[] } & EventCommon)
+  | ({
+      event: "database_created";
+      org: string;
+      name: string;
+      connection_string: string;
+      password: string;
+    } & EventCommon)
+  | ({ event: "database_connected"; org: string; database: string; project: string } & EventCommon)
+  | ({
+      event: "query_result";
+      database: string;
+      columns: string[];
+      rows: unknown[][];
+      row_count: number;
+      status: string | null;
+      truncated: boolean;
+      statements?: Array<{ sql: string; status: string | null; row_count: number }>;
+    } & EventCommon)
   | ({ event: "env_set"; project: string; keys: string[]; total: number } & EventCommon)
   | ({ event: "env_unset"; project: string; keys: string[] } & EventCommon)
   | ({ event: "analytics_status"; connected: boolean; counter_id?: number; status: string; injection_mode: string; tracked_branch?: string } & EventCommon)
