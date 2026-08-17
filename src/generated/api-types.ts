@@ -2215,6 +2215,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/storage/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Storage Session
+         * @description Короткоживущий ключ для раздела «Файлы» (STOR-08).
+         *
+         *     Раздел ходит в хранилище ТЕМИ ЖЕ ручками, что и чужой клиент, — иначе у
+         *     панели завелась бы вторая модель доступа к тем же объектам. Ключ живёт 15
+         *     минут, лежит в общем списке ключей и отзывается общей кнопкой.
+         *
+         *     Прав это не расширяет: у панели уже есть редактор запросов, то есть
+         *     произвольный SQL в этой же базе.
+         */
+        post: operations["api_storage_session_organizations__slug__databases__db_id__api_storage_session_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/backups": {
         parameters: {
             query?: never;
@@ -11303,6 +11330,40 @@ export interface operations {
         };
     };
     api_enable_storage_organizations__slug__databases__db_id__api_storage_enable_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_storage_session_organizations__slug__databases__db_id__api_storage_session_post: {
         parameters: {
             query?: never;
             header?: {
