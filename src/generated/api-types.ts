@@ -6849,6 +6849,11 @@ export interface components {
              * @default false
              */
             truncated: boolean;
+            /**
+             * Unavailable
+             * @default false
+             */
+            unavailable: boolean;
         };
         /** ProjectTypeIn */
         ProjectTypeIn: {
