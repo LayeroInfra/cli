@@ -2626,6 +2626,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/purge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Purge Database By Id
+         * @description Снести отключённую базу немедленно, не дожидаясь конца окна хранения.
+         *
+         *     Окно в семь суток нужно, чтобы передумать. Обратный случай оно не
+         *     закрывало: базу удалили сознательно, а она всю неделю занимала место в
+         *     квоте и висела в списке — освободить её было нечем.
+         *
+         *     Работает только для базы, уже поставленной в очередь уборки: «удалить
+         *     безвозвратно» — это второе подтверждение к отключению, а не короткий путь
+         *     в обход него.
+         */
+        delete: operations["purge_database_by_id_organizations__slug__databases__db_id__purge_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/query": {
         parameters: {
             query?: never;
@@ -12480,6 +12508,40 @@ export interface operations {
                 slug: string;
                 db_id: string;
                 project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    purge_database_by_id_organizations__slug__databases__db_id__purge_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
             };
             cookie?: never;
         };
