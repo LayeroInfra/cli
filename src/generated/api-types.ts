@@ -1385,8 +1385,16 @@ export interface paths {
          *     открытой.
          */
         get: operations["get_network_organizations__slug__database_network_get"];
-        /** Put Network Mode */
-        put: operations["put_network_mode_organizations__slug__database_network_put"];
+        /**
+         * Put Network Settings
+         * @description Режим TLS. Режимов доступа больше нет — доступ задаёт список адресов.
+         *
+         *     ⚠️ `mode` из тела ИГНОРИРУЕТСЯ, и молча. Ручку зовёт панель предыдущей
+         *     версии, и отвечать ей ошибкой значило бы сломать экран сети ровно на то
+         *     время, пока фронтенд догоняет бэкенд. Ответ при этом честный: возвращаем
+         *     `allowlist` — то единственное состояние, которое теперь существует.
+         */
+        put: operations["put_network_settings_organizations__slug__database_network_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -6142,7 +6150,9 @@ export interface components {
         /** NetworkModeIn */
         NetworkModeIn: {
             /** Mode */
-            mode: string;
+            mode?: string | null;
+            /** Ssl Mode */
+            ssl_mode?: string | null;
         };
         /** NetworkRuleIn */
         NetworkRuleIn: {
@@ -9973,7 +9983,7 @@ export interface operations {
             };
         };
     };
-    put_network_mode_organizations__slug__database_network_put: {
+    put_network_settings_organizations__slug__database_network_put: {
         parameters: {
             query?: never;
             header?: {
