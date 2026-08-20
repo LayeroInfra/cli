@@ -33,6 +33,7 @@ YC прервёт узел (машины прерываемые by design) и к
 """
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -60,6 +61,85 @@ WIRING = (
     (SETUP, '"${SLICE[@]}"', "срез контроллера собирается из прочитанного списка"),
     (SYNC, "fleet-payload.txt", "синхронизация на core-VM читает единый список"),
 )
+
+
+# Где ищем копии. Каталоги сборки и чужие зависимости пропускаем.
+SCAN_SUFFIXES = {".sh", ".yml", ".yaml"}
+SCAN_SKIP = ("node_modules", ".venv", "/build/", "/.git/")
+
+# Сколько путей из списка в одном файле считаем «перечислением». Два — это
+# ещё может быть пара ссылок в тексте; три подряд уже список.
+ENUMERATOR_MIN_HITS = 3
+
+# ПОТРЕБИТЕЛИ — не копии списка, и требовать от них чтения fleet-payload.txt
+# бессмысленно. setup-builder-node.sh перечисляет файлы потому, что каждому
+# нужен СВОЙ путь установки (`источник:назначение`), а не потому, что решает,
+# что везти.
+#
+# 🚨 НО СВЯЗЬ С НИМИ ЖЁСТЧЕ, ЧЕМ У КОПИЙ, И ЛОМАЕТСЯ ТИШЕ. Файл, который
+# потребитель ставит, но список не везёт, приедет на узел отсутствующим — и
+# провижининг либо промолчит, либо упадёт уже на живой машине. Ровно это и
+# было: setup-builder-node.sh ставил runner-image-updater.sh (строка 114), а
+# запечка образа его не везла. Поэтому у потребителей сверяется ОТНОШЕНИЕ:
+# всё, что они берут из своего каталога, обязано быть в списке.
+CONSUMERS = ("deploy/setup-builder-node.sh",)
+
+# `"$HERE/имя:...` и `"$HERE/../infra/.../имя` — то, что скрипт берёт рядом с
+# собой, то есть из привезённого среза.
+CONSUMER_REF = re.compile(r'\$HERE/((?:\.\./)?[\w./-]+)')
+
+
+def _enumerators(paths: list[str]):
+    """Файлы, которые перечисляют пути провижининга своим списком.
+
+    Возвращает (файл, сколько путей найдено). Сам fleet-payload.txt и эта
+    проверка исключены: они и есть источник и его сторож.
+    """
+    out = []
+    for f in sorted(ROOT.rglob("*")):
+        if f.suffix not in SCAN_SUFFIXES or not f.is_file():
+            continue
+        sf = str(f)
+        if any(skip in sf for skip in SCAN_SKIP):
+            continue
+        try:
+            text = f.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        rel = str(f.relative_to(ROOT))
+        if rel in CONSUMERS:
+            continue
+        hits = sum(1 for p in paths if p in text)
+        if hits >= ENUMERATOR_MIN_HITS:
+            out.append((f, hits))
+    return out
+
+
+def _consumer_problems(paths: list[str]) -> list[str]:
+    """Берёт ли потребитель из среза что-то, чего список не везёт."""
+    problems: list[str] = []
+    shipped = set(paths)
+    for rel in CONSUMERS:
+        f = ROOT / rel
+        if not f.exists():
+            problems.append(f"нет потребителя {rel} — список CONSUMERS устарел")
+            continue
+        base = Path(rel).parent  # deploy
+        for m in CONSUMER_REF.finditer(f.read_text(encoding="utf-8")):
+            ref = (base / m.group(1)).as_posix()
+            # Нормализуем `deploy/../infra/...` → `infra/...`
+            ref = Path(ref).resolve().relative_to(ROOT.resolve()).as_posix() \
+                if (ROOT / ref).exists() else ref
+            if ref in shipped:
+                continue
+            # Покрыт ли каталогом из списка (deploy/builder-node/foo.sh).
+            if any(ref.startswith(p + "/") for p in shipped):
+                continue
+            problems.append(
+                f"{rel}: берёт из среза «{ref}», но fleet-payload.txt его не везёт — "
+                "на узле файла не будет"
+            )
+    return problems
 
 
 def _covered_by_paths(trigger_text: str, rel: str) -> bool:
@@ -127,6 +207,26 @@ def main() -> int:
             problems.append(
                 f"sync-fleet-provisioning.yml: путь не в триггере paths: {rel}"
             )
+
+    # 🚨 САМОЕ ВАЖНОЕ ЗДЕСЬ: КОПИИ ИЩУТСЯ, А НЕ ПЕРЕЧИСЛЯЮТСЯ ПОИМЁННО.
+    # Первая редакция этой проверки знала три места и считала, что все. Их
+    # оказалось ЧЕТЫРЕ: build-builder-image.sh пёк golden image со своим
+    # перечислением — и, разумеется, без `runner-image-updater.sh`, как и все
+    # прочие копии. Проверка, знающая места поимённо, стережёт вчерашний день:
+    # пятая копия появится и не будет замечена ровно так же.
+    #
+    # Признак копии механический: файл, в котором встречается НЕСКОЛЬКО путей
+    # из списка, этот список перечисляет. Значит обязан читать его из файла.
+    problems.extend(_consumer_problems(paths))
+
+    for path, hits in _enumerators(paths):
+        if "fleet-payload.txt" in path.read_text(encoding="utf-8"):
+            continue
+        rel = path.relative_to(ROOT)
+        problems.append(
+            f"{rel}: перечисляет {hits} путей провижининга, но не читает "
+            "fleet-payload.txt — это ещё одна копия списка"
+        )
 
     for path, needle, what in WIRING:
         if not path.exists():
