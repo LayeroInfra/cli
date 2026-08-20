@@ -33,7 +33,9 @@ YC прервёт узел (машины прерываемые by design) и к
 """
 from __future__ import annotations
 
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -64,7 +66,9 @@ WIRING = (
 
 
 # Где ищем копии. Каталоги сборки и чужие зависимости пропускаем.
-SCAN_SUFFIXES = {".sh", ".yml", ".yaml"}
+# .py тоже: список можно перечислить и питоном — так уже жил render-ig.py,
+# пока Instance Group не снесли. Сканировать дешевле, чем помнить.
+SCAN_SUFFIXES = {".sh", ".yml", ".yaml", ".py"}
 SCAN_SKIP = ("node_modules", ".venv", "/build/", "/.git/")
 
 # Сколько путей из списка в одном файле считаем «перечислением». Два — это
@@ -76,17 +80,91 @@ ENUMERATOR_MIN_HITS = 3
 # нужен СВОЙ путь установки (`источник:назначение`), а не потому, что решает,
 # что везти.
 #
-# 🚨 НО СВЯЗЬ С НИМИ ЖЁСТЧЕ, ЧЕМ У КОПИЙ, И ЛОМАЕТСЯ ТИШЕ. Файл, который
-# потребитель ставит, но список не везёт, приедет на узел отсутствующим — и
-# провижининг либо промолчит, либо упадёт уже на живой машине. Ровно это и
-# было: setup-builder-node.sh ставил runner-image-updater.sh (строка 114), а
-# запечка образа его не везла. Поэтому у потребителей сверяется ОТНОШЕНИЕ:
-# всё, что они берут из своего каталога, обязано быть в списке.
-CONSUMERS = ("deploy/setup-builder-node.sh",)
+# 🚨 НО СВЯЗЬ С НИМИ ЖЁСТЧЕ, ЧЕМ У КОПИЙ, И ЛОМАЕТСЯ ТИШЕ. Скрипт, который САМ
+# едет на узел, не вправе ссылаться на файл, который на узел не едет: там его
+# просто не будет. Ровно это и было — setup-builder-node.sh ставил
+# runner-image-updater.sh (строка 114), а запечка образа его не везла.
+#
+# 🚨 ПОТРЕБИТЕЛИ ВЫВОДЯТСЯ ИЗ СПИСКА, А НЕ ПЕРЕЧИСЛЯЮТСЯ. Первая редакция
+# держала их отдельным кортежем CONSUMERS — то есть ровно тем списком-поимённо,
+# ради искоренения которого всё и затевалось: новый потребитель в него не
+# попадал и проверку проходил молча. Проверено мутацией, дыра была настоящей.
+# Теперь потребитель — это любой .sh из самого payload'а: если он едет на узел,
+# его ссылки обязаны ехать тоже.
 
-# `"$HERE/имя:...` и `"$HERE/../infra/.../имя` — то, что скрипт берёт рядом с
-# собой, то есть из привезённого среза.
+# `"$HERE/имя"`, `$HERE/../infra/.../имя` — то, что скрипт берёт рядом с собой,
+# то есть из привезённого среза.
 CONSUMER_REF = re.compile(r'\$HERE/((?:\.\./)?[\w./-]+)')
+
+
+def _consumer_scripts(paths: list[str]) -> list[str]:
+    """Шелл-скрипты, которые сами едут на узел — включая лежащие в каталогах."""
+    out: list[str] = []
+    for rel in paths:
+        f = ROOT / rel
+        if f.is_file() and rel.endswith(".sh"):
+            out.append(rel)
+        elif f.is_dir():
+            for sub in sorted(f.rglob("*.sh")):
+                out.append(sub.relative_to(ROOT).as_posix())
+    return out
+
+
+def _shipped(paths: list[str], ref: str) -> bool:
+    """Едет ли `ref` на узел — сам по себе или внутри каталога из списка."""
+    if ref in paths:
+        return True
+    return any(ref.startswith(p + "/") for p in paths)
+
+
+def _tracked_files() -> set[str] | None:
+    """Пути, известные git. None — git недоступен (проверка тогда молчит, но
+    сообщает об этом: тихо усохший охват хуже отсутствующей проверки)."""
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files"],
+            capture_output=True, text=True, timeout=20, check=True,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return {line.strip() for line in out.splitlines() if line.strip()}
+
+
+def _consumer_problems(paths: list[str]) -> list[str]:
+    problems: list[str] = []
+    tracked = _tracked_files()
+    if tracked is None:
+        print("  ⚠ git недоступен — сверка потребителей пропущена")
+        return problems
+    for rel in _consumer_scripts(paths):
+        f = ROOT / rel
+        base = Path(rel).parent
+        try:
+            text = f.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        seen: set[str] = set()
+        for m in CONSUMER_REF.finditer(text):
+            raw = (base / m.group(1)).as_posix()
+            # Нормализуем `deploy/../infra/...` → `infra/...`
+            norm = os.path.normpath(raw).replace(os.sep, "/")
+            if norm in seen:
+                continue
+            seen.add(norm)
+            # 🚨 СМОТРИМ В GIT, А НЕ В ФАЙЛОВУЮ СИСТЕМУ. Рядом со скриптами
+            # лежат файлы, которых в репозитории нет: `deploy/.env.prod`
+            # гитигнорится и попадается как умолчание `${ENV_PROD:-$HERE/...}`.
+            # Проверка «файл существует» ловила его и давала ложный отказ —
+            # на МОЁМ диске он есть, в репозитории его нет и везти нечего.
+            if norm not in tracked:
+                continue
+            if _shipped(paths, norm):
+                continue
+            problems.append(
+                f"{rel}: едет на узел и берёт из среза «{norm}», но "
+                "fleet-payload.txt его не везёт — на узле файла не будет"
+            )
+    return problems
 
 
 def _enumerators(paths: list[str]):
@@ -107,39 +185,14 @@ def _enumerators(paths: list[str]):
         except OSError:
             continue
         rel = str(f.relative_to(ROOT))
-        if rel in CONSUMERS:
+        # Файлы, которые сами едут на узел, — потребители, а не копии списка:
+        # их сверяет _consumer_problems по другому отношению.
+        if _shipped(paths, rel):
             continue
         hits = sum(1 for p in paths if p in text)
         if hits >= ENUMERATOR_MIN_HITS:
             out.append((f, hits))
     return out
-
-
-def _consumer_problems(paths: list[str]) -> list[str]:
-    """Берёт ли потребитель из среза что-то, чего список не везёт."""
-    problems: list[str] = []
-    shipped = set(paths)
-    for rel in CONSUMERS:
-        f = ROOT / rel
-        if not f.exists():
-            problems.append(f"нет потребителя {rel} — список CONSUMERS устарел")
-            continue
-        base = Path(rel).parent  # deploy
-        for m in CONSUMER_REF.finditer(f.read_text(encoding="utf-8")):
-            ref = (base / m.group(1)).as_posix()
-            # Нормализуем `deploy/../infra/...` → `infra/...`
-            ref = Path(ref).resolve().relative_to(ROOT.resolve()).as_posix() \
-                if (ROOT / ref).exists() else ref
-            if ref in shipped:
-                continue
-            # Покрыт ли каталогом из списка (deploy/builder-node/foo.sh).
-            if any(ref.startswith(p + "/") for p in shipped):
-                continue
-            problems.append(
-                f"{rel}: берёт из среза «{ref}», но fleet-payload.txt его не везёт — "
-                "на узле файла не будет"
-            )
-    return problems
 
 
 def _covered_by_paths(trigger_text: str, rel: str) -> bool:
