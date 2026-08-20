@@ -41,6 +41,14 @@ ROOT = Path(__file__).resolve().parents[1]
 PAYLOAD = ROOT / "deploy" / "fleet-payload.txt"
 FLEET = ROOT / "deploy" / "builder-fleet.sh"
 SETUP = ROOT / "deploy" / "setup-fleet-controller.sh"
+# 🚨 ТРЕТЬЕ МЕСТО, И САМОЕ ОПАСНОЕ. Именно этот workflow держит копию среза на
+# core-VM свежей при каждом push. Его список был ТРЕТЬЕЙ копией и отставал
+# сильнее прочих: в нём не было `runner-image-updater.sh` — файла, без
+# которого 20.08 подъём узла падал. Хуже того, он синхронизирует
+# builder-fleet.sh, но не синхронизировал бы сам список: правка одного лишь
+# списка на прод не доезжала бы вовсе, а новый builder-fleet.sh уехал бы туда
+# без файла, который ему нужен для работы.
+SYNC = ROOT / ".github" / "workflows" / "sync-fleet-provisioning.yml"
 
 # Признаки того, что скрипт берёт список из файла, а не носит свою копию.
 # Ищем ровно те конструкции, которые ставят список на место в тарболе:
@@ -50,7 +58,28 @@ WIRING = (
     (FLEET, '"${PAYLOAD[@]}"', "тарбол узла собирается из прочитанного списка"),
     (SETUP, "fleet-payload.txt", "установщик читает единый список"),
     (SETUP, '"${SLICE[@]}"', "срез контроллера собирается из прочитанного списка"),
+    (SYNC, "fleet-payload.txt", "синхронизация на core-VM читает единый список"),
 )
+
+
+def _covered_by_paths(trigger_text: str, rel: str) -> bool:
+    """Покрыт ли путь списком `paths:` — буквально или глобом-префиксом.
+
+    Глоб `infra/modules/builder_vm/**` покрывает всё под каталогом; писать
+    каждый файл отдельно там не нужно и вредно.
+    """
+    if f"'{rel}'" in trigger_text or f'"{rel}"' in trigger_text:
+        return True
+    for line in trigger_text.splitlines():
+        line = line.strip().lstrip("-").strip().strip("'\"")
+        if line.endswith("/**"):
+            base = line[:-3]  # без "/**"
+            # Каталог покрыт и сам по себе: `deploy/builder-node/**` в триггере
+            # означает, что push внутрь каталога запустит workflow, а строка
+            # списка при этом — сам каталог, без завершающего слеша.
+            if rel == base or rel.startswith(base + "/"):
+                return True
+    return False
 
 
 def read_payload() -> list[str]:
@@ -85,6 +114,19 @@ def main() -> int:
     missing = [p for p in paths if not (ROOT / p).exists()]
     for p in missing:
         problems.append(f"путь из списка не существует: {p}")
+
+    # Триггер workflow — отдельная история: даже читая список из файла, он не
+    # запустится, если путь не перечислен в `paths:`. Push с правкой такого
+    # файла пройдёт молча, а копия на core-VM останется старой.
+    if SYNC.exists():
+        sync_text = SYNC.read_text(encoding="utf-8")
+        head = sync_text.split("jobs:", 1)[0]  # триггер, не тело job'ы
+        for rel in paths + ["deploy/fleet-payload.txt"]:
+            if _covered_by_paths(head, rel):
+                continue
+            problems.append(
+                f"sync-fleet-provisioning.yml: путь не в триггере paths: {rel}"
+            )
 
     for path, needle, what in WIRING:
         if not path.exists():
