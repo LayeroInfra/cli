@@ -82,6 +82,25 @@ CEILINGS: dict[str, int] = {
     "cli/src/commands/init.ts": 1,
 }
 
+# Диагностические прогоны — НЕ входы анализа, и разница здесь существенная.
+#
+# Вход анализа принимает решение ЗА проект: его вердикт уезжает в базу, в
+# сборку, на сайт. Прогон ничего не решает — он сверяет два ядра на уже
+# существующих снимках, читает и не пишет, и живёт ради того, чтобы правку
+# ядра было видно на корпусе, а не на четырнадцати формах. Запретить их значило
+# бы запретить проверять сам храповик.
+#
+# Список именной: до 22.08.2026 `detect_regression_replay.py` проходил гейт не
+# по праву, а по случайности — он зовёт `old.detect(...)`, и регулярка,
+# ожидающая префикс `_dc`/`detect_core`, его просто не видела. Достаточно было
+# назвать переменную иначе, чтобы настоящий вход тоже стал невидим. Дыра
+# закрыта тем, что исключение объявлено явно, а не получается само.
+REPLAYS = frozenset({
+    "backend/app/cli/detect_regression_replay.py",   # по индексам прода
+    "backend/app/cli/detect_ab_replay.py",           # по архивам S3
+    "backend/app/cli/detect_shallow_github.py",      # по git без клона
+})
+
 # Модуль модели: внутри него detect() и определён, и зовётся сам собой.
 SKIP_DIRS = ("_detection", "detection", "node_modules", ".venv", "dist", "__pycache__")
 
@@ -155,7 +174,7 @@ def main() -> int:
     known = set(CEILINGS)
     for path in sorted(CORE.rglob("*.py")) + sorted(CORE.rglob("*.ts")):
         rel = path.relative_to(CORE).as_posix()
-        if rel in known or any(part in SKIP_DIRS for part in path.parts):
+        if rel in known or rel in REPLAYS or any(part in SKIP_DIRS for part in path.parts):
             continue
         if rel.startswith(("cli/test/", "backend/tests/")) or "/test" in rel:
             continue
