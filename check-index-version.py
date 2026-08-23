@@ -47,17 +47,31 @@ def _shape() -> tuple[int, str]:
         env_example="API_KEY=x\nVITE_URL=y",
     )
     plan = analyze.plan_from_snapshot(snap, None, analyze.WIZARD_RULES)
+    # 🚨 Кандидат ОБЯЗАН быть непустым. Первая редакция гейта передавала
+    # `candidates=[]`, и ключи внутри элементов списка в форму не попадали
+    # вовсе: 23.08.2026 кандидаты получили `framework`/`project_kind`/
+    # `build_cmd`/`output_dir`, а сторож промолчал. Сторож со слепым пятном
+    # хуже отсутствующего: на него полагаются.
     idx = analyze._index_fields(
-        snap, plan, root="", tree={"dirs": []}, candidates=[],
+        snap, plan, root="", tree={"dirs": []},
+        candidates=[analyze.candidate_facts(snap, analyze.WIZARD_RULES) | {"root": "apps/web"}],
         rules=analyze.WIZARD_RULES,
     )
 
     def keys(prefix: str, obj) -> list[str]:
-        out = []
+        """Ключи формы, включая содержимое элементов списков.
+
+        Списки обходятся по ПЕРВОМУ элементу: форма у элементов одна, а
+        обходить все — значит поставить хеш в зависимость от того, сколько
+        кандидатов нашлось в образце.
+        """
+        out: list[str] = []
         if isinstance(obj, dict):
             for k in sorted(obj):
                 out.append(f"{prefix}{k}")
                 out += keys(f"{prefix}{k}.", obj[k])
+        elif isinstance(obj, list) and obj:
+            out += keys(f"{prefix}[].", obj[0])
         return out
 
     # Ключи, а не значения: индекс меняет ЗНАЧЕНИЯ на каждом проекте, а форму —
