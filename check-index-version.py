@@ -25,6 +25,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -80,8 +81,47 @@ def _shape() -> tuple[int, str]:
     return analyze.INDEX_VERSION, hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
+_CLONE_INDEX = os.path.join(_CORE, "builder", "src", "clone_index.py")
+
+
+def _builder_version() -> int | None:
+    """`INDEX_VERSION` из копии билдера — чтением текста, а не импортом.
+
+    Импортировать нельзя: модуль билдера тянет относительные импорты своего
+    пакета, а гейт живёт в `cli/`. Регулярка здесь достаточна — константа
+    объявлена одной строкой и вычисляемой быть не может.
+    """
+    try:
+        with open(_CLONE_INDEX, encoding="utf-8") as fh:
+            m = re.search(r"^INDEX_VERSION\s*=\s*(\d+)\s*$", fh.read(), re.M)
+    except OSError:
+        return None
+    return int(m.group(1)) if m else None
+
+
 def main() -> int:
     version, digest = _shape()
+
+    # 🚨 ВЕРСИЯ ЖИВЁТ В ДВУХ ФАЙЛАХ. Индекс пишут два входа: API
+    # (`services/analyze.py`) и билдер на клоне (`builder/src/clone_index.py`).
+    # Бэкенд сверяет годность по СВОЕЙ версии — значит копия билдера, отставшая
+    # на единицу, делает КАЖДЫЙ индекс с флота вечно протухшим: мастер будет
+    # перезаказывать анализ при каждом открытии, а нового поля так и не увидит.
+    #
+    # Гейт про это знал и раньше — но только в тексте подсказки: он СОВЕТОВАЛ
+    # поднять обе, не проверяя вторую. Совет, который не проверяется, держится
+    # ровно до первой спешки.
+    builder_version = _builder_version()
+    if builder_version is None:
+        print(f"  ✗ не нашёл INDEX_VERSION в {_CLONE_INDEX}")
+        return 1
+    if builder_version != version:
+        print(f"  ✗ INDEX_VERSION разъехался: backend={version}, "
+              f"builder={builder_version}")
+        print("    Индексы с флота бэкенд будет считать протухшими ВСЕГДА:")
+        print("    мастер перезакажет анализ на каждом открытии, а поле не")
+        print("    появится ни в одном снимке. Поднимите обе копии.")
+        return 1
 
     if "--update" in sys.argv:
         with open(_LOCK, "w", encoding="utf-8") as fh:
