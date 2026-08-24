@@ -6441,11 +6441,8 @@ export interface components {
         ProjectCreate: {
             /** Address Label */
             address_label?: string | null;
-            /**
-             * Build Cmd
-             * @default npm run build
-             */
-            build_cmd: string;
+            /** Build Cmd */
+            build_cmd?: string | null;
             /**
              * Default Branch
              * @default main
@@ -6459,11 +6456,8 @@ export interface components {
             name: string;
             /** Organization Slug */
             organization_slug?: string | null;
-            /**
-             * Output Dir
-             * @default dist
-             */
-            output_dir: string;
+            /** Output Dir */
+            output_dir?: string | null;
             /** Package Manager */
             package_manager?: ("npm" | "yarn" | "pnpm" | "bun") | null;
             /** Repo Full Name */
@@ -6722,7 +6716,7 @@ export interface components {
              */
             branding_enabled: boolean;
             /** Build Cmd */
-            build_cmd: string;
+            build_cmd?: string | null;
             /** Build Settings Suggestion */
             build_settings_suggestion?: {
                 [key: string]: unknown;
@@ -6806,9 +6800,10 @@ export interface components {
             node_version?: string | null;
             organization: components["schemas"]["OrganizationInline"];
             /** Output Dir */
-            output_dir: string;
+            output_dir?: string | null;
             /** Package Manager */
             package_manager?: string | null;
+            preset?: components["schemas"]["ProjectPresetOut"] | null;
             /** Previous Production Deploy Id */
             previous_production_deploy_id?: string | null;
             /** Production Branch Name */
@@ -6875,6 +6870,42 @@ export interface components {
              */
             status: string;
         };
+        /**
+         * ProjectPresetOut
+         * @description Договор фреймворка о сборке — в том виде, в каком его читает панель.
+         *
+         *     Считается из `detection.spec.json` (`services/presets.py`), поэтому вторая
+         *     рукописная таблица умолчаний в панели становится не нужна.
+         */
+        ProjectPresetOut: {
+            /**
+             * Defaults
+             * @default {}
+             */
+            defaults: {
+                [key: string]: string | null;
+            };
+            /** Env Prefix */
+            env_prefix?: string | null;
+            /** Fields */
+            fields: string[];
+            /**
+             * Has Ssr Switch
+             * @default false
+             */
+            has_ssr_switch: boolean;
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+            /**
+             * Sources
+             * @default {}
+             */
+            sources: {
+                [key: string]: string;
+            };
+        };
         /** ProjectRenameIn */
         ProjectRenameIn: {
             /** Apex Label */
@@ -6934,7 +6965,7 @@ export interface components {
          */
         ProjectSetup: {
             /** Build Cmd */
-            build_cmd: string;
+            build_cmd?: string | null;
             /** Env Vars */
             env_vars?: {
                 [key: string]: string;
@@ -6948,7 +6979,7 @@ export interface components {
             /** Node Version */
             node_version?: string | null;
             /** Output Dir */
-            output_dir: string;
+            output_dir?: string | null;
             /** Package Manager */
             package_manager?: ("npm" | "yarn" | "pnpm" | "bun") | null;
             /** Root Directory */
