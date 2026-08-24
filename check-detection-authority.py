@@ -137,6 +137,65 @@ for rel in (
         "иначе он разъедется с тем, по которому матчит детектор",
     )
 
+# ─────────────── 5. Умолчания фреймворка живут ТОЛЬКО в спеке ───────────────
+#
+# Правило 1 из `docs/BUILD-CONFIG.md`. Вторая таблица «куда фреймворк кладёт
+# результат» уже существует — 10 записей из 33 в каталоге панели. Сегодня она
+# совпадает со спекой во всех десяти; гейт нужен, чтобы она и дальше не
+# разъехалась МОЛЧА: расхождение здесь означает, что мастер обещает один
+# каталог, а билдер ищет другой, и человек читает «output dir not found»
+# про путь, которого не выбирал.
+import json as _json  # noqa: E402
+
+_spec_raw = read("detection/detection.spec.json")
+try:
+    _spec_out = {
+        f["name"]: (f.get("output_dir") or {}).get("default")
+        for f in _json.loads(_spec_raw)["frameworks"]
+    }
+except Exception:  # noqa: BLE001 — спека нечитаема, это и есть провал
+    _spec_out = {}
+check(
+    bool(_spec_out),
+    "спека детекта читается и несёт умолчания каталогов",
+    "detection.spec.json не разобрался — гейт ниже проверял бы пустоту",
+)
+
+_panel = read("../frontend/control-plane/src/lib/frameworkCatalog.ts")
+_drift: list[str] = []
+if _panel and _spec_out:
+    _block = _panel.split("export const FRAMEWORKS")[1].split("];")[0] \
+        if "export const FRAMEWORKS" in _panel else ""
+    for _name, _out in re.findall(
+        r'\{\s*name:\s*"([^"]+)",[^}]*?default_output_dir:\s*"([^"]*)"', _block
+    ):
+        if _name in _spec_out and _spec_out[_name] != _out:
+            _drift.append(f"{_name}: панель {_out!r} ≠ спека {_spec_out[_name]!r}")
+check(
+    not _drift,
+    "каталог панели не расходится со спекой по каталогам вывода",
+    "; ".join(_drift) + " — умолчание фреймворка живёт в спеке, "
+    "панель обязана читать его оттуда (T-20260824-6)",
+)
+
+# ─────────────── 6. Порядок старшинства выражен в одном месте ───────────────
+#
+# Правило 2 из `docs/BUILD-CONFIG.md`: `layero.json` > настройки > детект.
+# Ветка, которая «в этом случае решит иначе», ломает предсказуемость целиком —
+# и ломает молча, потому что проявится только на форме входа, попавшей в неё.
+_prec = [
+    "lcfg.build_cmd or ctx.get(\"build_cmd\")",
+    "lcfg.output_dir or ctx.get(\"output_dir\")",
+    "lcfg.install_cmd or det.pkg.install_cmd",
+]
+for _expr in _prec:
+    check(
+        p.count(_expr) == 1,
+        f"старшинство выражено один раз: {_expr.split(' or ')[0]}",
+        f"выражение встречается {p.count(_expr)} раз(а) вместо одного — "
+        "второй порядок старшинства спорит с первым молча",
+    )
+
 print(f"проверок: {len(CHECKED)}, провалов: {len(FAILURES)}")
 for f in FAILURES:
     print("  ✗", f)
