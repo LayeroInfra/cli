@@ -186,7 +186,11 @@ check(
 _prec = [
     "lcfg.build_cmd or ctx.get(\"build_cmd\")",
     "lcfg.output_dir or ctx.get(\"output_dir\")",
-    "lcfg.install_cmd or det.pkg.install_cmd",
+    # 🚨 У установки ярусов стало ТРИ (26.08.2026): до этого настроек проекта
+    # не существовало как яруса — колонки `install_cmd` не было, и задать
+    # команду можно было только файлом (`T-20260825-24`). Проверяем ту же
+    # форму «файл > настройка > детект», что и у двух соседей.
+    "lcfg.install_cmd or _dash_install or det.pkg.install_cmd",
 ]
 for _expr in _prec:
     check(

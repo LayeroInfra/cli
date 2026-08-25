@@ -6620,6 +6620,8 @@ export interface components {
             framework_hint?: string | null;
             /** Github App Installation Id */
             github_app_installation_id?: number | null;
+            /** Install Cmd */
+            install_cmd?: string | null;
             /** Name */
             name: string;
             /** Organization Slug */
@@ -7151,6 +7153,8 @@ export interface components {
             fullstack_config?: {
                 [key: string]: unknown;
             } | null;
+            /** Install Cmd */
+            install_cmd?: string | null;
             /** Node Version */
             node_version?: string | null;
             /** Output Dir */
@@ -7258,6 +7262,8 @@ export interface components {
             } | null;
             /** Indexing Enabled */
             indexing_enabled?: boolean | null;
+            /** Install Cmd */
+            install_cmd?: string | null;
             /** Node Version */
             node_version?: string | null;
             /** Output Dir */
