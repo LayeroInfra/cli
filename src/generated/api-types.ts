@@ -6575,6 +6575,11 @@ export interface components {
          *     уже был, и он разошёлся (`T-20260824-16`).
          */
         ProjectBuildConfigOut: {
+            /**
+             * Declared
+             * @default []
+             */
+            declared: string[];
             /** Fields */
             fields: string[];
             /** Framework */
