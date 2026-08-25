@@ -3365,6 +3365,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/build-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Build Config
+         * @description Чем соберётся проект и что из этого можно править.
+         *
+         *     Один ответ на весь экран настроек: значение по каждому полю, ярус, из
+         *     которого оно пришло, и политика редактируемости. Панель это РИСУЕТ, а не
+         *     выводит заново — иначе мест, где вычисляется одно и то же, снова станет два.
+         *
+         *     Файл читается живьём из отслеживаемой ветки, а не из последнего снимка:
+         *     `layero.json` едет вместе с кодом и может отличаться по веткам, а настройки
+         *     относятся к той ветке, чья сборка уезжает на основной адрес.
+         */
+        get: operations["get_build_config_projects__project_id__build_config_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/build-settings-suggestion": {
         parameters: {
             query?: never;
@@ -4069,15 +4097,7 @@ export interface paths {
         };
         /**
          * Get Layero Config
-         * @description Отдать содержимое `layero.json` проекта как есть.
-         *
-         *     Для runtime-приложений этот файл — единственное место, где живёт
-         *     конфигурация сборки, а настройки в UI её только упоминали. Возвращаем
-         *     сырой текст, а не разобранный объект: пользователь должен видеть свой
-         *     файл дословно, включая ключи, о которых мы не знаем.
-         *
-         *     Всегда 200 — «файла нет» и «репозиторий недоступен» это нормальные
-         *     состояния карточки, а не ошибки; их различает `reason`.
+         * @description Содержимое `layero.json` проекта как есть.
          */
         get: operations["get_layero_config_projects__project_id__layero_config_get"];
         put?: never;
@@ -5110,6 +5130,20 @@ export interface components {
             preview_url: string;
             /** Slug */
             slug: string;
+        };
+        /**
+         * BuildConfigFieldOut
+         * @description Одно поле конфигурации сборки: что подставится и что с ним можно.
+         */
+        BuildConfigFieldOut: {
+            /** Default Of */
+            default_of?: string | null;
+            /** Policy */
+            policy: string;
+            /** Source */
+            source: string;
+            /** Value */
+            value?: string | null;
         };
         /** CallIn */
         CallIn: {
@@ -6437,6 +6471,47 @@ export interface components {
             /** Label */
             label: string;
         };
+        /**
+         * ProjectBuildConfigOut
+         * @description ПОЛНОЕ разрешение конфигурации сборки — один ответ на весь экран.
+         *
+         *     ═══ ЗАЧЕМ ОТДЕЛЬНАЯ РУЧКА ═══
+         *
+         *     До 25.08.2026 разрешение считали ДВА независимых кода: `presets.resolve` на
+         *     API (порядок «человек > детект > пресет», про файл не знал) и три
+         *     `or`-выражения в билдере («файл > панель > умолчание»). Панель поверх этого
+         *     склеивала `layero.json` уже в интерфейсе — и склеить удалось одно поле из
+         *     пяти. Результат виден на проде: у `layero-docs` настройки говорят
+         *     `generic / dist`, а собирается `docusaurus / build`.
+         *
+         *     Здесь ответ считается ОДИН раз и целиком, включая ярус файла: панель его
+         *     рисует, а не выводит заново своим набором условий. Свой набор условий у неё
+         *     уже был, и он разошёлся (`T-20260824-16`).
+         */
+        ProjectBuildConfigOut: {
+            /** Fields */
+            fields: string[];
+            /** Framework */
+            framework: string;
+            /** Label */
+            label: string;
+            /** Layero Path */
+            layero_path?: string | null;
+            /** Layero Url */
+            layero_url?: string | null;
+            /**
+             * Layero Warnings
+             * @default []
+             */
+            layero_warnings: string[];
+            /**
+             * Resolved
+             * @default {}
+             */
+            resolved: {
+                [key: string]: components["schemas"]["BuildConfigFieldOut"];
+            };
+        };
         /** ProjectCreate */
         ProjectCreate: {
             /** Address Label */
@@ -6898,6 +6973,13 @@ export interface components {
             label: string;
             /** Name */
             name: string;
+            /**
+             * Policy
+             * @default {}
+             */
+            policy: {
+                [key: string]: string;
+            };
             /**
              * Sources
              * @default {}
@@ -14177,6 +14259,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BranchOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_build_config_projects__project_id__build_config_get: {
+        parameters: {
+            query?: {
+                ref?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectBuildConfigOut"];
                 };
             };
             /** @description Validation Error */
