@@ -116,6 +116,34 @@ Run `layero <cmd> --help` for full options.
 | `hugo.{toml,yaml,json}` or `config.*` with Hugo markers (`baseURL`, `[markup]`, …) | hugo | `hugo --gc --minify` (no install needed) | `public` |
 | any `.html` at root, no `package.json` | static | `true` (no-op) | `.` |
 
+## `layero.json` — pin the settings in the repository
+
+Auto-detection above is a default, not a decision. Drop a `layero.json` at the
+root of the repository and Layero uses what you set there instead — for the
+CLI, the dashboard and pushes alike. It travels with your code, so it can
+differ per branch, and it beats any dashboard setting.
+
+```json title="layero.json"
+{
+  "$schema": "https://layero.ru/schema/layero-v2.json",
+  "framework": "vite",
+  "installCommand": "npm ci",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "nodeVersion": "22"
+}
+```
+
+Every field is optional; `{}` is valid and means "decide everything yourself".
+Short names (`install`, `build`, `output`, `node`, `start`) work too and are not
+deprecated. A field declared here is shown in the dashboard with a badge instead
+of an edit button — an edit there would be undone by the next build.
+
+An error in the file never fails a build: unreadable values become warnings in
+the build log.
+
+Full reference: https://docs.layero.ru/deploys/layero-json
+
 ## Deploy hooks — webhook URLs that trigger builds
 
 When something *other than you* should kick a build — a headless CMS
