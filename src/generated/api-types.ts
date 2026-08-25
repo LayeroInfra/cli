@@ -569,6 +569,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/build-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Build Presets
+         * @description Каталог пресетов сборки целиком — один ответ на весь мастер.
+         *
+         *     Живёт здесь, а не под `/projects`, по двум причинам: ответ не про
+         *     конкретный проект (он один на всю платформу и меняется только вместе со
+         *     спекой детекта), и путь `/projects/build-presets` конфликтовал бы с
+         *     `/projects/{project_id}` — совпало бы то, что первым объявлено.
+         *
+         *     Ответ статичен в пределах версии спеки: `spec_version` в теле, чтобы панель
+         *     могла кешировать и понимать, когда каталог протух.
+         */
+        get: operations["get_build_presets_build_presets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/deploy-sessions": {
         parameters: {
             query?: never;
@@ -5145,6 +5173,64 @@ export interface components {
             /** Value */
             value?: string | null;
         };
+        /**
+         * BuildPresetCatalogOut
+         * @description Каталог пресетов целиком — ОДИН ответ на весь мастер.
+         *
+         *     ═══ ЗАЧЕМ ОТДАЁТ СЕРВЕР ═══
+         *
+         *     Мастер меняет фреймворк локально, до сохранения, и на каждый клик обязан
+         *     знать, есть ли у пресета шаг сборки и куда он кладёт результат. Спрашивать
+         *     сервер на клик — round-trip; держать свою таблицу — вторая таблица
+         *     умолчаний (`T-20260824-6`: 10 записей в панели против 33 в спеке).
+         *
+         *     🚨 Пакет `layero-detection` спеку наружу не отдаёт — только подписи и
+         *     версию, — поэтому прочитать умолчания панель не может физически. Каталог
+         *     считается там, где он и так считается, и второго места не заводится.
+         *
+         *     `runtime` — прочтения для типов, которые раздаёт контейнер. Набор полей
+         *     решает ПАРА «пресет + тип проекта»: у Next.js в статическом экспорте есть
+         *     и команда, и каталог, у него же в SSR каталога нет, а команда остаётся.
+         */
+        BuildPresetCatalogOut: {
+            /** Presets */
+            presets: components["schemas"]["BuildPresetOut"][];
+            /**
+             * Runtime
+             * @default {}
+             */
+            runtime: {
+                [key: string]: components["schemas"]["BuildPresetOut"][];
+            };
+            /** Spec Version */
+            spec_version: string;
+        };
+        /**
+         * BuildPresetOut
+         * @description Один пресет каталога — то, что мастеру нужно знать до сохранения.
+         */
+        BuildPresetOut: {
+            /**
+             * Defaults
+             * @default {}
+             */
+            defaults: {
+                [key: string]: string | null;
+            };
+            /** Env Prefix */
+            env_prefix?: string | null;
+            /** Fields */
+            fields: string[];
+            /**
+             * Has Ssr Switch
+             * @default false
+             */
+            has_ssr_switch: boolean;
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+        };
         /** CallIn */
         CallIn: {
             /**
@@ -8799,6 +8885,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_build_presets_build_presets_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuildPresetCatalogOut"];
+                };
             };
             /** @description Validation Error */
             422: {
