@@ -5164,6 +5164,8 @@ export interface components {
          * @description Одно поле конфигурации сборки: что подставится и что с ним можно.
          */
         BuildConfigFieldOut: {
+            /** Candidates */
+            candidates?: string[];
             /** Default Of */
             default_of?: string | null;
             /** Policy */
