@@ -6698,6 +6698,11 @@ export interface components {
             build_cmd_source: "package.json-script" | "framework-cli" | "framework-default" | "layero.json" | "upload";
             /** Build Warning */
             build_warning?: string | null;
+            /**
+             * Candidates Truncated
+             * @default false
+             */
+            candidates_truncated: boolean;
             /** Framework */
             framework: string;
             /** Label */
