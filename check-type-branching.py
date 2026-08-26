@@ -48,10 +48,13 @@ _VALUES = (
 _LITERAL = re.compile(r"""["'](""" + "|".join(_VALUES) + r""")["']""")
 
 # Потолки. Замер 15.08.2026, счётчик литералов в КОДЕ (без комментариев).
+# 🚨 Потолок, снятый не до конца, перестаёт что-либо значить: он разрешает
+# вернуть ровно столько ветвлений, сколько уже вычищено. Опускаем при каждой
+# уборке — 26.08.2026 два из пяти опущены по факту (45→42, 14→4).
 CEILINGS: dict[str, int] = {
-    "core/builder/src/pipeline.py": 45,
+    "core/builder/src/pipeline.py": 42,
     "frontend/control-plane/src/pages/Project/Settings.tsx": 21,
-    "frontend/control-plane/src/pages/ProjectSetup.tsx": 14,
+    "frontend/control-plane/src/pages/ProjectSetup.tsx": 4,
     "core/backend/app/api/routes/projects.py": 9,
     "core/backend/app/services/framework_detector.py": 1,
 }
