@@ -6686,6 +6686,8 @@ export interface components {
             repo_url?: string | null;
             /** Runtime Kind */
             runtime_kind?: ("ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web") | null;
+            /** Sibling Of */
+            sibling_of?: string | null;
             /** Slug */
             slug?: string | null;
             /** Source Account Key */
