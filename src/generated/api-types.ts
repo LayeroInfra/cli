@@ -6570,6 +6570,38 @@ export interface components {
             label: string;
         };
         /**
+         * ProjectBuildConfigHalfOut
+         * @description Разрешение конфигурации ОДНОЙ половины фуллстека.
+         *
+         *     Та же форма, что у корневого ответа, минус поля про сам файл: путь, ссылка
+         *     и замечания у половин общие с корнем — файл-то один.
+         *
+         *     🚨 Заведено 26.08.2026 (`T-20260826-28`), потому что половины разрешала
+         *     ПАНЕЛЬ своим набором условий: показывала `npm ci` там, где файл объявляет
+         *     `npm install --no-audit --no-fund`, без бейджа и с карандашом. Файл
+         *     побеждает на сборке — значит форма обещала значение, которого не будет.
+         */
+        ProjectBuildConfigHalfOut: {
+            /**
+             * Declared
+             * @default []
+             */
+            declared: string[];
+            /** Fields */
+            fields: string[];
+            /** Framework */
+            framework: string;
+            /** Label */
+            label: string;
+            /**
+             * Resolved
+             * @default {}
+             */
+            resolved: {
+                [key: string]: components["schemas"]["BuildConfigFieldOut"];
+            };
+        };
+        /**
          * ProjectBuildConfigOut
          * @description ПОЛНОЕ разрешение конфигурации сборки — один ответ на весь экран.
          *
@@ -6596,6 +6628,10 @@ export interface components {
             fields: string[];
             /** Framework */
             framework: string;
+            /** Halves */
+            halves?: {
+                [key: string]: components["schemas"]["ProjectBuildConfigHalfOut"];
+            } | null;
             /** Label */
             label: string;
             /** Layero Path */
