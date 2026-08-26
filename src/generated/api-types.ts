@@ -5237,6 +5237,11 @@ export interface components {
             label: string;
             /** Name */
             name: string;
+            /**
+             * Start Candidates
+             * @default []
+             */
+            start_candidates: string[];
         };
         /** CallIn */
         CallIn: {
@@ -6635,6 +6640,8 @@ export interface components {
             output_dir?: string | null;
             /** Package Manager */
             package_manager?: ("npm" | "yarn" | "pnpm" | "bun") | null;
+            /** Port */
+            port?: number | null;
             /** Repo Full Name */
             repo_full_name?: string | null;
             /** Repo Path */
@@ -6653,6 +6660,8 @@ export interface components {
              * @enum {string}
              */
             source_type: "github" | "cli";
+            /** Start Cmd */
+            start_cmd?: string | null;
         };
         /**
          * ProjectDeleteOut
@@ -6978,6 +6987,8 @@ export interface components {
             output_dir?: string | null;
             /** Package Manager */
             package_manager?: string | null;
+            /** Port */
+            port?: number | null;
             preset?: components["schemas"]["ProjectPresetOut"] | null;
             /** Previous Production Deploy Id */
             previous_production_deploy_id?: string | null;
@@ -7039,6 +7050,8 @@ export interface components {
              * @default github
              */
             source_type: string;
+            /** Start Cmd */
+            start_cmd?: string | null;
             /**
              * Status
              * @default active
@@ -7166,10 +7179,14 @@ export interface components {
             output_dir?: string | null;
             /** Package Manager */
             package_manager?: ("npm" | "yarn" | "pnpm" | "bun") | null;
+            /** Port */
+            port?: number | null;
             /** Root Directory */
             root_directory?: string | null;
             /** Runtime Instance Tier */
             runtime_instance_tier?: string | null;
+            /** Start Cmd */
+            start_cmd?: string | null;
         };
         /**
          * ProjectSiteFilesOut
@@ -7275,8 +7292,12 @@ export interface components {
             output_dir?: string | null;
             /** Package Manager */
             package_manager?: ("npm" | "yarn" | "pnpm" | "bun") | null;
+            /** Port */
+            port?: number | null;
             /** Root Directory */
             root_directory?: string | null;
+            /** Start Cmd */
+            start_cmd?: string | null;
         };
         /** PromoteEventOut */
         PromoteEventOut: {
