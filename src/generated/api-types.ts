@@ -5238,6 +5238,11 @@ export interface components {
             /** Name */
             name: string;
             /**
+             * No Build
+             * @default false
+             */
+            no_build: boolean;
+            /**
              * Start Candidates
              * @default []
              */
