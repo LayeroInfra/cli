@@ -92,32 +92,45 @@ check(
 # `RULES_V2 if first_build_free`, и вынос условий в общую функцию (17.08, чтобы
 # сдача индекса не читала переменную из чужой области видимости) покрасил гейт
 # при неизменном поведении. Гейт, краснеющий на рефакторинге, учат обходить.
-p = read("builder/src/pipeline.py")
-_rules_fn = p.split("def build_rules(")[1].split("\ndef ")[0] if "def build_rules(" in p else ""
+# 🚨 26.08.2026 условие переехало ЕЩЁ РАЗ — из статического билдера в ядро
+# (`detect_core.rules_for_build`). Причина: билдеров ДВА и они разные
+# деплой-единицы, а рантайм-билдер тоже начал применять правила
+# (`single_app_fullstack`, `T-20260826-6`). Вторая копия означала бы, что
+# «только новые проекты» у них разъедется. Гейт смотрит туда, где условие
+# живёт, и отдельно — что оба билдера его ИСПОЛНЯЮТ.
+# 🚨 ПРОВЕРЯЕМ ПОВЕДЕНИЕ, А НЕ ТЕКСТ. Первая редакция этой проверки искала
+# в исходнике подстроки (`!= "user"`, `ctx.get("prebuilt"`), и мутация показала
+# её вакуумной: условие можно вынуть из `free`, оставив строку в файле рядом, —
+# гейт остаётся зелёным. Поэтому функция ИСПОЛНЯЕТСЯ, и сверяется её таблица
+# истинности.
+_svobodno = {"first_build": True, "project_type_source": "default", "prebuilt": False}
+try:
+    sys.path.insert(0, str(ROOT / "detection"))
+    import detect_core as _dc_auth  # noqa: E402
+
+    _tt = [
+        (_svobodno, True),
+        ({**_svobodno, "first_build": False}, False),
+        ({**_svobodno, "project_type_source": "user"}, False),
+        ({**_svobodno, "prebuilt": True}, False),
+        (None, False),
+    ]
+    _ok = all((_dc_auth.rules_for_build(c) is not None) is want for c, want in _tt)
+except Exception as exc:  # noqa: BLE001 — «не импортируется» это тоже провал
+    _ok = False
+    print(f"  ! ядро детекта не импортировалось: {exc}")
 check(
-    bool(_rules_fn)
-    and "RULES_V2 if free else None" in _rules_fn
-    and 'ctx.get("first_build")' in _rules_fn
-    and '!= "user"' in _rules_fn
-    and 'ctx.get("prebuilt"' in _rules_fn,
+    _ok,
     "RULES_V2 включаются только на первой сборке, при неявном типе и без prebuilt",
     "правила, меняющие вердикт, не должны применяться к живому проекту",
 )
+p = read("builder/src/pipeline.py")
+rb = read("runtime/builder/app/builder.py")
 check(
-    "build_rules(ctx)" in p and "_dcr.RULES_V2" not in p.replace(_rules_fn, ""),
-    "правила берутся ОДНОЙ функцией, а не собираются на месте",
+    all("rules_for_build(" in src for src in (p, rb))
+    and not any("RULES_V2 if" in src for src in (p, rb)),
+    "оба билдера ИСПОЛНЯЮТ условие из ядра, а не пересказывают его",
     "вторая сборка условий рядом разъедется с первой — и молча",
-)
-check(
-    '!= "user"' in p,
-    "билдер уважает выбор владельца",
-    "сборка по детекту обязана пропускать проекты, где тип выбрал человек",
-)
-check(
-    'not ctx.get("prebuilt"' in p,
-    "сборка по детекту не трогает prebuilt",
-    "в prebuilt-архиве лежит готовый артефакт; ветка prebuilt стоит НИЖЕ по "
-    "потоку, и без этого условия готовая статика уехала бы в рантайм-сборку",
 )
 
 # 4. Возражение при выборе типа.
