@@ -7100,6 +7100,11 @@ export interface components {
             sources: {
                 [key: string]: string;
             };
+            /**
+             * Start Candidates
+             * @default []
+             */
+            start_candidates: string[];
         };
         /** ProjectRenameIn */
         ProjectRenameIn: {
