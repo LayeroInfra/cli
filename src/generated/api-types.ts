@@ -4763,13 +4763,17 @@ export interface paths {
         };
         /**
          * Project Repo Tree
-         * @description Directory tree of the project's repo, for the setup wizard's
-         *     folder picker (Vercel-style). Returns plausible app-root directories
-         *     (build output / deps filtered out), each flagged `has_manifest` when
-         *     it directly holds a package.json / angular.json / hugo.* / index.html.
+         * @description Каталоги репозитория для пикера папок мастера и настроек.
          *
-         *     CLI projects (no GitHub integration) and any fetch error degrade to
-         *     just the repo root so the picker always renders something.
+         *     🚨 РАЗРЕШЕНИЕ ЖИВЁТ В СЕРВИСЕ, не здесь. Источников три — GitHub по
+         *     токену, внешний оператор через фасад, загруженный архив, — и пока три
+         *     ветки стояли прямо в ручке, они разошлись по готовности: внешние операторы
+         *     получали ЗАГЛУШКУ из одного корня, и указать папку монорепы через
+         *     интерфейс было невозможно (`T-20260827-4`).
+         *
+         *     Прямое чтение источника из ручки к тому же держит храповик
+         *     `cli/check-source-coverage.py`: каждое такое чтение — ещё одно место, где
+         *     решение принимается мимо единственного хозяина.
          */
         get: operations["project_repo_tree_projects__project_id__tree_get"];
         put?: never;
