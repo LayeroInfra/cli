@@ -7786,6 +7786,13 @@ export interface components {
             provider_title: string;
             /** Status */
             status: string;
+            /** Token Expires At */
+            token_expires_at?: string | null;
+            /**
+             * Token Expiry State
+             * @default unknown
+             */
+            token_expiry_state: string;
         };
         /** SourceProviderOut */
         SourceProviderOut: {
