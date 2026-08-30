@@ -388,6 +388,55 @@ describe("runtime --type", () => {
     expect(setRuntimeType).toHaveBeenCalledWith("proj-123", "node_web");
   });
 
+  it("статический пресет возвращает проект из приложения в статику", async () => {
+    // 🚨 Дорога была ОДНОСТОРОННЕЙ: `--type node_web` тип менял, `--type next`
+    // — нет. Проект оставался приложением, Next с `output: "export"` собирал
+    // статику, а сборка искала, что запускать, и падала. В панели
+    // переключателя типа нет вовсе, так что выйти было нечем (`T-20260830-1`).
+    createDeploySession.mockResolvedValue({
+      session_id: "sess-1",
+      project: { ...PROJECT, status: "active", project_type: "ssr_next" },
+      created_project: false,
+      upload_url: "https://s3/x",
+      upload_headers: {},
+      source_archive_key: "k",
+      expires_in: 600,
+    });
+    setRuntimeType.mockResolvedValue({ ...PROJECT, project_type: "spa" });
+    await deployCmd({ yes: true, type: "next" } as any);
+    expect(setRuntimeType).toHaveBeenCalledWith("proj-123", "spa");
+  });
+
+  it("статический пресет на статике тип не трогает", async () => {
+    createDeploySession.mockResolvedValue({
+      session_id: "sess-1",
+      project: { ...PROJECT, status: "active", project_type: "spa" },
+      created_project: false,
+      upload_url: "https://s3/x",
+      upload_headers: {},
+      source_archive_key: "k",
+      expires_in: 600,
+    });
+    await deployCmd({ yes: true, type: "vite" } as any);
+    expect(setRuntimeType).not.toHaveBeenCalled();
+  });
+
+  it("без --type тип не трогаем вовсе", async () => {
+    // Автодетект не повод переписывать выбор владельца: тип меняет только
+    // явный флаг.
+    createDeploySession.mockResolvedValue({
+      session_id: "sess-1",
+      project: { ...PROJECT, status: "active", project_type: "ssr_next" },
+      created_project: false,
+      upload_url: "https://s3/x",
+      upload_headers: {},
+      source_archive_key: "k",
+      expires_in: 600,
+    });
+    await deployCmd({ yes: true } as any);
+    expect(setRuntimeType).not.toHaveBeenCalled();
+  });
+
   it("не трогает тип, если он уже верный", async () => {
     createDeploySession.mockResolvedValue({
       session_id: "sess-1",

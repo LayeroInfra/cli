@@ -697,10 +697,21 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
   // Момент выбран не случайно: сессия создана (значит, id проекта известен),
   // но архив ещё не упакован и сборка не запущена — флип успевает повлиять на
   // ту же выкатку.
+  // 🚨 И ОБРАТНАЯ дорога. Статический пресет (`--type next`) менял только
+  // подсказку фреймворка, а проект оставался приложением: Next с
+  // `output: "export"` собирал статику, а платформа искала, что запускать, и
+  // сборка падала. Выйти из типа «приложение» было нечем — в панели
+  // переключателя нет, у CLI была только дорога В рантайм. Живой клиент 30.08
+  // прошёл этот тупик восемь раз (`T-20260830-1`).
   const wantRuntime = runtimeTypeOf(opts.type);
-  if (wantRuntime && project.project_type !== wantRuntime) {
+  const wantStatic =
+    !wantRuntime && !!opts.type && project.project_type && project.project_type !== "spa"
+      ? "spa"
+      : null;
+  const wantType = wantRuntime ?? wantStatic;
+  if (wantType && project.project_type !== wantType) {
     try {
-      await api.setRuntimeType(project.id, wantRuntime as RuntimeKindHint);
+      await api.setRuntimeType(project.id, wantType as RuntimeKindHint);
     } catch (err) {
       // 409 — платформа возражает: репозиторий не похож на этот тип. Возражение
       // обязано быть заметным, но не запирающим: человек написал флаг явно, и
@@ -708,16 +719,16 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       if (err instanceof ApiError && err.status === 409) {
         process.stderr.write(
           chalk.yellow(
-            `! platform disagrees with --type ${wantRuntime}: ${err.body.slice(0, 200)}\n` +
+            `! platform disagrees with --type ${wantType}: ${err.body.slice(0, 200)}\n` +
               `  applying anyway because you asked explicitly\n`,
           ),
         );
-        await api.setRuntimeType(project.id, wantRuntime as RuntimeKindHint, true);
+        await api.setRuntimeType(project.id, wantType as RuntimeKindHint, true);
       } else {
         throw err;
       }
     }
-    emit({ event: "runtime_type_applied", project_type: wantRuntime as RuntimeKindHint });
+    emit({ event: "runtime_type_applied", project_type: wantType as RuntimeKindHint });
   }
 
   await persistProjectLinking(
