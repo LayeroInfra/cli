@@ -6643,6 +6643,15 @@ export interface components {
             } | null;
             /** Label */
             label: string;
+            /**
+             * Last Build
+             * @default {}
+             */
+            last_build: {
+                [key: string]: string;
+            };
+            /** Last Build At */
+            last_build_at?: string | null;
             /** Layero Path */
             layero_path?: string | null;
             /** Layero Url */
