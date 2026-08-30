@@ -4376,19 +4376,25 @@ export interface paths {
         head?: never;
         /**
          * Rename Project
-         * @description Rename a project that hasn't finished its setup wizard yet.
+         * @description Переименовать проект. Адрес сайта при этом не меняется никогда.
          *
-         *     Two modes:
-         *       - **Default** (everyone): recomputes slug + apex_hostname from the
-         *         new name. Apex still follows the `{owner}-{slug}.{platform}` shape.
-         *       - ~~**Custom apex** (superuser only, via `apex_label`)~~ — убрано, см. ниже: сюда
-         *         hostname to the user-specified label verbatim. Lets us issue
-         *         anything in the platform zone, breaking the owner-prefix convention
-         *         for cases where a vanity domain matters more than namespace cleanliness.
+         *     Два режима, и различает их СТАТУС проекта:
          *
-         *     Allowed only while status='pending_setup' — once the project is active,
-         *     slug/hostname is wired into deploys, env rows, custom domains and
-         *     certs; renaming there is out of scope.
+         *       - **`pending_setup`** — вместе с именем пересчитывается слаг: проект
+         *         ещё не задеплоен, слаг никуда не вписан, а расходиться с именем ему
+         *         незачем. Апекс и здесь не трогается (см. ниже).
+         *       - **активный проект** — меняется ТОЛЬКО имя. Слаг у него часть адресов
+         *         (реестр хостов, метки веток, джойны логов и мониторинга), и пересчёт
+         *         увёл бы живой сайт.
+         *
+         *     🚨 До 30.08.2026 активному проекту переименование было закрыто 409-м
+         *     целиком, и панель не давала сменить имя НИГДЕ: проект, созданный
+         *     импортом, навсегда оставался с именем репозитория. Запрет писался тогда,
+         *     когда эта же ручка переписывала и апекс; апекс из неё убран, и вместе с
+         *     ним ушло основание запрета — но сам запрет остался.
+         *
+         *     ~~**Custom apex** (superuser only, via `apex_label`)~~ — убрано: адрес
+         *     меняется только через `PUT /{id}/address`.
          */
         patch: operations["rename_project_projects__project_id__rename_patch"];
         trace?: never;
