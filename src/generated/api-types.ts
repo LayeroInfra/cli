@@ -5352,6 +5352,8 @@ export interface components {
             extensions?: string[];
             /** Name */
             name: string;
+            /** Project Id */
+            project_id?: string | null;
             /** Quota Gb */
             quota_gb?: number | null;
         };
@@ -5423,6 +5425,11 @@ export interface components {
             connection_string: string;
             /** Db Name */
             db_name: string;
+            /**
+             * Engine
+             * @default postgres
+             */
+            engine: string;
             /**
              * Id
              * Format: uuid
