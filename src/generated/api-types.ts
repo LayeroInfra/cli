@@ -5461,6 +5461,8 @@ export interface components {
              * @default postgres
              */
             engine: string;
+            /** Failure Reason */
+            failure_reason?: string | null;
             /**
              * Id
              * Format: uuid
