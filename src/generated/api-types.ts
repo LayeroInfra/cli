@@ -5366,14 +5366,27 @@ export interface components {
         };
         /** CreateManagedIn */
         CreateManagedIn: {
+            /**
+             * Engine
+             * @default postgres
+             * @constant
+             */
+            engine: "postgres";
             /** Extensions */
             extensions?: string[];
             /** Name */
             name: string;
+            /**
+             * Placement
+             * @default sandbox
+             * @enum {string}
+             */
+            placement: "sandbox" | "dedicated";
             /** Project Id */
             project_id?: string | null;
             /** Quota Gb */
             quota_gb?: number | null;
+            spec?: components["schemas"]["SpecIn"] | null;
         };
         /** CreateOrganizationIn */
         CreateOrganizationIn: {
@@ -7872,6 +7885,24 @@ export interface components {
             private: boolean;
             /** Updated At */
             updated_at: string | null;
+        };
+        /**
+         * SpecIn
+         * @description Конфигурация выделенного кластера. Один кластер на одну базу, поэтому
+         *     это и есть то, что человек выбрал в панели.
+         */
+        SpecIn: {
+            /** Cpu */
+            cpu: number;
+            /** Disk Gb */
+            disk_gb: number;
+            /** Ram Mb */
+            ram_mb: number;
+            /**
+             * Version
+             * @default 17
+             */
+            version: number;
         };
         /** SpeedRunCreateIn */
         SpeedRunCreateIn: {
