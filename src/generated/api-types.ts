@@ -4,6 +4,24 @@
  */
 
 export interface paths {
+    "/abuse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Abuse */
+        post: operations["submit_abuse_abuse_post"];
+        delete?: never;
+        /** Abuse Preflight */
+        options: operations["abuse_preflight_abuse_options"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/analysis-requests/{request_id}": {
         parameters: {
             query?: never;
@@ -8120,6 +8138,46 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    submit_abuse_abuse_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    abuse_preflight_abuse_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     get_analysis_request_analysis_requests__request_id__get: {
         parameters: {
             query?: never;
