@@ -5471,6 +5471,11 @@ export interface components {
             /** Name Slug */
             name_slug?: string | null;
             /**
+             * Placement
+             * @default sandbox
+             */
+            placement: string;
+            /**
              * Price Kopecks
              * @default 0
              */
@@ -5487,6 +5492,10 @@ export interface components {
             role_name?: string | null;
             /** Size Bytes */
             size_bytes?: number | null;
+            /** Spec */
+            spec?: {
+                [key: string]: unknown;
+            } | null;
             /** Status */
             status: string;
             /**
