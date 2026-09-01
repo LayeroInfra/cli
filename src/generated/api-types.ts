@@ -2636,6 +2636,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/password/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reveal Password Of
+         * @description Показать пароль, который платформа уже хранит.
+         *
+         *     POST, а не GET, нарочно: секрет не должен попасть ни в адресную строку, ни
+         *     в журнал прокси, ни в кэш браузера. Право — администраторское, как у смены
+         *     пароля: тот, кто может его сменить, и так им владеет.
+         */
+        post: operations["reveal_password_of_organizations__slug__databases__db_id__password_reveal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/projects": {
         parameters: {
             query?: never;
@@ -7536,6 +7560,14 @@ export interface components {
              * Format: uuid
              */
             target_database_id: string;
+        };
+        /**
+         * RevealIn
+         * @description Чей пароль показать. Пусто — владельца базы.
+         */
+        RevealIn: {
+            /** Role Name */
+            role_name?: string | null;
         };
         /** RevokeAllOut */
         RevokeAllOut: {
@@ -12870,6 +12902,44 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecretOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reveal_password_of_organizations__slug__databases__db_id__password_reveal_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RevealIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
