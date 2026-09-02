@@ -5641,6 +5641,13 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Preview Evicted
+             * @default []
+             */
+            preview_evicted: {
+                [key: string]: unknown;
+            }[];
             /** Probe */
             probe?: {
                 [key: string]: unknown;
