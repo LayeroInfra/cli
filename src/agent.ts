@@ -143,6 +143,19 @@ export type Event =
       failure_stage?: string;
       error?: string;
     } & EventCommon)
+  // Этот деплой занял слот превью и снял с раздачи чужую ветку (V263).
+  // Отдельным событием, а не полем в `ready`: агент, увидевший `ready`,
+  // считает работу законченной и дальше не читает, а тут изменился ЧУЖОЙ
+  // работающий адрес — про это он обязан узнать явно и до итога.
+  | ({
+      event: "preview_evicted";
+      // Кого сняли. Обычно один, но при первом включении лимита проект
+      // приводится к нему целиком.
+      evicted: Array<{ branch?: string; hostname?: string }>;
+      // Сколько превью проект раздаёт одновременно — чтобы агент не гадал,
+      // почему это произошло, и мог сказать человеку число.
+      limit?: number;
+    } & EventCommon)
   | ({ event: "deploy_started"; deploy_id: string } & EventCommon)
   | ({ event: "build_log"; line: string; stream: string } & EventCommon)
   | ({ event: "stage"; name: string } & EventCommon)
@@ -297,6 +310,19 @@ function renderHuman(event: Event): void {
     case "setup_applied":
       process.stdout.write(`✓ Setup applied\n`);
       break;
+    case "preview_evicted": {
+      // Предупреждение, а не отчёт: перестал отвечать адрес, который кому-то
+      // уже отдали ссылкой. Пишем имя ветки — по нему её и возвращают.
+      const names = event.evicted
+        .map((e) => e.branch ?? e.hostname ?? "")
+        .filter(Boolean)
+        .join(", ");
+      process.stdout.write(
+        `! Превью ${names} приостановлено — этот деплой занял его место\n`,
+      );
+      process.stdout.write(`  Вернуть: задеплойте ту ветку снова или откройте панель\n`);
+      break;
+    }
     case "runtime_type_applied":
       process.stdout.write(`✓ Project type set to ${event.project_type}\n`);
       break;

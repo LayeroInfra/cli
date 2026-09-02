@@ -869,6 +869,19 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
         ? (probe?.canonical_url ?? apexUrl)
         : (probe?.preview_url ?? probe?.canonical_url ?? apexUrl);
 
+    // V263: деплой мог занять слот превью и снять с раздачи чужую ветку.
+    // Говорим об этом ДО `ready`: агент, увидевший итог, дальше не читает, а
+    // здесь изменился чужой работающий адрес — тот, кому ссылку уже отдали,
+    // узнает об этом иначе только открыв её.
+    //
+    // Пустой список — обычный случай и молчит. Поля может не быть вовсе, если
+    // платформа старше него: `?? []` и никаких предупреждений о том, чего не
+    // знаем.
+    const evicted = deployRow.preview_evicted ?? [];
+    if (evicted.length > 0) {
+      emit({ event: "preview_evicted", evicted });
+    }
+
     emit({
       event: "ready",
       url: liveUrl,
