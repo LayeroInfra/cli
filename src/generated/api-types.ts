@@ -5195,6 +5195,8 @@ export interface components {
         };
         /** BranchOut */
         BranchOut: {
+            /** Active Deploy At */
+            active_deploy_at?: string | null;
             /** Active Deploy Id */
             active_deploy_id: string | null;
             /** Branch Name */
