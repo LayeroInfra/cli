@@ -3,7 +3,7 @@
 
 🚨 ЗАЧЕМ ГЕЙТ. Копий списка две, и обе нужны. Эталон — `FALLBACK_IPS` в
 `backend/app/core/telegram_net.py`: по нему ходит бэкенд. Вторая живёт в
-`deploy/setup-runtime-node-telegram.sh`, потому что рантайм-нода до
+`deploy/setup-telegram-route.sh`, потому что рантайм-нода до
 репозитория не дотягивается, а тащить туда бэкенд ради кортежа из четырёх
 строк дороже, чем сторожить расхождение.
 
@@ -23,7 +23,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "backend/app/core/telegram_net.py"
-COPY = ROOT / "deploy/setup-runtime-node-telegram.sh"
+COPY = ROOT / "deploy/setup-telegram-route.sh"
 
 
 def эталон() -> list[str]:
@@ -46,6 +46,14 @@ def копия() -> list[str]:
 
 
 def main() -> int:
+    # Отсутствие файла — это ПЕРЕИМЕНОВАНИЕ, а не экзотика: пара «эталон и его
+    # копия» переживает переезды, и гейт обязан сказать об этом словами, а не
+    # стектрейсом. Проверено на себе — скрипт переименовали через час.
+    for path in (SRC, COPY):
+        if not path.exists():
+            print(f"✗ не нашёл {path.relative_to(ROOT)} — файл переименован "
+                  f"или переехал; поправьте путь в этом гейте", file=sys.stderr)
+            return 1
     want, got = эталон(), копия()
     if want == got:
         print(f"check-telegram-candidates: ok — {len(want)} адресов, копия совпадает")
