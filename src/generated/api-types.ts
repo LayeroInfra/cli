@@ -1830,6 +1830,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Plans
+         * @description Что вообще можно заказать и почём.
+         *
+         *     🚨 Конфигурации приезжают из живых пресетов ПАРТНЁРА, а не из списка на
+         *     фронте. Пока список жил в `CreatePage.tsx`, экран мог предложить
+         *     конфигурацию, которой у партнёра нет, — и отказ пришёл бы уже после
+         *     нажатия, когда человек считает дело сделанным.
+         *
+         *     Цена — НАША и пока заглушечная (`timeweb_dbaas.MOCK_PRICES_RUB`), о чём
+         *     сказано в ответе полем `prices_are_provisional`: панель обязана иметь
+         *     возможность честно об этом предупредить, а не выдавать заглушку за прайс.
+         *
+         *     Партнёр недоступен — отдаём пустой список и тот же признак. Показать
+         *     вчерашний список конфигураций, которых может уже не быть, хуже, чем
+         *     честно сказать «сейчас не покажем».
+         */
+        get: operations["list_plans_organizations__slug__databases_plans_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}": {
         parameters: {
             query?: never;
@@ -5512,6 +5545,10 @@ export interface components {
             projects_count: number;
             /** Provider */
             provider: string;
+            /** Provisioning */
+            provisioning?: {
+                [key: string]: unknown;
+            } | null;
             /** Purge After */
             purge_after?: string | null;
             /** Quota Bytes */
@@ -11263,6 +11300,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_plans_organizations__slug__databases_plans_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
