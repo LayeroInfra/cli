@@ -2649,6 +2649,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/network/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Network Rules Of
+         * @description Что разрешено ЭТОЙ базе.
+         *
+         *     Без чтения правка была бы вслепую: панель не смогла бы показать, что уже
+         *     настроено, а человек — понять, почему не пускает.
+         */
+        get: operations["list_network_rules_of_organizations__slug__databases__db_id__network_rules_get"];
+        put?: never;
+        /**
+         * Add Network Rule Of
+         * @description Разрешить адресу ходить в ЭТУ базу.
+         *
+         *     🚨 Ручка в единственном числе (`/database/network/rules`) вешает правило на
+         *     ПЕРВУЮ базу организации. С одной базой это совпадало, с несколькими —
+         *     правило молча ложилось не на ту, а у остальных список оставался пустым.
+         *     Пустой список в модели доступа значит «снаружи никого»: человек добавлял
+         *     адрес и всё равно не мог войти.
+         *
+         *     Старая ручка оставлена ради совместимости — по ней ходят CLI и MCP.
+         */
+        post: operations["add_network_rule_of_organizations__slug__databases__db_id__network_rules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/network/rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Network Rule Of */
+        delete: operations["delete_network_rule_of_organizations__slug__databases__db_id__network_rules__rule_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/password": {
         parameters: {
             query?: never;
@@ -12945,6 +12997,113 @@ export interface operations {
             path: {
                 slug: string;
                 db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_network_rules_of_organizations__slug__databases__db_id__network_rules_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_network_rule_of_organizations__slug__databases__db_id__network_rules_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NetworkRuleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_network_rule_of_organizations__slug__databases__db_id__network_rules__rule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                rule_id: string;
             };
             cookie?: never;
         };
