@@ -7892,6 +7892,8 @@ export interface components {
         };
         /** SecretOut */
         SecretOut: {
+            /** Allowed Address */
+            allowed_address?: string | null;
             /** Connection String */
             connection_string: string;
             /**
