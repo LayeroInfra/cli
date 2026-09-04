@@ -2649,6 +2649,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/network": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Network Of
+         * @description Модель доступа ЭТОЙ базы: режим TLS, список адресов, баны, свой адрес.
+         *
+         *     🚨 Ручка в единственном числе (`/database/network`) отвечает про ПЕРВУЮ
+         *     базу организации. С одной базой это совпадало, с несколькими панель
+         *     показывала список одной базы как список другой — и человек, добавив адрес,
+         *     всё равно не мог войти. Старая ручка оставлена: по ней ходят CLI и MCP.
+         */
+        get: operations["get_network_of_organizations__slug__databases__db_id__network_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/network/rules": {
         parameters: {
             query?: never;
@@ -12991,6 +13016,40 @@ export interface operations {
             query?: {
                 range?: string;
             };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_network_of_organizations__slug__databases__db_id__network_get: {
+        parameters: {
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
