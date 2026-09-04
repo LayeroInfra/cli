@@ -5592,6 +5592,8 @@ export interface components {
             name: string;
             /** Name Slug */
             name_slug?: string | null;
+            /** Pg Version */
+            pg_version?: number | null;
             /**
              * Placement
              * @default sandbox
