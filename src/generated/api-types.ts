@@ -5571,10 +5571,9 @@ export interface components {
              * @default false
              */
             api_auth_enabled: boolean;
-            /**
-             * Api Enabled
-             * @default false
-             */
+            /** Api Enable Error */
+            api_enable_error?: string | null;
+            /** Api Enabled */
             api_enabled: boolean;
             /**
              * Api Storage Enabled
