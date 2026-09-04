@@ -5649,6 +5649,11 @@ export interface components {
              * @default on
              */
             synchronous_commit: string;
+            /**
+             * Verify Full Available
+             * @default true
+             */
+            verify_full_available: boolean;
         };
         /** DatabaseOut */
         DatabaseOut: {
