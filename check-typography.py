@@ -63,11 +63,19 @@ STRICT = (
     # при том, что соседние файлы того же каталога их используют — то есть
     # соглашение в кодовой базе есть, а раздел прошёл мимо него. Тот же класс,
     # что со статус-страницей 30.07: смотреть надо в байты, а не на макет.
-    "frontend/control-plane/src/pages/Database/Create.tsx",
-    "frontend/control-plane/src/pages/Database/Connection.tsx",
+    # 🚨 05.09.2026: ЧЕТЫРЕ из этих путей указывали в никуда. `Create.tsx`,
+    # `Connection.tsx`, `Projects.tsx` и `CreateDialog.tsx` давно переименованы,
+    # и строгая проверка просто не находила их среди просмотренных файлов —
+    # молча, потому что совпадение искалось по имени. Список охранял четыре
+    # экрана, которых нет, а их преемники три недели жили без охраны.
+    # Ниже — преемники; сторож против повторения стоит в `main`.
+    "frontend/control-plane/src/pages/Database/CreatePage.tsx",
+    "frontend/control-plane/src/pages/Database/ConnectDialog.tsx",
     "frontend/control-plane/src/pages/Database/Backups.tsx",
     "frontend/control-plane/src/pages/Database/List.tsx",
-    "frontend/control-plane/src/pages/Database/Projects.tsx",
+    "frontend/control-plane/src/pages/Database/ProjectsSettings.tsx",
+    "frontend/control-plane/src/pages/Database/NetworkSettings.tsx",
+    "frontend/control-plane/src/pages/Database/Settings.tsx",
     "frontend/control-plane/src/pages/Project/DatabaseCard.tsx",
     # 15.08.2026: `Api.tsx` в тот список не попал, хотя это самая текстовая
     # карточка раздела — «во всех пяти экранах» оказалось не про все экраны
@@ -86,7 +94,6 @@ STRICT = (
     # То есть список даёт МЕНЬШЕ, чем обещает, пока дыра открыта.
     "frontend/control-plane/src/pages/CliDeviceAuth.tsx",
     "frontend/control-plane/src/pages/DebugPanel.tsx",
-    "frontend/control-plane/src/pages/Database/CreateDialog.tsx",
 )
 
 # Что проверяем по умолчанию, если пути не заданы явно.
@@ -357,6 +364,30 @@ def main() -> int:
 
     root = Path(args.root).resolve()
     paths = [Path(p).resolve() for p in args.paths] or [root / s for s in SURFACES]
+
+    # 🚨 ПУТЬ ИЗ STRICT ОБЯЗАН СУЩЕСТВОВАТЬ, и это не придирка к аккуратности.
+    #
+    # Совпадение ищется по имени (`rel in STRICT`), поэтому переименованный
+    # экран выпадает из-под охраны БЕСШУМНО: проверка остаётся зелёной, а файл,
+    # который её и породил, больше никто не смотрит. К 05.09.2026 так выпали
+    # четыре из двадцати пяти — почти шестая часть списка.
+    #
+    # Проверяем ДО обхода: иначе сообщение утонет в двух тысячах предупреждений.
+    dead = [s for s in STRICT if not (root / s).exists()]
+    if dead:
+        for s_ in dead:
+            print(f"  ✗ STRICT указывает на несуществующий файл: {s_}")
+        print(
+            f"\nSTRICT-путей в никуда: {len(dead)}.\n"
+            "\nWHAT: список вычищенных поверхностей отстал от кодовой базы.\n"
+            "WHY:  совпадение ищется по ИМЕНИ, поэтому переименованный экран\n"
+            "      выпадает из-под охраны молча — проверка зелёная, файл без\n"
+            "      присмотра. Так уже выпали четыре экрана раздела «Базы».\n"
+            "FIX:  найдите преемника (файл, куда переехал экран), вычистите его\n"
+            "      и поставьте на место старого пути. Если экран удалён совсем —\n"
+            "      уберите строку и напишите рядом, куда делся текст.\n"
+        )
+        return 1
 
     errors = warns = 0
     scanned = 0
