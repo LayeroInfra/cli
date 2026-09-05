@@ -2558,7 +2558,21 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Extensions Of
+         * @description Что можно включить ИМЕННО В ЭТОЙ базе.
+         *
+         *     🚨 ПАНЕЛЬ СПРАШИВАЛА ОБ ЭТОМ ОРГАНИЗАЦИЮ, А НЕ БАЗУ. Список брался из
+         *     `/databases/options`, а тот отвечает про ПЕРВЫЙ общий шард — единственный,
+         *     на котором мы суперпользователь. Для базы на выделенном кластере ответ был
+         *     чужим: панель обещала кнопку «включить pgvector», а кластер поставщика
+         *     отвечал «Must be superuser to create this extension». Возможность
+         *     включения — свойство кластера, поэтому и спрашиваем кластер этой базы.
+         *
+         *     ⚠️ Коннект пула не держим: за списком идёт агент на узле (ответ его
+         *     кэшируется на шард, поэтому ручка дешёвая).
+         */
+        get: operations["extensions_of_organizations__slug__databases__db_id__extensions_get"];
         put?: never;
         /**
          * Enable Extensions Of
@@ -12869,6 +12883,40 @@ export interface operations {
                 "application/json": components["schemas"]["RestoreIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    extensions_of_organizations__slug__databases__db_id__extensions_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
