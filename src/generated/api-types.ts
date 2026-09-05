@@ -1407,7 +1407,15 @@ export interface paths {
         put?: never;
         /** Create Database */
         post: operations["create_database_organizations__slug__database_post"];
-        /** Delete Database */
+        /**
+         * Delete Database
+         * @description Удалить базу организации. НЕМЕДЛЕННО, как и её близнец по id.
+         *
+         *     ⚠️ ТРЕТЬЯ ТОЧКА, И ОНА ОБЯЗАНА ВЕСТИ СЕБЯ ТАК ЖЕ. Ручка в единственном
+         *     числе публичная и живая; оставить её со старым поведением значило бы
+         *     «поправил одну точку из двух» — тот же класс, что уже ловили на пресете и
+         *     на автовключении Data API.
+         */
         delete: operations["delete_database_organizations__slug__database_delete"];
         options?: never;
         head?: never;
@@ -1642,26 +1650,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/organizations/{slug}/database/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Restore Database
-         * @description Вернуть базу, пока окно хранения не истекло.
-         */
-        post: operations["restore_database_organizations__slug__database_restore_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/organizations/{slug}/database/roles": {
         parameters: {
             query?: never;
@@ -1881,14 +1869,21 @@ export interface paths {
         post?: never;
         /**
          * Delete Database By Id
-         * @description Отключить базу.
+         * @description Удалить базу. НЕМЕДЛЕННО.
+         *
+         *     🚨 ОКНА ХРАНЕНИЯ БОЛЬШЕ НЕТ — решение владельца 05.09.2026: «данные должны
+         *     удалиться сразу после подтверждения со стороны пользователя». Семь суток
+         *     между «удалил» и «снёс» были страховкой от промаха, но второй их стороной
+         *     было хранение данных, которые человек попросил удалить. Страховка
+         *     переехала в подтверждение: панель требует набрать имя базы.
          *
          *     Внешнюю просто забываем — она чужая, и уносить с собой её данные мы не
-         *     вправе. Свою ставим в очередь уборки с окном хранения.
+         *     вправе.
          *
-         *     🚨 `db_id` ДОХОДИТ ДО СЕРВИСА. Раньше ручка передавала в `schedule_deletion`
-         *     только организацию, а та брала САМУЮ СТАРУЮ базу: удаление второй базы
-         *     ставило в очередь уборки первую, и узналось бы это через семь суток.
+         *     ⚠️ КОННЕКТ ПУЛА НЕ ДЕРЖИМ НА ВЕСЬ СНОС. Уборка ходит к агенту (а у
+         *     выделенной — заказывает снос кластера у партнёра), и с `Depends(get_conn)`
+         *     слот пула был бы занят всё это время. У лидера шесть слотов из пятнадцати
+         *     заняты всегда — правило из шапки этого файла действует и здесь.
          */
         delete: operations["delete_database_by_id_organizations__slug__databases__db_id__delete"];
         options?: never;
@@ -2865,26 +2860,6 @@ export interface paths {
          *     без неё подбором uuid можно было бы выполнить запрос в чужой базе.
          */
         post: operations["query_database_organizations__slug__databases__db_id__query_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/organizations/{slug}/databases/{db_id}/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Restore Database By Id
-         * @description Вернуть КОНКРЕТНУЮ базу из очереди на уборку.
-         */
-        post: operations["restore_database_by_id_organizations__slug__databases__db_id__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8106,7 +8081,7 @@ export interface components {
             ram_mb: number;
             /**
              * Version
-             * @default 17
+             * @default 18
              */
             version: number;
         };
@@ -11086,39 +11061,6 @@ export interface operations {
             };
         };
     };
-    restore_database_organizations__slug__database_restore_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DatabaseOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_roles_organizations__slug__database_roles_get: {
         parameters: {
             query?: never;
@@ -13462,40 +13404,6 @@ export interface operations {
                 "application/json": components["schemas"]["QueryIn"];
             };
         };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    restore_database_by_id_organizations__slug__databases__db_id__restore_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                slug: string;
-                db_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
