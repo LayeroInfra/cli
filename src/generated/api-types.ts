@@ -7820,6 +7820,8 @@ export interface components {
         };
         /** RoleCreateIn */
         RoleCreateIn: {
+            /** Grants */
+            grants?: components["schemas"]["RoleGrantIn"][] | null;
             /**
              * Level
              * @default read
@@ -7829,6 +7831,29 @@ export interface components {
             name: string;
             /** Valid Until */
             valid_until?: string | null;
+        };
+        /**
+         * RoleGrantIn
+         * @description Одна строка конструктора прав: команда, схема, таблица.
+         *
+         *     `*` в схеме или таблице означает «все» и разворачивается НА ШАРДЕ, по
+         *     живому каталогу базы: список схем здесь неизвестен, а разворачивать его по
+         *     копии, приехавшей в панель, значило бы выдавать права по устаревшему
+         *     снимку.
+         */
+        RoleGrantIn: {
+            /** Privilege */
+            privilege: string;
+            /**
+             * Schema
+             * @default *
+             */
+            schema: string;
+            /**
+             * Table
+             * @default *
+             */
+            table: string;
         };
         /** RoleIn */
         RoleIn: {
