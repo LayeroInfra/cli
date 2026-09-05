@@ -1841,6 +1841,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Quote Plan
+         * @description Цена произвольной конфигурации — СЧИТАЕТ СЕРВЕР, а не панель.
+         *
+         *     🚨 ЦЕНА ЖИВЁТ В ОДНОМ МЕСТЕ, И ЭТО НЕ ПРИДИРКА. 04.09.2026 панель считала
+         *     итог своей формулой: цена ступени плюс выдуманные 15 ₽/ГБ. Один и тот же
+         *     инстанс стоил 1150 ₽ в мастере и 300 ₽ в карточке. Формула, размноженная
+         *     по экранам, расходится молча — поэтому её здесь ровно одна, и та же самая
+         *     решает, каким способом заказывать.
+         *
+         *     ⚠️ Дешевле бывает то ступень, то сборка: попросив к одному ядру 100 ГБ
+         *     диска, человек по ступеням попал бы на 4 ядра / 8 ГБ за 3160 ₽, а сборкой
+         *     те же 100 ГБ стоят 1450 ₽. Ответ говорит, что именно выбрано.
+         */
+        get: operations["quote_plan_organizations__slug__databases_quote_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}": {
         parameters: {
             query?: never;
@@ -7636,6 +7666,22 @@ export interface components {
             /** Sql */
             sql: string;
         };
+        /**
+         * QuoteOut
+         * @description Во что обойдётся ИМЕННО эта сборка и каким способом мы её закажем.
+         */
+        QuoteOut: {
+            /** Cpu */
+            cpu: number;
+            /** Disk Gb */
+            disk_gb: number;
+            /** Kind */
+            kind: string;
+            /** Price Month */
+            price_month: number;
+            /** Ram Mb */
+            ram_mb: number;
+        };
         /** RenameIn */
         RenameIn: {
             /** Name */
@@ -11375,6 +11421,43 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    quote_plan_organizations__slug__databases_quote_get: {
+        parameters: {
+            query: {
+                cpu: number;
+                ram_mb: number;
+                disk_gb: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuoteOut"];
                 };
             };
             /** @description Validation Error */
