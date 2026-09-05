@@ -2551,6 +2551,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/extensions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable Extensions Of
+         * @description Включить расширения в живой базе.
+         *
+         *     🚨 РАНЬШЕ ЭТО БЫЛО ВОЗМОЖНО ТОЛЬКО В МАСТЕРЕ. Дальше человек оставался с
+         *     тем, что заказал при создании: часть расширений в Postgres не доверенные,
+         *     и владелец базы не поставит их своей ролью — нужен суперпользователь.
+         *     Панель предлагала написать в поддержку, и включение pgvector становилось
+         *     перепиской. Решение владельца 05.09.2026: достаточно нажать «включить».
+         *
+         *     ⚠️ Коннект пула не держим: ставит расширение агент на узле.
+         */
+        post: operations["enable_extensions_of_organizations__slug__databases__db_id__extensions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/functions": {
         parameters: {
             query?: never;
@@ -2597,6 +2625,8 @@ export interface paths {
          *
          *     Postgres не разбирает тело PL/pgSQL до первого вызова: «применилось» не
          *     значит «работает», и без этой кнопки бэкенд отлаживают через фронтенд.
+         *
+         *     Схему берём из запроса: функции живут не только в схеме Data API.
          */
         post: operations["call_function_probe_organizations__slug__databases__db_id__functions_call_post"];
         delete?: never;
@@ -6129,6 +6159,11 @@ export interface components {
                 [key: string]: string | null;
             };
         };
+        /** ExtensionsIn */
+        ExtensionsIn: {
+            /** Names */
+            names: string[];
+        };
         /**
          * FrameworkSuggestionOut
          * @description One ranked framework suggestion. Surfaced in the setup wizard's
@@ -6159,6 +6194,11 @@ export interface components {
             };
             /** Name */
             name: string;
+            /**
+             * Schema
+             * @default api
+             */
+            schema: string;
         };
         /** FunctionSaveIn */
         FunctionSaveIn: {
@@ -12827,6 +12867,44 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RestoreIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enable_extensions_of_organizations__slug__databases__db_id__extensions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtensionsIn"];
             };
         };
         responses: {
