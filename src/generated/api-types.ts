@@ -5503,6 +5503,11 @@ export interface components {
              * @enum {string}
              */
             placement: "sandbox" | "dedicated";
+            /**
+             * Preset
+             * @default true
+             */
+            preset: boolean;
             /** Project Id */
             project_id?: string | null;
             /** Quota Gb */
