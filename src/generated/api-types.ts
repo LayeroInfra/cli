@@ -2551,6 +2551,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/disk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Resize Disk Of
+         * @description Увеличить диск выделенного инстанса.
+         *
+         *     🚨 ПАНЕЛЬ ЗВАЛА ЭТУ РУЧКУ С 03.09.2026, А ЕЁ НЕ БЫЛО. Экран ресурсов был
+         *     написан целиком — вплоть до подтверждения и текстов, — и молчал только
+         *     потому, что сервер не объявлял признак `resize`. То есть кнопки человек не
+         *     видел, а если бы увидел, получил бы 404 (T-20260905-5).
+         *
+         *     ⚠️ Это перезапуск: замер 06.09.2026 — точка входа не отвечает 15–25
+         *     секунд. Уменьшить диск обратно нельзя ни нам, ни поставщику.
+         *
+         *     ⚠️ Коннект пула не держим: правка идёт к поставщику по сети.
+         */
+        patch: operations["resize_disk_of_organizations__slug__databases__db_id__disk_patch"];
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/extensions": {
         parameters: {
             query?: never;
@@ -3022,6 +3052,33 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/spec": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change Spec Of
+         * @description Перевести выделенный инстанс на другую ступень мощности.
+         *
+         *     🚨 ЭТА РУЧКА И СОСЕДНЯЯ ПРО ДИСК ПОЯВЛЯЮТСЯ ВМЕСТЕ, И ЭТО НЕ АККУРАТНОСТЬ.
+         *     Признак `resize` открывает в панели ОБЕ карточки экрана «Ресурсы». Завести
+         *     одну ручку значило бы показать человеку две кнопки, из которых работает
+         *     первая, — ровно тот инцидент, ради которого признак и придуман.
+         *
+         *     ⚠️ Перезапуск: 15–25 секунд без точки входа (замер 06.09.2026).
+         */
+        patch: operations["change_spec_of_organizations__slug__databases__db_id__spec_patch"];
         trace?: never;
     };
     "/organizations/{slug}/databases/{db_id}/tables/{schema_name}/{table}/rows": {
@@ -6064,6 +6121,11 @@ export interface components {
             /** Verification Url */
             verification_url: string;
         };
+        /** DiskIn */
+        DiskIn: {
+            /** Disk Gb */
+            disk_gb: number;
+        };
         /**
          * DomainByocUpload
          * @description Bring-your-own-certificate: user pastes a CA-issued cert + key.
@@ -8346,6 +8408,13 @@ export interface components {
             apply: boolean;
             /** Dump */
             dump: string;
+        };
+        /** TierIn */
+        TierIn: {
+            /** Cpu */
+            cpu: number;
+            /** Ram Mb */
+            ram_mb: number;
         };
         /**
          * TransferInitIn
@@ -12983,6 +13052,44 @@ export interface operations {
             };
         };
     };
+    resize_disk_of_organizations__slug__databases__db_id__disk_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiskIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     extensions_of_organizations__slug__databases__db_id__extensions_get: {
         parameters: {
             query?: never;
@@ -13864,6 +13971,44 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_spec_of_organizations__slug__databases__db_id__spec_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TierIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
