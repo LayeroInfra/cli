@@ -94,6 +94,19 @@ STRICT = (
     # То есть список даёт МЕНЬШЕ, чем обещает, пока дыра открыта.
     "frontend/control-plane/src/pages/CliDeviceAuth.tsx",
     "frontend/control-plane/src/pages/DebugPanel.tsx",
+    # 05.09.2026: раздел вырос с двенадцати экранов до двадцати девяти, а
+    # список охраняемых остался прежним — новые поверхности жили без охраны.
+    # Нашло независимое ревью (T-20260905-12).
+    #
+    # 🚨 ВНОСИМ ТОЛЬКО ВЫЧИЩЕННЫЕ, И ЭТО ПРАВИЛО САМОГО СКРИПТА. Из шестнадцати
+    # неохраняемых экранов чисты четыре; у остальных долг от одного нарушения
+    # (`Tables.tsx`) до двадцати одного (`Sql.tsx`). Внести их сейчас значит
+    # сделать проверку красной с первого дня — а такую проверку отключают.
+    # Долг вынесен в T-20260816-9, вносить по мере вычитки.
+    "frontend/control-plane/src/pages/Database/CreateTableDialog.tsx",
+    "frontend/control-plane/src/pages/Database/TablesPage.tsx",
+    "frontend/control-plane/src/pages/Database/dialogs.tsx",
+    "frontend/control-plane/src/pages/Database/skeletons.tsx",
 )
 
 # Что проверяем по умолчанию, если пути не заданы явно.
