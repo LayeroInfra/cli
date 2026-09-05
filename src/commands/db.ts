@@ -20,6 +20,8 @@ interface DbOptions {
   json?: boolean;
   project?: string;
   gb?: number;
+  /** `--empty`: не накатывать стартовое наполнение. */
+  empty?: boolean;
   command?: string;
 }
 
@@ -86,11 +88,47 @@ export async function dbListCmd(opts: DbOptions): Promise<void> {
   }
 }
 
+/** Ждёт, пока база станет рабочей. `false` — не дождались за отведённое время.
+ *
+ * Опрос, а не подписка: ручки событий у нас нет, а держать соединение ради
+ * одной строки состояния незачем. Потолок ожидания — своё число, а не «пока
+ * не надоест»: выделенный кластер поднимается 7–13 минут, и повесить терминал
+ * на всё это время нельзя. Не дождались — говорим об этом прямо.
+ */
+async function waitUntilReady(
+  api: ApiClient,
+  org: string,
+  name: string,
+  timeoutMs = 90_000,
+): Promise<boolean> {
+  const until = Date.now() + timeoutMs;
+  while (Date.now() < until) {
+    await new Promise((r) => setTimeout(r, 2000));
+    try {
+      const all = await api.listDatabases(org);
+      const mine = all.find((d) => d.name === name);
+      if (mine && mine.status === "active") return true;
+      if (mine && mine.status === "failed") return false;
+    } catch {
+      // Сеть моргнула — это не повод объявлять базу несозданной.
+    }
+  }
+  return false;
+}
+
+
 export async function dbCreateCmd(name: string, opts: DbOptions): Promise<void> {
   const mode = detectMode();
   const api = new ApiClient(await loadConfig());
   const org = await orgOf(api, opts);
-  const created = await api.createDatabase(org, { name, quota_gb: opts.gb });
+  const created = await api.createDatabase(org, {
+    name,
+    quota_gb: opts.gb,
+    // `--empty` — отказ от стартового наполнения. Сервер накатывает его по
+    // умолчанию, и без этого флага у CLI не было способа сказать «не надо»:
+    // человек, приносящий свою схему, получал чужие таблицы молча.
+    preset: !opts.empty,
+  });
 
   // Пароль отдаётся ОДИН РАЗ — второй раз его не покажет никто, только
   // ротация. Поэтому он и в JSON-режиме, и в терминале.
@@ -98,7 +136,21 @@ export async function dbCreateCmd(name: string, opts: DbOptions): Promise<void> 
     emit({ event: "database_created", org, name, ...created });
     return;
   }
-  console.log(`${chalk.green("✓")} база «${name}» заведена в организации ${org}`);
+  // 🚨 БАЗА ЕЩЁ НЕ ГОТОВА В ЭТОТ МОМЕНТ. Ручка стала асинхронной: она пишет
+  // намерение и возвращается, подготовка идёт минуты. Печатать «заведена» и
+  // строку подключения сразу значит отправить человека к `psql`, который
+  // ответит «database does not exist», — и он пойдёт искать причину в пароле.
+  process.stdout.write(`${chalk.dim("…")} готовим базу «${name}» в организации ${org}`);
+  const ready = await waitUntilReady(api, org, name);
+  process.stdout.write("\r\u001b[2K");
+  if (ready) {
+    console.log(`${chalk.green("✓")} база «${name}» готова в организации ${org}`);
+  } else {
+    console.log(
+      `${chalk.yellow("!")} база «${name}» ещё готовится — строка подключения ниже ` +
+        "заработает, как только она поднимется",
+    );
+  }
   console.log(`\n  ${created.connection_string}`);
   console.log(
     chalk.dim(

@@ -1508,14 +1508,7 @@ export interface paths {
         };
         /**
          * Creation Options
-         * @description Из чего пользователь выбирает при создании: движок, расширения и ЦЕНА.
-         *
-         *     Цена здесь появилась не для красоты. `included_in_plan` отдавался и раньше,
-         *     с комментарием «человек должен видеть, что упирается в подписку, до того
-         *     как нажал», — и панель это поле не использовала ни разу: пользователь
-         *     проходил весь мастер и получал красный тост после клика. Теперь тем же
-         *     ответом приходит и стоимость следующей базы, потому что вторая база платная
-         *     и узнать об этом после создания — худший из возможных моментов.
+         * @description См. `_creation_options` — ручка не держит коннект пула на время сети.
          */
         get: operations["creation_options_organizations__slug__database_options_get"];
         put?: never;
@@ -5484,6 +5477,11 @@ export interface components {
              * @default База данных
              */
             name: string;
+            /**
+             * Preset
+             * @default true
+             */
+            preset: boolean;
         };
         /** CreateManagedIn */
         CreateManagedIn: {

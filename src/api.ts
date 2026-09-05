@@ -362,12 +362,21 @@ export class ApiClient {
 
   createDatabase(
     org: string,
-    input: { name: string; quota_gb?: number; extensions?: string[] },
+    input: {
+      name: string;
+      quota_gb?: number;
+      extensions?: string[];
+      /** Накатывать ли стартовое наполнение: таблицы, роли, функция, политики.
+       *  Сервер по умолчанию накатывает — CLI обязан уметь отказаться, иначе
+       *  человек получает чужую схему в свою базу и молча. */
+      preset?: boolean;
+    },
   ): Promise<{ connection_string: string; password: string }> {
     return this.request("POST", `/organizations/${org}/databases`, {
       name: input.name,
       quota_gb: input.quota_gb ?? null,
       extensions: input.extensions ?? [],
+      preset: input.preset ?? true,
     });
   }
 
