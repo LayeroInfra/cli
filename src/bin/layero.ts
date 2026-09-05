@@ -296,8 +296,7 @@ async function main(): Promise<void> {
     db
       .command("create <name>")
       .description("Завести базу. Строка подключения печатается ОДИН раз.")
-      .option("--gb <number>", "объём платной базы в гигабайтах", (v: string) => parseInt(v, 10))
-      .option("--empty", "без стартового наполнения: только сама база"),
+      .option("--gb <number>", "объём платной базы в гигабайтах", (v: string) => parseInt(v, 10)),
   ).action(async (name: string, opts: any) =>
     dbCreateCmd(name, { ...opts, json: program.opts().json }),
   );
