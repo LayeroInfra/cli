@@ -2953,6 +2953,34 @@ export interface paths {
         patch: operations["update_role_in_database_organizations__slug__databases__db_id__roles__role_name__patch"];
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/roles/{role_name}/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Role Grants In Database
+         * @description Что роль РЕАЛЬНО может — прочитанное из базы.
+         *
+         *     🚨 Панель до этого показывала уровень роли и подпись под ним. Подпись была
+         *     ярлыком: гранты она не читала и на свежей базе обещала доступ к тому, чего
+         *     ещё нет. Убрали подпись — стало пусто, и вопрос «а права на всю схему дать
+         *     можно?» родился именно из этой пустоты: права есть, показать их было
+         *     нечем.
+         *
+         *     ⚠️ Коннект пула не держим: за фактом идёт агент на узле.
+         */
+        get: operations["role_grants_in_database_organizations__slug__databases__db_id__roles__role_name__grants_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/schema": {
         parameters: {
             query?: never;
@@ -13686,6 +13714,41 @@ export interface operations {
                     "application/json": components["schemas"]["SecretOut"] | {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    role_grants_in_database_organizations__slug__databases__db_id__roles__role_name__grants_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                role_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
