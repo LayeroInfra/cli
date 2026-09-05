@@ -2593,6 +2593,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/extensions/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable Extensions Of
+         * @description Выключить расширение, которое включали мы.
+         *
+         *     🚨 Без этой ручки тумблер был односторонним: включённое суперпользователем
+         *     владелец базы своим SQL не снимет — владельца расширения в Postgres не
+         *     сменить, и `DROP EXTENSION` отвечает «must be owner of extension».
+         *
+         *     ⚠️ Коннект пула не держим: снимает расширение агент на узле.
+         */
+        post: operations["disable_extensions_of_organizations__slug__databases__db_id__extensions_disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/functions": {
         parameters: {
             query?: never;
@@ -12967,6 +12993,44 @@ export interface operations {
         };
     };
     enable_extensions_of_organizations__slug__databases__db_id__extensions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtensionsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disable_extensions_of_organizations__slug__databases__db_id__extensions_disable_post: {
         parameters: {
             query?: never;
             header?: {
