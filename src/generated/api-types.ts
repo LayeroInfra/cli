@@ -6900,6 +6900,7 @@ export interface components {
         PerfSummaryOut: {
             last_24h: components["schemas"]["PerfSummarySliceOut"];
             last_7d: components["schemas"]["PerfSummarySliceOut"];
+            window?: components["schemas"]["PerfSummarySliceOut"] | null;
         };
         /** PerfSummarySliceOut */
         PerfSummarySliceOut: {
@@ -17044,7 +17045,11 @@ export interface operations {
     };
     project_perf_summary_projects__project_id__perf_summary_get: {
         parameters: {
-            query?: never;
+            query?: {
+                from?: string | null;
+                to?: string | null;
+                environment_id?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
