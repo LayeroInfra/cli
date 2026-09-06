@@ -243,16 +243,51 @@ def _blank_regions(text: str, *patterns: str) -> str:
     return text
 
 
+#: Области, где текст — разговор с собой: докстроки и комментарии.
+DOCSTRING_DQ = r'"""' + r".*?" + r'"""'
+DOCSTRING_SQ = r"'''" + r".*?" + r"'''"
+PY_COMMENT = r"(?m)#[^\n]*$"
+JS_COMMENT = r"(?m)//[^\n]*$"
+#: Строковый литерал в кавычках любого вида, с учётом экранирования.
+STRING_LITERAL = (r'"((?:[^"\\\n]|\\.)*)"' + r"|'((?:[^'\\\n]|\\.)*)'")
+
+#: Атрибут JSX/HTML: `title="…"`, `placeholder="…"`, `aria-label="…"`.
+#:
+#: 🚨 ЗДЕСЬ escape-ПОСЛЕДОВАТЕЛЬНОСТЬ — ЭТО БУКВЫ, А НЕ ПРОБЕЛ. Значение
+#: атрибута в двойных кавычках JSX разбирает как ТЕКСТ, а не как строковый
+#: литерал JavaScript: запись вида «обратный слэш, u, 00A0» не раскрывается и
+#: уезжает на экран дословно. Проверка при этом её раскрывала и говорила
+#: «чисто».
+#:
+#: Так и вышло 06.09.2026: вычищая типографику раздела баз, я поставил такую
+#: запись в `title` настройки ресурсов — и в демо-панели на БОЕВОМ адресе
+#: заголовок читался с шестью лишними символами посреди слова. Семь мест в
+#: трёх файлах, и все семь проверка пропустила, потому что смотрела на
+#: результат собственного раскрытия, а не на то, что увидит человек.
+_JSX_ATTR = re.compile(r'[A-Za-z-]+="([^"\n]*)"')
+
 def spans_source(text: str) -> list[tuple[int, str, bool]]:
     """Строковые литералы с кириллицей. Докстроки и комментарии не в счёт:
     это разговор с собой, а не с пользователем."""
-    text = _blank_regions(text, r'""".*?"""', r"'''.*?'''", r"(?m)#[^\n]*$", r"(?m)//[^\n]*$")
+    text = _blank_regions(text, DOCSTRING_DQ, DOCSTRING_SQ, PY_COMMENT, JS_COMMENT)
     out = []
     for n, raw in enumerate(text.split("\n"), 1):
-        for m in re.finditer(r'"((?:[^"\\\n]|\\.)*)"' + r"|'((?:[^'\\\n]|\\.)*)'", raw):
-            body = m.group(1) if m.group(1) is not None else m.group(2)
-            if body and re.search("[а-яА-ЯёЁ]", body):
-                out.append((n, _unescape_js(body), False))
+        # Сначала атрибуты: их значение НЕ раскрываем, потому что и браузер
+        # его не раскроет.
+        attrs = []
+        for m in _JSX_ATTR.finditer(raw):
+            value = m.group(1)
+            if value and re.search("[а-яА-ЯёЁ]", value):
+                attrs.append((m.start(1), m.end(1)))
+                out.append((n, value, False))
+        for m in re.finditer(STRING_LITERAL, raw):
+            value = m.group(1) if m.group(1) is not None else m.group(2)
+            if not value or not re.search("[а-яА-ЯёЁ]", value):
+                continue
+            start = m.start(1) if m.group(1) is not None else m.start(2)
+            if any(a <= start < b for a, b in attrs):
+                continue  # уже взяли как атрибут, дважды не считаем
+            out.append((n, _unescape_js(value), False))
     return out
 
 
@@ -297,6 +332,14 @@ def findings(span: str, from_markup: bool = False) -> list[tuple[str, str]]:
         out.append(("R1/R2", "прямые кавычки вокруг русского текста"))
     if "..." in span:
         out.append(("R45", "три точки вместо символа многоточия"))
+    # 🚨 ESCAPE В ТЕКСТЕ, КОТОРЫЙ НИКТО НЕ РАСКРОЕТ. Значение атрибута JSX
+    # разбирается как ТЕКСТ: запись «обратный слэш, u, четыре цифры» уезжает на
+    # экран дословно. Ни одно правило выше её не ловит — там ведь нет ни
+    # пробела, ни тире, только буквы, — и 06.09.2026 в демо-панели на боевом
+    # адресе заголовок настройки читался с шестью лишними символами посреди
+    # слова. Семь мест в трёх файлах, все семь эта проверка пропустила.
+    if re.search(r"\\u00[0-9a-fA-F]{2}", span):
+        out.append(("ESC", "escape-последовательность попадёт на экран как есть"))
     if not from_markup:
         if re.search(r"\S  +\S", span):
             out.append(("—", "двойной пробел"))
