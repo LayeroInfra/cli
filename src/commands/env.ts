@@ -52,7 +52,7 @@ export async function envListCmd(opts: EnvOptions): Promise<void> {
     emit({
       event: "env_vars",
       project: project.slug,
-      vars: rows.map((r) => ({ key: r.key, length: r.length })),
+      vars: rows.map((r) => ({ key: r.key, length: r.length, managed: !!r.managed })),
     });
     return;
   }
@@ -61,10 +61,23 @@ export async function envListCmd(opts: EnvOptions): Promise<void> {
     console.log(chalk.dim("добавить: layero env set KEY=value"));
     return;
   }
+  // 🚨 ПЕРЕМЕННЫЕ ПЛАТФОРМЫ ПОМЕЧЕНЫ, А НЕ ПЕРЕМЕШАНЫ СО СВОИМИ. Список
+  // отвечает на вопрос «что получит моё приложение», и строка подключения к
+  // базе — часть ответа. Но менять её нельзя: она пересобирается из связи
+  // проекта с базой, и предложить правку значило бы пообещать несбыточное.
   for (const r of rows) {
-    console.log(`${r.key}${chalk.dim(`  (${r.length} симв.)`)}`);
+    const tail = r.managed
+      ? chalk.dim(`  (${r.length} симв., ставит платформа)`)
+      : chalk.dim(`  (${r.length} симв.)`);
+    console.log(`${r.key}${tail}`);
   }
   console.log(chalk.dim("\nзначения не показываются — платформа их не отдаёт"));
+  if (rows.some((r) => r.managed)) {
+    console.log(
+      chalk.dim("помеченные «ставит платформа» задаются подключением базы к проекту:"),
+    );
+    console.log(chalk.dim("  layero db connect <база>  /  layero db disconnect <база>"));
+  }
 }
 
 function parsePair(raw: string): { key: string; value: string } {

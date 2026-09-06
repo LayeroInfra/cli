@@ -6301,6 +6301,11 @@ export interface components {
             key: string;
             /** Length */
             length: number;
+            /**
+             * Managed
+             * @default false
+             */
+            managed: boolean;
             /** Masked */
             masked: string;
             /** Preview */
