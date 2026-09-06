@@ -2775,6 +2775,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/network/bans/{addr}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Network Ban Of
+         * @description Снять бан адреса у ЭТОЙ базы.
+         *
+         *     🚨 Ручка была только в единственном числе, а та отвечает про ПЕРВУЮ базу
+         *     организации: снять бан у второй было нечем ни из панели, ни из API, и
+         *     человек ждал получаса. Поймано приёмкой 06.09.2026 (E4).
+         */
+        delete: operations["delete_network_ban_of_organizations__slug__databases__db_id__network_bans__addr__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/network/rules": {
         parameters: {
             query?: never;
@@ -13397,6 +13421,41 @@ export interface operations {
             path: {
                 slug: string;
                 db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_network_ban_of_organizations__slug__databases__db_id__network_bans__addr__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                addr: string;
             };
             cookie?: never;
         };
