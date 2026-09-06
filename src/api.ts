@@ -397,6 +397,19 @@ export class ApiClient {
     });
   }
 
+  /** Отвязать проект от базы. Роль проекта при этом удаляется, а переменная
+   *  уходит из его окружения — не сразу, а следующим деплоем. */
+  disconnectDatabaseFromProject(
+    org: string,
+    dbId: string,
+    projectId: string,
+  ): Promise<unknown> {
+    return this.request(
+      "DELETE",
+      `/organizations/${org}/databases/${dbId}/projects/${projectId}`,
+    );
+  }
+
   queryDatabase(
     org: string,
     dbId: string,

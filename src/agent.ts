@@ -199,6 +199,7 @@ export type Event =
       password: string;
     } & EventCommon)
   | ({ event: "database_connected"; org: string; database: string; project: string } & EventCommon)
+  | ({ event: "database_disconnected"; org: string; database: string; project: string } & EventCommon)
   | ({
       event: "query_result";
       database: string;

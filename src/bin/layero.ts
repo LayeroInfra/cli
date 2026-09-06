@@ -16,7 +16,13 @@ import { initCmd } from "../commands/init.js";
 import { diagnoseCmd, logsCmd } from "../commands/diagnose.js";
 import { perfCheckCmd, perfShowCmd } from "../commands/perf.js";
 import { dataEnvCmd } from "../commands/data.js";
-import { dbConnectCmd, dbCreateCmd, dbListCmd, dbSqlCmd } from "../commands/db.js";
+import {
+  dbConnectCmd,
+  dbCreateCmd,
+  dbDisconnectCmd,
+  dbListCmd,
+  dbSqlCmd,
+} from "../commands/db.js";
 import { envListCmd, envSetCmd, envUnsetCmd } from "../commands/env.js";
 import {
   analyticsConnectCmd,
@@ -313,6 +319,14 @@ async function main(): Promise<void> {
       .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)"),
   ).action(async (database: string, opts: any) =>
     dbConnectCmd(database, { ...opts, json: program.opts().json }),
+  );
+  withOrg(
+    db
+      .command("disconnect <database>")
+      .description("Отвязать проект от базы: переменная уйдёт следующим деплоем, роль проекта удалится.")
+      .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)"),
+  ).action(async (database: string, opts: any) =>
+    dbDisconnectCmd(database, { ...opts, json: program.opts().json }),
   );
   withOrg(
     db

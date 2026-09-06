@@ -209,6 +209,37 @@ export async function dbConnectCmd(ref: string, opts: DbOptions): Promise<void> 
   );
 }
 
+export async function dbDisconnectCmd(ref: string, opts: DbOptions): Promise<void> {
+  // 🚨 ОБРАТНОГО ДЕЙСТВИЯ НЕ БЫЛО ВОВСЕ. `db connect` существовал с самого
+  // начала, а отвязать проект от базы можно было только в панели — при том
+  // что подсказка `env list` прямо звала сделать это командой. Приёмка (A7.6)
+  // спрашивает именно её.
+  const mode = detectMode();
+  const api = new ApiClient(await loadConfig());
+  const org = await orgOf(api, opts);
+  const linked = await loadProjectConfig(process.cwd());
+  const projectRef = opts.project ?? linked?.project_id;
+  if (!projectRef) {
+    throw new LayeroError(
+      "project_unknown",
+      "не понятно, какой проект отвязывать от базы",
+      "запустите из каталога проекта или передайте --project <id|slug>",
+    );
+  }
+  const project = await api.getProject(projectRef);
+  const db = await pick(api, org, ref);
+  await api.disconnectDatabaseFromProject(org, db.id, project.id);
+
+  if (mode.json || opts.json) {
+    emit({ event: "database_disconnected", org, database: db.name, project: project.slug });
+    return;
+  }
+  console.log(
+    `${chalk.green("✓")} проект «${project.slug}» отвязан от базы «${db.name}»\n` +
+      chalk.dim("  переменная уйдёт из окружения следующим деплоем, роль проекта удалена"),
+  );
+}
+
 export async function dbSqlCmd(ref: string, opts: DbOptions): Promise<void> {
   const mode = detectMode();
   const sql = (opts.command ?? "").trim();
