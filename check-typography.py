@@ -107,6 +107,18 @@ STRICT = (
     "frontend/control-plane/src/pages/Database/TablesPage.tsx",
     "frontend/control-plane/src/pages/Database/dialogs.tsx",
     "frontend/control-plane/src/pages/Database/skeletons.tsx",
+    # 06.09.2026: вычищены вместе с закрытием T-20260905-12 — те самые экраны,
+    # на которых ревью и нашло нарушения (`ResourceSettings.tsx:219`,
+    # `Extensions.tsx:217`). Правок было четырнадцать на три файла: этого мало
+    # для отдельного тикета и достаточно, чтобы вносить каждый экран сюда сразу
+    # после вычитки, а не «когда дойдут руки до всего раздела».
+    "frontend/control-plane/src/pages/Database/ResourceSettings.tsx",
+    "frontend/control-plane/src/pages/Database/Extensions.tsx",
+    "frontend/control-plane/src/pages/Database/Policies.tsx",
+    # Модули без разметки, заведённые этим же эпиком. Текстов в них немного, но
+    # это подписи колонок и названия расширений — то, что человек читает.
+    "frontend/control-plane/src/pages/Database/extensionColumns.ts",
+    "frontend/control-plane/src/pages/Database/introspect.ts",
 )
 
 # Что проверяем по умолчанию, если пути не заданы явно.
