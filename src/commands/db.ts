@@ -79,8 +79,20 @@ export async function dbListCmd(opts: DbOptions): Promise<void> {
   }
   for (const d of list) {
     const api_on = d.api_enabled ? chalk.green("API") : chalk.dim("без API");
+    // 🚨 РАЗМЕЩЕНИЕ И ВЕРСИЯ — В СТРОКЕ, А НЕ ТОЛЬКО В `--json`. Их не было
+    // вовсе: по выводу нельзя было отличить базу из тарифа от выделенного
+    // инстанса за 7750 ₽ в месяц и узнать, какой там Postgres. Панель обе
+    // вещи показывает, а приёмка (C2) спрашивает именно их.
+    const place =
+      d.placement === "dedicated"
+        ? "выделенный"
+        : d.placement === "external"
+          ? "свой сервер"
+          : "Shared";
+    const version = d.pg_version ? `PG${d.pg_version}` : chalk.dim("PG—");
     console.log(
       `${chalk.bold(d.name)}  ${chalk.dim(d.name_slug ?? "")}  ${d.status}  ` +
+        `${place}  ${version}  ` +
         `${api_on}  проектов: ${d.projects_count}  ${gb(d.size_bytes)} из ${gb(d.quota_bytes)}`,
     );
   }

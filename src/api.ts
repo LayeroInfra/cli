@@ -62,6 +62,13 @@ export interface DatabaseSummary {
   projects_count: number;
   quota_bytes: number;
   size_bytes: number | null;
+  /** Где живёт база: общий шард, выделенный инстанс или чужой сервер.
+   *  🚨 Поле сервер отдаёт давно, а CLI его не читал — по выводу нельзя было
+   *  отличить базу из тарифа от инстанса за 7750 ₽ в месяц. */
+  placement?: "sandbox" | "dedicated" | "external" | null;
+  /** Мажор Postgres. `null` — узел не спрашивали или он молчит: показываем
+   *  прочерк, а не выдумываем число. */
+  pg_version?: number | null;
 }
 
 export interface DeployHookOut {
