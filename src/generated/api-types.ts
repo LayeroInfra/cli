@@ -7806,6 +7806,11 @@ export interface components {
              * @default false
              */
             read_only: boolean;
+            /**
+             * Role
+             * @description не поддерживается: пробу от роли исполняет /api/probe
+             */
+            role?: string | null;
             /** Sql */
             sql: string;
         };
