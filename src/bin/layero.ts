@@ -296,7 +296,13 @@ async function main(): Promise<void> {
     db
       .command("create <name>")
       .description("Завести базу. Строка подключения печатается ОДИН раз.")
-      .option("--gb <number>", "объём платной базы в гигабайтах", (v: string) => parseInt(v, 10)),
+      // 🚨 ФЛАГ ОСТАВЛЕН РАДИ ЧЕСТНОГО ОТКАЗА, А НЕ РАДИ РАБОТЫ. Он обещал
+      // «объём платной базы в гигабайтах» и не делал НИЧЕГО: сервер поле не
+      // читает ни одним путём создания — у Shared объём задаёт тариф, у
+      // выделенного диск ступени. Убрать его совсем значило бы отвечать
+      // «неизвестный параметр» тому, кто им пользовался, и оставить человека
+      // гадать, куда делся объём. Теперь команда говорит это словами (C9).
+      .option("--gb <number>", "БОЛЬШЕ НЕ РАБОТАЕТ: объём задаёт тариф или ступень", (v: string) => parseInt(v, 10)),
   ).action(async (name: string, opts: any) =>
     dbCreateCmd(name, { ...opts, json: program.opts().json }),
   );
@@ -310,11 +316,22 @@ async function main(): Promise<void> {
   );
   withOrg(
     db
-      .command("sql <database>")
+      // 🚨 ЗАПРОС МОЖНО ПИСАТЬ ПРОСТО СЛЕДОМ ЗА ИМЕНЕМ БАЗЫ. Раньше `-c` был
+      // ОБЯЗАТЕЛЕН, и `layero db sql моя-база "select 1"` отвечал
+      // «required option -c, --command not specified» — то есть отказывал на
+      // самой очевидной форме записи. Так эта команда и записана в приёмке
+      // (C6), и так её пишет всякий, кто помнит psql.
+      .command("sql <database> [sql]")
       .description("Выполнить SQL в базе. Скрипт из нескольких операторов — одной транзакцией.")
-      .requiredOption("-c, --command <sql>", "запрос или скрипт"),
-  ).action(async (database: string, opts: any) =>
-    dbSqlCmd(database, { ...opts, json: program.opts().json }),
+      .option("-c, --command <sql>", "запрос или скрипт"),
+  ).action(async (database: string, sql: string | undefined, opts: any) =>
+    dbSqlCmd(database, {
+      ...opts,
+      // Явный `-c` выигрывает: он написан намеренно, а позиционный аргумент
+      // мог прилететь из истории команд.
+      command: opts.command ?? sql,
+      json: program.opts().json,
+    }),
   );
 
   const analytics = program

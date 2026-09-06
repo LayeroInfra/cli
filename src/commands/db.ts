@@ -129,11 +129,22 @@ async function waitUntilReady(
 
 export async function dbCreateCmd(name: string, opts: DbOptions): Promise<void> {
   const mode = detectMode();
+  // 🚨 `--gb` НЕ ДЕЛАЛ НИЧЕГО, И МОЛЧАНИЕ БЫЛО ХУЖЕ ОТКАЗА. Поле уезжало на
+  // сервер, а тот его не читает ни одним путём создания: у Shared объём задаёт
+  // тариф, у выделенного — диск ступени. Человек называл число, получал базу
+  // другого размера и не знал почему (приёмка C9).
+  if (opts.gb != null) {
+    throw new LayeroError(
+      "gb_not_supported",
+      "объём базы так не выбирается",
+      "у базы из тарифа объём задан тарифом, у выделенного инстанса — диском " +
+        "ступени: закажите нужную ступень в панели",
+    );
+  }
   const api = new ApiClient(await loadConfig());
   const org = await orgOf(api, opts);
   const created = await api.createDatabase(org, {
     name,
-    quota_gb: opts.gb,
     // 🚨 ФЛАГА «БЕЗ НАПОЛНЕНИЯ» БОЛЬШЕ НЕТ. Он существовал, пока пресет
     // заводил три таблицы с примерами: человек со своей схемой получал чужие
     // таблицы молча, и отказаться было нечем. Тестовых таблиц в пресете не
@@ -202,7 +213,11 @@ export async function dbSqlCmd(ref: string, opts: DbOptions): Promise<void> {
   const mode = detectMode();
   const sql = (opts.command ?? "").trim();
   if (!sql) {
-    throw new LayeroError("sql_missing", "нечего выполнять", 'передайте запрос: -c "SELECT 1"');
+    throw new LayeroError(
+      "sql_missing",
+      "нечего выполнять",
+      'передайте запрос следом за именем базы: layero db sql моя-база "select 1"',
+    );
   }
   const api = new ApiClient(await loadConfig());
   const org = await orgOf(api, opts);
