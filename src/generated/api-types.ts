@@ -2895,6 +2895,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay Resource Now
+         * @description «Оплатить сейчас» — платёж руками, когда автосписание не прошло.
+         *
+         *     🚨 НЕ ПОВТОР АВТОСПИСАНИЯ. Замер 28.08.2026: та же карта в тот же день
+         *     платит вручную — банки часто отклоняют именно платёж без участия человека.
+         *     Предложить по кнопке ровно то, что уже не сработало, значит потратить
+         *     единственную попытку человека на заведомый отказ.
+         *
+         *     Платить может любой админ организации: доступ к базе закрыт у всех, и
+         *     ждать владельца, пока сайты лежат, — не то, чего от нас ждут. Карта при
+         *     этом всё равно одна, организации, и её владелец не меняется.
+         */
+        post: operations["pay_resource_now_organizations__slug__databases__db_id__pay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/projects": {
         parameters: {
             query?: never;
@@ -5755,6 +5784,10 @@ export interface components {
              * @default false
              */
             billable: boolean;
+            /** Billing */
+            billing?: {
+                [key: string]: unknown;
+            } | null;
             /** Capabilities */
             capabilities: string[];
             /** Connection String */
@@ -6841,6 +6874,20 @@ export interface components {
             is_build_like: boolean;
             /** Name */
             name: string;
+        };
+        /** PayNowIn */
+        PayNowIn: {
+            /** Return Url */
+            return_url?: string | null;
+        };
+        /** PayNowOut */
+        PayNowOut: {
+            /** Amount Kopecks */
+            amount_kopecks: number;
+            /** Confirmation Url */
+            confirmation_url: string | null;
+            /** Payment Id */
+            payment_id: string;
         };
         /** PerfBucketOut */
         PerfBucketOut: {
@@ -13653,6 +13700,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SecretOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pay_resource_now_organizations__slug__databases__db_id__pay_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PayNowIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayNowOut"];
                 };
             };
             /** @description Validation Error */
