@@ -205,7 +205,7 @@ export async function dbCreateCmd(name: string, opts: DbOptions): Promise<void> 
     throw new LayeroError(
       "dedicated_needs_panel",
       "выделенный инстанс из терминала не заказывается",
-      "у него есть цена и заморозка денег на карте, а подтвердить её в " +
+      "у него есть цена и заморозка денег на карте, а подтвердить сумму в " +
         "терминале негде. Закажите в панели: " +
         `${dashboardOrigin(config.apiUrl)}/databases?new=1 — там видны ` +
         "ступени, цена и дата следующего списания",
