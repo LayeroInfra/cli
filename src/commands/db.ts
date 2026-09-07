@@ -11,6 +11,7 @@
 // командах.
 import chalk from "chalk";
 import { ApiClient, DatabaseSummary } from "../api.js";
+import { dashboardOrigin } from "../urls.js";
 import { loadConfig } from "../config.js";
 import { loadProjectConfig } from "../project-config.js";
 import { LayeroError, detectMode, emit } from "../agent.js";
@@ -21,6 +22,11 @@ interface DbOptions {
   project?: string;
   gb?: number;
   command?: string;
+  /** Флаги платного заказа. Существуют РАДИ ОТКАЗА, а не ради работы — см.
+   *  `dbCreateCmd`. */
+  cpu?: number;
+  ram?: number;
+  dedicated?: boolean;
 }
 
 async function orgOf(api: ApiClient, opts: DbOptions): Promise<string> {
@@ -63,6 +69,46 @@ function gb(bytes: number | null | undefined): string {
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} ГБ`;
 }
 
+/**
+ * Что сказать про деньги у этой базы. Пусто — платить не за что.
+ *
+ * 🚨 КАЖДОМУ СОСТОЯНИЮ СВОЯ ФРАЗА, И ЭТО НЕ УКРАШЕНИЕ. У базы с закрытым
+ * доступом «спишем 3 октября» — неправда: списывать уже пробовали и не вышло.
+ * Одна строка на все состояния была бы верной ровно в одном из них.
+ *
+ * Даты приходят от сервера уже посчитанными: правила лестницы живут там, и
+ * вторая их реализация в CLI разошлась бы с панелью молча.
+ */
+export function billingLine(d: DatabaseSummary): string | null {
+  const b = d.billing;
+  if (!b) return null;
+  const rub = (b.price_month_kopecks / 100).toLocaleString("ru-RU");
+  const when = (iso?: string | null) =>
+    iso ? new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : null;
+
+  if (b.status === "suspended") {
+    const gone = when(b.terminate_at);
+    return chalk.red(
+      gone
+        ? `${rub} ₽/мес · доступ закрыт за неоплату, удалим ${gone}`
+        : `${rub} ₽/мес · доступ закрыт за неоплату`,
+    );
+  }
+  if (b.status === "past_due") {
+    const till = when(b.paid_until);
+    return chalk.yellow(
+      till
+        ? `${rub} ₽/мес · оплата не прошла, работает по ${till}`
+        : `${rub} ₽/мес · оплата не прошла`,
+    );
+  }
+  const next = when(b.next_charge_at);
+  if (next) return chalk.dim(`${rub} ₽/мес · спишем ${next}`);
+  const till = when(b.paid_until);
+  return chalk.dim(till ? `${rub} ₽/мес · оплачено по ${till}` : `${rub} ₽/мес`);
+}
+
+
 export async function dbListCmd(opts: DbOptions): Promise<void> {
   const mode = detectMode();
   const api = new ApiClient(await loadConfig());
@@ -95,6 +141,11 @@ export async function dbListCmd(opts: DbOptions): Promise<void> {
         `${place}  ${version}  ` +
         `${api_on}  проектов: ${d.projects_count}  ${gb(d.size_bytes)} из ${gb(d.quota_bytes)}`,
     );
+    // 🚨 СРОК ОПЛАТЫ — ОТДЕЛЬНОЙ СТРОКОЙ, А НЕ ХВОСТОМ ПЕРВОЙ. Строка и так
+    // на пределе ширины терминала, а это единственное, что решает, будет база
+    // работать через неделю. Хвост, уезжающий за край, — то же молчание.
+    const money = billingLine(d);
+    if (money) console.log(`  ${money}`);
   }
 }
 
@@ -141,7 +192,26 @@ export async function dbCreateCmd(name: string, opts: DbOptions): Promise<void> 
         "ступени: закажите нужную ступень в панели",
     );
   }
-  const api = new ApiClient(await loadConfig());
+  // 🚨 ПЛАТНЫЙ ЗАКАЗ ИЗ ТЕРМИНАЛА НЕВОЗМОЖЕН, И СКАЗАТЬ ОБ ЭТОМ НАДО СЛОВАМИ.
+  // Дело не в лени: у заказа выделенного инстанса есть цена и заморозка денег
+  // на карте. Карту в терминале не привяжешь, сумму подтвердить негде, а
+  // «списали, потому что вы набрали команду» — не тот способ брать деньги.
+  //
+  // Отказ называет причину и ведёт туда, где заказ возможен. Молчаливое
+  // создание Shared вместо выделенного было бы хуже отказа: человек получил бы
+  // не то, что просил, и узнал бы об этом по нехватке мощности.
+  const config = await loadConfig();
+  if (opts.dedicated || opts.cpu != null || opts.ram != null) {
+    throw new LayeroError(
+      "dedicated_needs_panel",
+      "выделенный инстанс из терминала не заказывается",
+      "у него есть цена и заморозка денег на карте, а подтвердить её в " +
+        "терминале негде. Закажите в панели: " +
+        `${dashboardOrigin(config.apiUrl)}/databases?new=1 — там видны ` +
+        "ступени, цена и дата следующего списания",
+    );
+  }
+  const api = new ApiClient(config);
   const org = await orgOf(api, opts);
   const created = await api.createDatabase(org, {
     name,

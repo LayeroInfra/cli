@@ -69,6 +69,19 @@ export interface DatabaseSummary {
   /** Мажор Postgres. `null` — узел не спрашивали или он молчит: показываем
    *  прочерк, а не выдумываем число. */
   pg_version?: number | null;
+  /** Состояние оплаты платного инстанса. `null` — платить не за что.
+   *
+   *  🚨 У ВЫДЕЛЕННОГО ИНСТАНСА ЕСТЬ СРОК, И МОЛЧАТЬ О НЁМ ИЗ ТЕРМИНАЛА НЕЛЬЗЯ.
+   *  `layero db list` показывал платную базу неотличимо от бесплатной, а у
+   *  неё через несколько дней закрывается доступ. Человек, живущий в
+   *  терминале, узнавал бы об этом по неработающей базе. */
+  billing?: {
+    status: string;
+    price_month_kopecks: number;
+    paid_until?: string | null;
+    next_charge_at?: string | null;
+    terminate_at?: string | null;
+  } | null;
 }
 
 export interface DeployHookOut {

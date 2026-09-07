@@ -9,6 +9,7 @@ import {
   ProjectSummary,
   uploadArchive,
 } from "../api.js";
+import { dashboardOrigin } from "../urls.js";
 import { loadConfig } from "../config.js";
 import {
   ProjectConfig,
@@ -121,18 +122,6 @@ type RuntimeKindHint =
 export function runtimeTypeOf(raw: string | undefined): string | null {
   if (!raw) return null;
   return RUNTIME_TYPES[raw.trim().toLowerCase()] ?? null;
-}
-
-function dashboardOrigin(apiUrl: string): string {
-  const override = process.env.LAYERO_DASHBOARD_URL;
-  if (override) return override.replace(/\/+$/, "");
-  try {
-    const u = new URL(apiUrl);
-    u.hostname = u.hostname.replace(/^api\./, "app.");
-    return u.origin;
-  } catch {
-    return "https://app.layero.ru";
-  }
 }
 
 function projectUrl(apiUrl: string, projectId: string): string {
