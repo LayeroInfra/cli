@@ -3019,6 +3019,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/resize-quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resize Quote
+         * @description Сколько стоит увеличить этот инстанс — до нажатия, а не после.
+         *
+         *     🚨 ДИАЛОГ ОБЯЗАН НАЗВАТЬ СУММУ, КОТОРУЮ ПОТОМ СПИШЕТ. Апгрейд списывает
+         *     разницу за оставшиеся дни сразу, в момент изменения. Диалог, который об
+         *     этом молчит, превращает нажатие «Применить» в списание вслепую.
+         *
+         *     Отвечает ТОТ ЖЕ расчёт, что потом исполнит списание (`plan_change` +
+         *     `upgrade_topup_kopecks`): вторая формула в панели разошлась бы с первой на
+         *     первой же правке каталога, и человек увидел бы одну сумму, а заплатил
+         *     другую. Этот класс уже стоил нам цены, расходившейся между мастером и
+         *     карточкой в четыре раза (04.09.2026).
+         */
+        get: operations["resize_quote_organizations__slug__databases__db_id__resize_quote_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/roles": {
         parameters: {
             query?: never;
@@ -7935,6 +7965,22 @@ export interface components {
             private: boolean;
             /** Pushed At */
             pushed_at?: string | null;
+        };
+        /**
+         * ResizeQuoteOut
+         * @description Во что обойдётся смена конфигурации ЭТОГО инстанса прямо сейчас.
+         */
+        ResizeQuoteOut: {
+            /** Kind */
+            kind: string;
+            /** Price Month */
+            price_month: number;
+            /** Price Month Now */
+            price_month_now: number;
+            /** Topup Kopecks */
+            topup_kopecks: number;
+            /** Unused Days */
+            unused_days: number;
         };
         /** RestoreIn */
         RestoreIn: {
@@ -13917,6 +13963,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resize_quote_organizations__slug__databases__db_id__resize_quote_get: {
+        parameters: {
+            query?: {
+                cpu?: number | null;
+                ram_mb?: number | null;
+                disk_gb?: number | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResizeQuoteOut"];
                 };
             };
             /** @description Validation Error */
