@@ -32,9 +32,18 @@ beforeEach(() => {
   setMode({ agent: true, json: true, interactive: false, reason: "test" });
   loadProjectConfig.mockResolvedValue({ project_id: "p1" });
   getProject.mockResolvedValue({ id: "p1", slug: "site" });
+  // 🚨 В ФИКСТУРЕ ЕСТЬ `value`, ХОТЯ СЕРВЕР ЕГО НЕ ШЛЁТ. Это не ошибка данных, а
+  // худший случай нарочно: поле, которого в фикстуре нет, утечь в тесте не
+  // может — `toEqual` не видит `undefined`, и мутация «добавили значение в
+  // событие» осталась бы зелёной. Проверено мутацией 07.09.2026.
+  //
+  // Если завтра ручка начнёт отдавать значение (а причин не завтра, так
+  // послезавтра найдётся), сторож поймает это сразу, а не после утечки.
   listEnvVars.mockResolvedValue([
-    { key: "OPENAI_API_KEY", masked: "••••••••", length: 51, preview: SECRET_PREVIEW },
-    { key: "DATABASE_URL", masked: "••••••••", length: 64, preview: "postgre" },
+    { key: "OPENAI_API_KEY", masked: "••••••••", length: 51,
+      preview: SECRET_PREVIEW, value: `${SECRET_PREVIEW}-полное-значение` },
+    { key: "DATABASE_URL", masked: "••••••••", length: 64,
+      preview: "postgre", value: "postgres://user:pass@host/db" },
   ]);
   replaceEnvVars.mockResolvedValue([]);
 });
@@ -70,9 +79,17 @@ describe("значения не утекают", () => {
       spy.mockRestore();
     }
     const ev = JSON.parse(lines.find((l) => l.includes('"env_vars"'))!);
+    // 🚨 СЛИЧАЕМ ПОЛНЫЙ НАБОР ПОЛЕЙ, А НЕ ОТСУТСТВИЕ ЗНАЧЕНИЯ. Смысл проверки в
+    // том, что в событие попадает ТОЛЬКО безопасное: добавили поле — тест
+    // краснеет и заставляет посмотреть, безопасно ли оно. Проверка «значения
+    // нет» пропустила бы новое поле молча, а именно так секрет и уезжает.
+    //
+    // `managed` добавлен 06.09.2026 (признак «переменная от платформы») —
+    // булев флаг, значения не несёт. Тест краснел с 06.09 09:39 и оставался
+    // красным сутки: сторож секретов, который всегда красный, перестают читать.
     expect(ev.vars).toEqual([
-      { key: "OPENAI_API_KEY", length: 51 },
-      { key: "DATABASE_URL", length: 64 },
+      { key: "OPENAI_API_KEY", length: 51, managed: false },
+      { key: "DATABASE_URL", length: 64, managed: false },
     ]);
     expect(JSON.stringify(ev)).not.toContain(SECRET_PREVIEW);
   });
