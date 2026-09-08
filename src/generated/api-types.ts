@@ -2122,6 +2122,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/exposed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api Exposed
+         * @description Что база отдаёт наружу: таблицы и функции с ролями, которым они открыты.
+         *
+         *     🚨 Одной ручкой, а не сборкой на клиенте из запроса на роль: раздел «API» —
+         *     вход, и три круга до узла на его открытие — тот самый класс, что однажды
+         *     стоил панели пяти сетевых кругов.
+         */
+        get: operations["api_exposed_organizations__slug__databases__db_id__api_exposed_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/functions/grant": {
         parameters: {
             query?: never;
@@ -12237,6 +12261,40 @@ export interface operations {
             query?: {
                 drop_conflicts?: boolean;
             };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_exposed_organizations__slug__databases__db_id__api_exposed_get: {
+        parameters: {
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
