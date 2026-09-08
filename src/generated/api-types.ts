@@ -2109,6 +2109,11 @@ export interface paths {
          *
          *     Идемпотентна: повторное нажатие не плодит ключи — человек жмёт ещё раз,
          *     когда не понял, включилось ли.
+         *
+         *     ⚠️ `drop_conflicts` — это ЗАПИСАННОЕ РЕШЕНИЕ ЧЕЛОВЕКА, а не флаг удобства.
+         *     Без него занятое имя останавливает включение отказом; с ним занятые
+         *     объекты удаляются. Панель ставит его только после того, как показала
+         *     перечень и получила подтверждение.
          */
         post: operations["api_enable_organizations__slug__databases__db_id__api_enable_post"];
         delete?: never;
@@ -2298,6 +2303,30 @@ export interface paths {
          *     `://` и точки, и в пути он превращается в чужой маршрут.
          */
         delete: operations["api_delete_origin_organizations__slug__databases__db_id__api_origins_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api Preflight
+         * @description Что помешает включить API — до включения и ничего не меняя.
+         *
+         *     🚨 Отдельной ручкой, а не полем в ответе включения: человек должен увидеть
+         *     конфликт ДО применения. `api` — очевидное имя схемы, и тот, кто вёл базу
+         *     сам, мог завести её раньше нас; раньше его таблица присваивалась молча.
+         */
+        get: operations["api_preflight_organizations__slug__databases__db_id__api_preflight_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -12205,7 +12234,9 @@ export interface operations {
     };
     api_enable_organizations__slug__databases__db_id__api_enable_post: {
         parameters: {
-            query?: never;
+            query?: {
+                drop_conflicts?: boolean;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -12642,6 +12673,40 @@ export interface operations {
             query: {
                 origin: string;
             };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_preflight_organizations__slug__databases__db_id__api_preflight_get: {
+        parameters: {
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
