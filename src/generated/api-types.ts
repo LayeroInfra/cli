@@ -5447,6 +5447,16 @@ export interface components {
         /** ApiFunctionGrantIn */
         ApiFunctionGrantIn: {
             /**
+             * Dry Run
+             * @default false
+             */
+            dry_run: boolean;
+            /**
+             * Fix Public
+             * @default false
+             */
+            fix_public: boolean;
+            /**
              * Revoke
              * @default false
              */
@@ -5461,6 +5471,11 @@ export interface components {
         };
         /** ApiGrantIn */
         ApiGrantIn: {
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run: boolean;
             /**
              * Role Kind
              * @default public
