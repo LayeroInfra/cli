@@ -126,6 +126,19 @@ STRICT = (
     # это подписи колонок и названия расширений — то, что человек читает.
     "frontend/control-plane/src/pages/Database/extensionColumns.ts",
     "frontend/control-plane/src/pages/Database/introspect.ts",
+    # 09.09.2026: раздел «Файлы» разъехался с одного экрана на модуль (STOR-12)
+    # и вычищен вычиткой ru-check при разборе. Поводом стало то же, что и у
+    # соседей: в прежнем `Files.tsx` было НОЛЬ неразрывных пробелов при
+    # семидесяти трёх длинных тире, хотя докстрока файла заводила тексты
+    # константами ровно ради них. Заводим сразу после вычитки, а не «когда
+    # дойдут руки»: вычищенный и неохраняемый файл разъезжается за одну правку.
+    "frontend/control-plane/src/pages/Database/Files/index.tsx",
+    "frontend/control-plane/src/pages/Database/Files/Explorer.tsx",
+    "frontend/control-plane/src/pages/Database/Files/BucketRail.tsx",
+    "frontend/control-plane/src/pages/Database/Files/Details.tsx",
+    "frontend/control-plane/src/pages/Database/Files/Policies.tsx",
+    "frontend/control-plane/src/pages/Database/Files/Examples.tsx",
+    "frontend/control-plane/src/pages/Database/Files/texts.ts",
 )
 
 # Что проверяем по умолчанию, если пути не заданы явно.
