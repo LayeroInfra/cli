@@ -2017,6 +2017,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/auth/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api List App Users
+         * @description Кто зарегистрировался в приложении арендатора.
+         *
+         *     ⚠️ Это НЕ роли Postgres, которые показывает «Доступ». Роль базы и есть её
+         *     пользователь; здесь — люди, вошедшие на сайте через схему `auth`.
+         */
+        get: operations["api_list_app_users_organizations__slug__databases__db_id__api_auth_users_get"];
+        put?: never;
+        /** Api Create App User */
+        post: operations["api_create_app_user_organizations__slug__databases__db_id__api_auth_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/auth/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Api Delete App User
+         * @description 🚨 Необратимо и задевает чужие данные: строки приложения, ссылающиеся на
+         *     `auth.users` с `ON DELETE CASCADE`, уедут вместе с человеком.
+         */
+        delete: operations["api_delete_app_user_organizations__slug__databases__db_id__api_auth_users__user_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Api Update App User
+         * @description Заблокировать, разблокировать, подтвердить почту.
+         *
+         *     🚨 Блокировка гасит живые сессии. Иначе «заблокирован» значит «не сможет
+         *     войти ЗАНОВО», а тот, кто уже внутри, досиживает срок токена обновления.
+         */
+        patch: operations["api_update_app_user_organizations__slug__databases__db_id__api_auth_users__user_id__patch"];
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/auth/users/{user_id}/revoke-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Revoke App User Sessions
+         * @description Выкинуть человека со всех устройств, не трогая пароль.
+         */
+        post: operations["api_revoke_app_user_sessions_organizations__slug__databases__db_id__api_auth_users__user_id__revoke_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/call-log": {
         parameters: {
             query?: never;
@@ -5544,6 +5616,36 @@ export interface components {
             name: string;
             /** Scopes */
             scopes: string[];
+        };
+        /**
+         * AppUserIn
+         * @description Заведение человека руками — для проверки входа, пока сайта ещё нет.
+         */
+        AppUserIn: {
+            /** Email */
+            email: string;
+            /**
+             * Email Confirm
+             * @default true
+             */
+            email_confirm: boolean;
+            /** Password */
+            password: string;
+        };
+        /**
+         * AppUserPatch
+         * @description Блокировка, снятие и подтверждение почты. Незаданное не трогается.
+         */
+        AppUserPatch: {
+            /** Ban Hours */
+            ban_hours?: number | null;
+            /** Email Confirm */
+            email_confirm?: boolean | null;
+            /**
+             * Unban
+             * @default false
+             */
+            unban: boolean;
         };
         /** AttachExternalIn */
         AttachExternalIn: {
@@ -12073,6 +12175,191 @@ export interface operations {
                 "application/json": components["schemas"]["AuthSettingsIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_list_app_users_organizations__slug__databases__db_id__api_auth_users_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                search?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_create_app_user_organizations__slug__databases__db_id__api_auth_users_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppUserIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_delete_app_user_organizations__slug__databases__db_id__api_auth_users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_update_app_user_organizations__slug__databases__db_id__api_auth_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppUserPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_revoke_app_user_sessions_organizations__slug__databases__db_id__api_auth_users__user_id__revoke_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
