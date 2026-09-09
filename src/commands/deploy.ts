@@ -9,6 +9,7 @@ import {
   ProjectSummary,
   uploadArchive,
 } from "../api.js";
+import { looksLikeId } from "../project-ref.js";
 import { dashboardOrigin } from "../urls.js";
 import { loadConfig } from "../config.js";
 import {
@@ -56,9 +57,6 @@ interface DeployOptions {
   // GitHub-push trigger or hook trigger uses the same subdir.
   root?: string;
 }
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const VALID_TYPES = new Set([
   "vite",
@@ -598,7 +596,7 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     // Опечатка в слаге при этом обязана дать 404, а не завести лишний
     // проект с похожим именем: `create_if_missing: false`.
     ...(opts.project
-      ? UUID_RE.test(opts.project)
+      ? looksLikeId(opts.project)
         ? { project_id: opts.project }
         : { name: opts.project, create_if_missing: false }
       : existing?.project_id

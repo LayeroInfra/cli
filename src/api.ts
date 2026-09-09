@@ -1,6 +1,8 @@
+import { LayeroError } from "./agent.js";
 import { CliConfig } from "./config.js";
 import { CLI_VERSION, userAgent } from "./version.js";
 import type { components } from "./generated/api-types.js";
+import { looksLikeId } from "./project-ref.js";
 
 /**
  * Типы ответов API берутся из СГЕНЕРИРОВАННОЙ схемы (AGENT-03), а не
@@ -171,6 +173,35 @@ export class ApiClient {
 
   getProject(idOrSlug: string): Promise<ProjectSummary> {
     return this.request<ProjectSummary>("GET", `/projects/${idOrSlug}`);
+  }
+
+  /**
+   * Проект по идентификатору ИЛИ по слагу — так, как обещают справки команд.
+   *
+   * 🚨 РЕЗОЛВ ЖИВЁТ ЗДЕСЬ, А НЕ НА СЕРВЕРЕ, и это не лень. Слаг проекта
+   * уникален В ПРЕДЕЛАХ ОРГАНИЗАЦИИ (`projects_owner_slug_uniq` — пара
+   * organization_id + slug), то есть один и тот же слаг законно существует у
+   * двух организаций сразу. Ручка `/projects/{id}` организации не знает и
+   * выбирать между ними не имеет права; клиент знает, за кого он ходит.
+   *
+   * Отличаем по ФОРМЕ значения: UUID, ушедший в поиск по слагу, не нашёлся бы.
+   * Раньше отличия не было вовсе — слаг уезжал в путь как есть, и ручка
+   * отвечала 422 `uuid_parsing`, а CLI показывал его как «internal, сообщите
+   * об ошибке» (T-20260909-32).
+   */
+  async resolveProject(idOrSlug: string): Promise<ProjectSummary> {
+    if (looksLikeId(idOrSlug)) return this.getProject(idOrSlug);
+    const projects = await this.listProjects();
+    const found = projects.find((p) => p.slug === idOrSlug);
+    if (!found) {
+      const known = projects.map((p) => p.slug).slice(0, 8).join(", ");
+      throw new LayeroError(
+        "project_unknown",
+        `проекта «${idOrSlug}» нет среди доступных`,
+        known ? `есть такие: ${known}` : "заведите проект: layero deploy",
+      );
+    }
+    return found;
   }
 
   createCliProject(input: {

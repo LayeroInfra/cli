@@ -45,7 +45,10 @@ async function projectRef(api: ApiClient, opts: DataEnvOptions): Promise<{ id: s
       "запусти из каталога проекта или передай --project <id|slug>",
     );
   }
-  const p = await api.getProject(ref);
+  // По идентификатору ИЛИ по слагу — ровно как обещает справка команды.
+  // До 09.09 слаг уезжал в путь ручки как есть и возвращался 422
+  // `uuid_parsing`, который CLI показывал как «internal, сообщите об ошибке».
+  const p = await api.resolveProject(ref);
   return { id: p.id, slug: p.slug };
 }
 
