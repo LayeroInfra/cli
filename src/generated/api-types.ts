@@ -2007,7 +2007,7 @@ export interface paths {
         get?: never;
         /**
          * Api Set Auth Settings
-         * @description Требовать ли подтверждение почты при регистрации.
+         * @description Способы входа по почте и подтверждение адреса (A4/A6).
          */
         put: operations["api_set_auth_settings_organizations__slug__databases__db_id__api_auth_settings_put"];
         post?: never;
@@ -5663,10 +5663,21 @@ export interface components {
             /** Provider */
             provider: string;
         };
-        /** AuthSettingsIn */
+        /**
+         * AuthSettingsIn
+         * @description Настройки входа по почте. Незаданное поле не трогается.
+         *
+         *     ⚠️ Все три необязательны намеренно: панель шлёт по одному переключателю за
+         *     раз, и обязательное `confirm_email` заставляло бы её досылать соседние
+         *     значения — то есть перезаписывать их тем, что было на экране.
+         */
         AuthSettingsIn: {
             /** Confirm Email */
-            confirm_email: boolean;
+            confirm_email?: boolean | null;
+            /** Magiclink Enabled */
+            magiclink_enabled?: boolean | null;
+            /** Password Enabled */
+            password_enabled?: boolean | null;
         };
         /**
          * BackupCreateIn
