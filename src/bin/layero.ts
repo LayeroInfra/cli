@@ -324,7 +324,8 @@ async function main(): Promise<void> {
   withOrg(
     db
       .command("connect <database>")
-      .description("Подключить проект к базе: строка подключения приедет в его переменные.")
+      .description("Подключить проект к базе: строка подключения приедет в его "
+        + "переменные, а домены проекта станут разрешёнными для Data API.")
       .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)"),
   ).action(async (database: string, opts: any) =>
     dbConnectCmd(database, { ...opts, json: program.opts().json }),
@@ -332,7 +333,8 @@ async function main(): Promise<void> {
   withOrg(
     db
       .command("disconnect <database>")
-      .description("Отвязать проект от базы: переменная уйдёт следующим деплоем, роль проекта удалится.")
+      .description("Отвязать проект от базы: переменная уйдёт следующим деплоем, "
+        + "роль проекта удалится, домены перестанут быть разрешёнными для Data API.")
       .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)"),
   ).action(async (database: string, opts: any) =>
     dbDisconnectCmd(database, { ...opts, json: program.opts().json }),
