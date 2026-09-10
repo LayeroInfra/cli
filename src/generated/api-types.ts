@@ -1952,6 +1952,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/auth/jwt-secret/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Reveal Auth Jwt Secret
+         * @description Секрет подписи токенов (A8) — тому, кто проверяет их сам.
+         *
+         *     🚨 Это ВЫДАЧА секрета: с ним подделывается токен любого пользователя базы.
+         *     Поэтому POST, только админу организации и с записью в журнал.
+         */
+        post: operations["api_reveal_auth_jwt_secret_organizations__slug__databases__db_id__api_auth_jwt_secret_reveal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/auth/jwt-secret/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Rotate Auth Jwt Secret
+         * @description Новый секрет подписи. Токены доступа на прежнем гаснут, вошедшие не
+         *     выходят — клиент обновит сессию сам.
+         */
+        post: operations["api_rotate_auth_jwt_secret_organizations__slug__databases__db_id__api_auth_jwt_secret_rotate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/auth/providers": {
         parameters: {
             query?: never;
@@ -1997,6 +2041,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/auth/providers/{provider}/checked": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Mark Auth Provider Checked
+         * @description Владелец вошёл через провайдера своим аккаунтом — вход проверен.
+         */
+        post: operations["api_mark_auth_provider_checked_organizations__slug__databases__db_id__api_auth_providers__provider__checked_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/auth/refusals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api List Auth Refusals
+         * @description Отказы входа и запросов, сгруппированные по причине (UX-2).
+         */
+        get: operations["api_list_auth_refusals_organizations__slug__databases__db_id__api_auth_refusals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/auth/settings": {
         parameters: {
             query?: never;
@@ -2007,10 +2091,57 @@ export interface paths {
         get?: never;
         /**
          * Api Set Auth Settings
-         * @description Способы входа по почте и подтверждение адреса (A4/A6).
+         * @description Настройки входа: способы, регистрация, пароль, письмо, сроки токенов,
+         *     перебор, второй фактор, выключение (A1, A4, A6, A8, A12, A13).
+         *
+         *     Незаданные поля не трогаются; ответ — состояние входа целиком.
          */
         put: operations["api_set_auth_settings_organizations__slug__databases__db_id__api_auth_settings_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/auth/smtp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Api Set Auth Smtp
+         * @description Свой SMTP (A7): письма входа приложения — с его адреса.
+         */
+        put: operations["api_set_auth_smtp_organizations__slug__databases__db_id__api_auth_smtp_put"];
+        post?: never;
+        /**
+         * Api Delete Auth Smtp
+         * @description Вернуть письма на адрес Layero.
+         */
+        delete: operations["api_delete_auth_smtp_organizations__slug__databases__db_id__api_auth_smtp_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/auth/smtp/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Test Auth Smtp
+         * @description Проверочное письмо через свой SMTP — сразу, с ответом словами.
+         */
+        post: operations["api_test_auth_smtp_organizations__slug__databases__db_id__api_auth_smtp_test_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2067,6 +2198,66 @@ export interface paths {
          *     войти ЗАНОВО», а тот, кто уже внутри, досиживает срок токена обновления.
          */
         patch: operations["api_update_app_user_organizations__slug__databases__db_id__api_auth_users__user_id__patch"];
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/auth/users/{user_id}/factors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api List App User Factors
+         * @description Подключённые приложения второго фактора (A13).
+         */
+        get: operations["api_list_app_user_factors_organizations__slug__databases__db_id__api_auth_users__user_id__factors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/auth/users/{user_id}/factors/{factor_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Api Delete App User Factor
+         * @description Сбросить второй фактор — человек потерял телефон.
+         */
+        delete: operations["api_delete_app_user_factor_organizations__slug__databases__db_id__api_auth_users__user_id__factors__factor_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/auth/users/{user_id}/recovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Send App User Recovery
+         * @description Письмо со ссылкой на новый пароль — от имени приложения (A15).
+         */
+        post: operations["api_send_app_user_recovery_organizations__slug__databases__db_id__api_auth_users__user_id__recovery_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/organizations/{slug}/databases/{db_id}/api/auth/users/{user_id}/revoke-sessions": {
@@ -5637,6 +5828,10 @@ export interface components {
          * @description Блокировка, снятие и подтверждение почты. Незаданное не трогается.
          */
         AppUserPatch: {
+            /** App Metadata */
+            app_metadata?: {
+                [key: string]: unknown;
+            } | null;
             /** Ban Hours */
             ban_hours?: number | null;
             /** Email Confirm */
@@ -5672,12 +5867,73 @@ export interface components {
          *     значения — то есть перезаписывать их тем, что было на экране.
          */
         AuthSettingsIn: {
+            /** Access Ttl S */
+            access_ttl_s?: number | null;
             /** Confirm Email */
             confirm_email?: boolean | null;
+            /** Disabled */
+            disabled?: boolean | null;
             /** Magiclink Enabled */
             magiclink_enabled?: boolean | null;
+            /** Mfa Enabled */
+            mfa_enabled?: boolean | null;
+            /** Otp Mode */
+            otp_mode?: string | null;
+            /** Otp Ttl S */
+            otp_ttl_s?: number | null;
             /** Password Enabled */
             password_enabled?: boolean | null;
+            /** Password Min Length */
+            password_min_length?: number | null;
+            /** Password Required */
+            password_required?: string[] | null;
+            /** Refresh Ttl Days */
+            refresh_ttl_days?: number | null;
+            /** Signup Open */
+            signup_open?: boolean | null;
+            /** Signup Per Hour */
+            signup_per_hour?: number | null;
+            /** Throttle Max */
+            throttle_max?: number | null;
+            /** Throttle Window S */
+            throttle_window_s?: number | null;
+        };
+        /**
+         * AuthSmtpIn
+         * @description Свой SMTP базы (A7). Пароль — только при смене: `None` оставляет прежний.
+         */
+        AuthSmtpIn: {
+            /** From Email */
+            from_email: string;
+            /**
+             * From Name
+             * @default
+             */
+            from_name: string;
+            /** Host */
+            host: string;
+            /** Password */
+            password?: string | null;
+            /**
+             * Port
+             * @default 465
+             */
+            port: number;
+            /**
+             * Security
+             * @default ssl
+             */
+            security: string;
+            /**
+             * Username
+             * @default
+             */
+            username: string;
+        };
+        /** AuthSmtpTestIn */
+        AuthSmtpTestIn: {
+            /** To Email */
+            to_email: string;
         };
         /**
          * BackupCreateIn
@@ -12062,6 +12318,74 @@ export interface operations {
             };
         };
     };
+    api_reveal_auth_jwt_secret_organizations__slug__databases__db_id__api_auth_jwt_secret_reveal_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_rotate_auth_jwt_secret_organizations__slug__databases__db_id__api_auth_jwt_secret_rotate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     api_list_auth_providers_organizations__slug__databases__db_id__api_auth_providers_get: {
         parameters: {
             query?: never;
@@ -12169,6 +12493,77 @@ export interface operations {
             };
         };
     };
+    api_mark_auth_provider_checked_organizations__slug__databases__db_id__api_auth_providers__provider__checked_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_list_auth_refusals_organizations__slug__databases__db_id__api_auth_refusals_get: {
+        parameters: {
+            query?: {
+                hours?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     api_set_auth_settings_organizations__slug__databases__db_id__api_auth_settings_put: {
         parameters: {
             query?: never;
@@ -12184,6 +12579,116 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AuthSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_set_auth_smtp_organizations__slug__databases__db_id__api_auth_smtp_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthSmtpIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_delete_auth_smtp_organizations__slug__databases__db_id__api_auth_smtp_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_test_auth_smtp_organizations__slug__databases__db_id__api_auth_smtp_test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthSmtpTestIn"];
             };
         };
         responses: {
@@ -12336,6 +12841,112 @@ export interface operations {
                 "application/json": components["schemas"]["AppUserPatch"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_list_app_user_factors_organizations__slug__databases__db_id__api_auth_users__user_id__factors_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_delete_app_user_factor_organizations__slug__databases__db_id__api_auth_users__user_id__factors__factor_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                user_id: string;
+                factor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_send_app_user_recovery_organizations__slug__databases__db_id__api_auth_users__user_id__recovery_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
