@@ -2070,7 +2070,10 @@ export interface paths {
         };
         /**
          * Api List Auth Refusals
-         * @description Отказы входа и запросов, сгруппированные по причине (UX-2).
+         * @description Отказы входа и запросов: итог по причине и ряд по часам или дням (UX-2).
+         *
+         *     `tz` — пояс смотрящего (IANA, например `Europe/Moscow`): по нему выровнены
+         *     столбцы графика. Неизвестный — считаем по UTC.
          */
         get: operations["api_list_auth_refusals_organizations__slug__databases__db_id__api_auth_refusals_get"];
         put?: never;
@@ -12532,6 +12535,7 @@ export interface operations {
         parameters: {
             query?: {
                 hours?: number;
+                tz?: string | null;
             };
             header?: {
                 authorization?: string | null;
