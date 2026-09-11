@@ -2649,6 +2649,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api Roles
+         * @description Роли Data API базы по виду — `{имя: public|authenticated|secret}`.
+         *
+         *     Из справочника платформы, без агента узла: панель считает права ролей
+         *     по каталогу базы сама, ей нужны только имена. Угадывать их по шаблону
+         *     имени нельзя — `pg_roles` общий на шард.
+         */
+        get: operations["api_roles_organizations__slug__databases__db_id__api_roles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/secrets": {
         parameters: {
             query?: never;
@@ -13741,6 +13765,40 @@ export interface operations {
                 "application/json": components["schemas"]["ProbeIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_roles_organizations__slug__databases__db_id__api_roles_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
