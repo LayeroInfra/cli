@@ -185,6 +185,70 @@ export type Event =
   // без них он не соберёт первый же запрос к базе. Секретного ключа здесь не
   // бывает никогда — платформа его не хранит.
   | ({ event: "data_env"; project: string; vars: Record<string, string> } & EventCommon)
+  // Data API базы (T-20260911-9). В списке ключей — только префиксы. Значение
+  // ключа есть в одном событии, `data_key_issued`, и ровно один раз: секретный
+  // платформа не хранит, другого способа его узнать нет ни у кого.
+  | ({
+      event: "data_keys";
+      org: string;
+      database: string;
+      keys: Array<{
+        id: string;
+        kind: "public" | "secret";
+        prefix: string;
+        label: string | null;
+        created_at: string | null;
+        last_used_at: string | null;
+        expires_at: string | null;
+        in_build: boolean;
+        service: boolean;
+      }>;
+    } & EventCommon)
+  | ({
+      event: "data_key_issued";
+      org: string;
+      database: string;
+      id: string;
+      kind: "public" | "secret";
+      prefix: string;
+      key: string;
+      expires_at: string | null;
+    } & EventCommon)
+  | ({ event: "data_key_revoked"; org: string; database: string; id: string } & EventCommon)
+  | ({
+      event: "data_origins";
+      org: string;
+      database: string;
+      origins: Array<{ origin: string; note: string | null }>;
+      from_projects: string[];
+      localhost_allowed: boolean;
+    } & EventCommon)
+  | ({ event: "data_origin_added"; org: string; database: string; origin: string } & EventCommon)
+  | ({ event: "data_origin_removed"; org: string; database: string; origin: string } & EventCommon)
+  | ({ event: "data_methods"; org: string; database: string; tables: unknown[]; functions: unknown[] } & EventCommon)
+  // `applied: false` — показ: ничего не изменено. Без `--yes` вне терминала CLI
+  // только показывает: агент обязан увидеть команды ДО того, как таблица
+  // откроется интернету.
+  | ({
+      event: "data_grant";
+      org: string;
+      database: string;
+      object: unknown;
+      current: Record<string, string>;
+      next: Record<string, string>;
+      sql: string[];
+      warnings: string[];
+      applied: boolean;
+      next_action?: string;
+    } & EventCommon)
+  | ({
+      event: "data_api_enabled";
+      org: string;
+      database: string;
+      slug: string;
+      public_key: string | null;
+      secret_key: string | null;
+    } & EventCommon)
   // Базы организации (DX-03). `database_created` несёт строку подключения:
   // пароль показывается ОДИН раз, и агенту он нужен ровно так же, как человеку.
   | ({ event: "token_created"; id: string; name: string; token: string; scopes: string[] } & EventCommon)

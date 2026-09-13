@@ -17,6 +17,17 @@ import { diagnoseCmd, logsCmd } from "../commands/diagnose.js";
 import { perfCheckCmd, perfShowCmd } from "../commands/perf.js";
 import { dataEnvCmd } from "../commands/data.js";
 import {
+  dataEnableCmd,
+  dataGrantCmd,
+  dataKeysIssueCmd,
+  dataKeysListCmd,
+  dataKeysRevokeCmd,
+  dataMethodsCmd,
+  dataOriginsAddCmd,
+  dataOriginsListCmd,
+  dataOriginsRemoveCmd,
+} from "../commands/data-api.js";
+import {
   dbConnectCmd,
   dbCreateCmd,
   dbDisconnectCmd,
@@ -275,7 +286,7 @@ async function main(): Promise<void> {
 
   const data = program
     .command("data")
-    .description("Data API: адрес и публичный ключ базы для фронтенда.");
+    .description("Data API базы: ключи, сайты, методы и доступ; адрес и ключ для фронтенда.");
   data
     .command("env")
     .description("Показать VITE_/NEXT_PUBLIC_ переменные Data API; --write кладёт их в .env.local.")
@@ -291,6 +302,79 @@ async function main(): Promise<void> {
         "Секретный ключ платформа не хранит и не отдаёт: он для сервера.",
     )
     .action(async (opts: any) => dataEnvCmd({ ...opts, json: program.opts().json }));
+
+  const withDb = (c: any) =>
+    c
+      .option("--db <name>", "база: имя, слаг или id (по умолчанию — единственная с Data API)")
+      .option("--org <slug>", "организация (по умолчанию единственная)");
+  const json = (opts: any) => ({ ...opts, json: program.opts().json });
+
+  const keys = data.command("keys").description("Ключи Data API: список, выпуск, отзыв.");
+  withDb(keys.command("list").description("Ключи базы: префикс, срок, последний вызов. Значений нет."))
+    .action(async (opts: any) => dataKeysListCmd(json(opts)));
+  withDb(
+    keys
+      .command("issue")
+      .description("Выпустить ключ. Значение печатается один раз.")
+      .option("--kind <kind>", "public — для сайта, secret — для сервера", "public")
+      .option("--label <text>", "подпись, по которой ключ узнают в списке")
+      .option("--expires-in <days>", "срок: 30, 90, 365 или never", "never"),
+  ).action(async (opts: any) => dataKeysIssueCmd(json(opts)));
+  withDb(
+    keys
+      .command("revoke <id>")
+      .description("Отозвать ключ по id или префиксу. Запросы с ним сразу получают отказ.")
+      .option("-y, --yes", "не спрашивать подтверждение"),
+  ).action(async (id: string, opts: any) => dataKeysRevokeCmd(id, json(opts)));
+
+  const origins = data.command("origins").description("Сайты, которым можно звать базу из браузера.");
+  withDb(origins.command("list").description("Адреса проектов базы и добавленные вручную."))
+    .action(async (opts: any) => dataOriginsListCmd(json(opts)));
+  withDb(
+    origins
+      .command("add <url>")
+      .description("Пустить сайт. Данных не открывает: это решают уровни доступа.")
+      .option("--note <text>", "зачем добавлен"),
+  ).action(async (url: string, opts: any) => dataOriginsAddCmd(url, json(opts)));
+  withDb(
+    origins
+      .command("remove <url>")
+      .description("Убрать сайт из списка.")
+      .option("-y, --yes", "не спрашивать подтверждение"),
+  ).action(async (url: string, opts: any) => dataOriginsRemoveCmd(url, json(opts)));
+
+  withDb(data.command("methods").description("REST и RPC базы с уровнем доступа на каждый метод."))
+    .action(async (opts: any) => dataMethodsCmd(json(opts)));
+
+  withDb(
+    data
+      .command("grant <object>")
+      .description("Уровень доступа к методам таблицы или функции: показывает SQL, применяет после подтверждения.")
+      .option("--get <level>", "чтение таблицы")
+      .option("--post <level>", "добавление строк")
+      .option("--patch <level>", "изменение строк")
+      .option("--delete <level>", "удаление строк")
+      .option("--call <level>", "вызов функции")
+      .option("-y, --yes", "применить без подтверждения")
+      .addHelpText(
+        "after",
+        "\nУровни: closed — закрыто, visitor — любой посетитель, user — вошедшие, server — только сервер.\n" +
+          "Неназванные методы таблицы сохраняют текущий уровень.\n" +
+          "\nПримеры:\n" +
+          "  $ layero data grant app.products --get visitor         # каталог виден сайту\n" +
+          "  $ layero data grant app.orders --get user --post user  # заказы — вошедшим\n" +
+          "  $ layero data grant api.order_create --call visitor     # функция для сайта\n" +
+          "  $ layero data grant 'api.pick(integer)' --call server   # перегрузка — по типам\n" +
+          "\nБез --yes вне терминала команда только показывает SQL и ничего не меняет.",
+      ),
+  ).action(async (object: string, opts: any) => dataGrantCmd(object, json(opts)));
+
+  withDb(
+    data
+      .command("enable")
+      .description("Включить Data API у базы: схема api, роли и публичный ключ. Методы закрыты.")
+      .option("--with-secret", "выпустить и секретный ключ для сервера"),
+  ).action(async (opts: any) => dataEnableCmd(json(opts)));
 
   const db = program
     .command("db")

@@ -29,7 +29,7 @@ interface DbOptions {
   dedicated?: boolean;
 }
 
-async function orgOf(api: ApiClient, opts: DbOptions): Promise<string> {
+export async function orgOf(api: ApiClient, opts: DbOptions): Promise<string> {
   if (opts.org) return opts.org;
   const orgs = await api.listOrganizations();
   if (orgs.length === 1) return orgs[0]!.slug;
@@ -43,7 +43,7 @@ async function orgOf(api: ApiClient, opts: DbOptions): Promise<string> {
 }
 
 /** База по имени, слагу или id — как её назвал человек. */
-async function pick(api: ApiClient, org: string, ref: string): Promise<DatabaseSummary> {
+export async function pick(api: ApiClient, org: string, ref: string): Promise<DatabaseSummary> {
   const list = await api.listDatabases(org);
   const needle = ref.trim().toLowerCase();
   const found = list.find(

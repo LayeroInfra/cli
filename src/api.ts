@@ -28,6 +28,51 @@ export type RuntimeKind =
   | "node_web"
   | "spa";
 export type MeOut = Schemas["MeOut"];
+
+/** Ключ Data API в списке. Значения здесь нет и быть не может — только префикс. */
+export interface DataApiKey {
+  id: string;
+  key_prefix: string;
+  is_public: boolean;
+  label?: string | null;
+  created_at?: string | null;
+  last_used_at?: string | null;
+  expires_at?: string | null;
+  in_build?: boolean;
+  is_service?: boolean;
+}
+
+export interface DataApiMethods {
+  roles: Record<string, string>;
+  tables: Array<{
+    schema: string;
+    name: string;
+    kind: "table" | "view";
+    rls: boolean | null;
+    path: string;
+    levels: Record<string, string>;
+    writable: string[];
+  }>;
+  functions: Array<{
+    schema: string;
+    name: string;
+    args: string;
+    signature: string;
+    path: string | null;
+    level: string;
+    public_only: boolean;
+  }>;
+}
+
+/** Показ или итог смены уровня: команды собирает сервер (`userdb_api_levels`). */
+export interface DataApiLevelsPlan {
+  object: { kind: "table" | "view" | "function"; schema: string; name: string; args?: string };
+  current: Record<string, string>;
+  next: Record<string, string>;
+  sql: string[];
+  warnings: string[];
+  applied: boolean;
+}
 export type UploadInit = Schemas["UploadInitOut"];
 export type DeployOut = Schemas["DeployOut"];
 export type ProbeOut = Schemas["ProbeOut"];
@@ -510,6 +555,67 @@ export class ApiClient {
 
   dataEnv(projectId: string): Promise<Record<string, string>> {
     return this.request<Record<string, string>>("GET", `/projects/${projectId}/data-env`);
+  }
+
+  // ── Data API базы: ключи, сайты, методы и уровни (T-20260911-9) ─────────
+  //
+  // Те же ручки, что у раздела «API» в панели. Ответы у них без модели в
+  // схеме, поэтому их форма описана здесь; тела запросов — из схемы.
+
+  listDataKeys(org: string, dbId: string): Promise<DataApiKey[]> {
+    return this.request("GET", `/organizations/${org}/databases/${dbId}/api/keys`);
+  }
+
+  issueDataKey(
+    org: string,
+    dbId: string,
+    input: Schemas["ApiKeyIn"],
+  ): Promise<{ id: string; key: string; prefix: string; is_public: boolean; expires_at?: string | null }> {
+    return this.request("POST", `/organizations/${org}/databases/${dbId}/api/keys`, input);
+  }
+
+  revokeDataKey(org: string, dbId: string, keyId: string): Promise<unknown> {
+    return this.request("DELETE", `/organizations/${org}/databases/${dbId}/api/keys/${keyId}`);
+  }
+
+  listDataOrigins(org: string, dbId: string): Promise<{
+    origins: Array<{ origin: string; note?: string | null }>;
+    from_projects: string[];
+    localhost_allowed?: boolean;
+  }> {
+    return this.request("GET", `/organizations/${org}/databases/${dbId}/api/origins`);
+  }
+
+  addDataOrigin(org: string, dbId: string, origin: string, note: string | null): Promise<unknown> {
+    const body: Schemas["OriginIn"] = { origin, note };
+    return this.request("POST", `/organizations/${org}/databases/${dbId}/api/origins`, body);
+  }
+
+  /** Источник — параметром запроса: в нём `://` и точки, путём он стал бы чужим маршрутом. */
+  removeDataOrigin(org: string, dbId: string, origin: string): Promise<unknown> {
+    return this.request(
+      "DELETE",
+      `/organizations/${org}/databases/${dbId}/api/origins?origin=${encodeURIComponent(origin)}`,
+    );
+  }
+
+  listDataMethods(org: string, dbId: string): Promise<DataApiMethods> {
+    return this.request("GET", `/organizations/${org}/databases/${dbId}/api/methods`);
+  }
+
+  setDataLevels(org: string, dbId: string, input: Schemas["ApiLevelsIn"]): Promise<DataApiLevelsPlan> {
+    return this.request("POST", `/organizations/${org}/databases/${dbId}/api/levels`, input);
+  }
+
+  enableDataApi(
+    org: string,
+    dbId: string,
+    withSecret: boolean,
+  ): Promise<{ slug: string; key: { key: string } | null; secret_key: { key: string } | null }> {
+    return this.request(
+      "POST",
+      `/organizations/${org}/databases/${dbId}/api/enable?with_secret=${withSecret ? "true" : "false"}`,
+    );
   }
 
   /**

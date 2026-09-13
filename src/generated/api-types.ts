@@ -2568,6 +2568,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/levels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Set Levels
+         * @description Уровень доступа к методам таблицы или функции: команды и их применение.
+         *
+         *     Один генератор для панели, CLI и MCP. Без `apply` возвращает команды и
+         *     ничего не меняет.
+         */
+        post: operations["api_set_levels_organizations__slug__databases__db_id__api_levels_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api Methods
+         * @description Методы Data API базы и уровень доступа на каждый HTTP-метод.
+         *
+         *     Уровень — по действующим правам ролей Data API в самой базе, как их
+         *     увидит шлюз (`userdb_api_levels`).
+         */
+        get: operations["api_methods_organizations__slug__databases__db_id__api_methods_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/origins": {
         parameters: {
             query?: never;
@@ -5857,6 +5903,24 @@ export interface components {
             kind: string;
             /** Label */
             label?: string | null;
+        };
+        /** ApiLevelsIn */
+        ApiLevelsIn: {
+            /**
+             * Apply
+             * @default false
+             */
+            apply: boolean;
+            /** Expected Sql */
+            expected_sql?: string[] | null;
+            /** Level */
+            level?: string | null;
+            /** Levels */
+            levels?: {
+                [key: string]: string;
+            } | null;
+            /** Object */
+            object: string;
         };
         /** ApiTokenCreateIn */
         ApiTokenCreateIn: {
@@ -13690,6 +13754,78 @@ export interface operations {
                 slug: string;
                 db_id: string;
                 key_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_set_levels_organizations__slug__databases__db_id__api_levels_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiLevelsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_methods_organizations__slug__databases__db_id__api_methods_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
             };
             cookie?: never;
         };
