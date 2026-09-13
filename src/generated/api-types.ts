@@ -2373,6 +2373,9 @@ export interface paths {
          * Api Enable
          * @description Включает Data API: схема `api`, роли с нулевыми грантами, первый ключ.
          *
+         *     `with_secret` — выдать пару (публичный и сервисный) одной транзакцией. Его
+         *     шлёт только экран первого включения: он показывает оба значения.
+         *
          *     Идемпотентна: повторное нажатие не плодит ключи — человек жмёт ещё раз,
          *     когда не понял, включилось ли.
          *
@@ -2598,6 +2601,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/origins/localhost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Api Set Localhost Allowed
+         * @description Пускать ли `localhost` любого порта (решение 11.09, §8 №1).
+         */
+        put: operations["api_set_localhost_allowed_organizations__slug__databases__db_id__api_origins_localhost_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/preflight": {
         parameters: {
             query?: never;
@@ -2643,6 +2666,28 @@ export interface paths {
          *     тем, что получит чужой клиент через шлюз, а не с нашей моделью этого.
          */
         post: operations["api_probe_as_role_organizations__slug__databases__db_id__api_probe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/refusals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api List Refusals
+         * @description Отказы Data API у любой базы, со входом и без (T-20260911-8).
+         *
+         *     Форма ответа — как у `/api/auth/refusals`; тот остаётся журналом входа.
+         */
+        get: operations["api_list_refusals_organizations__slug__databases__db_id__api_refusals_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5778,6 +5823,8 @@ export interface components {
         };
         /** ApiKeyIn */
         ApiKeyIn: {
+            /** Expires In Days */
+            expires_in_days?: number | null;
             /**
              * Kind
              * @default public
@@ -7113,6 +7160,11 @@ export interface components {
             linked_at: string;
             /** Provider */
             provider: string;
+        };
+        /** LocalhostIn */
+        LocalhostIn: {
+            /** Allowed */
+            allowed: boolean;
         };
         /** LogLineOut */
         LogLineOut: {
@@ -13218,6 +13270,7 @@ export interface operations {
         parameters: {
             query?: {
                 drop_conflicts?: boolean;
+                with_secret?: boolean;
             };
             header?: {
                 authorization?: string | null;
@@ -13720,6 +13773,44 @@ export interface operations {
             };
         };
     };
+    api_set_localhost_allowed_organizations__slug__databases__db_id__api_origins_localhost_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocalhostIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     api_preflight_organizations__slug__databases__db_id__api_preflight_get: {
         parameters: {
             query?: never;
@@ -13771,6 +13862,43 @@ export interface operations {
                 "application/json": components["schemas"]["ProbeIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_list_refusals_organizations__slug__databases__db_id__api_refusals_get: {
+        parameters: {
+            query?: {
+                hours?: number;
+                tz?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
