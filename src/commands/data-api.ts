@@ -130,6 +130,16 @@ async function confirmed(question: string, opts: DataApiOptions): Promise<boolea
   }
 }
 
+/**
+ * Аргумент подсказки, которую копируют в shell.
+ *
+ * `api.pick(integer)` без кавычек zsh читает как шаблон имён файлов и отвечает
+ * «no matches found», bash — синтаксической ошибкой (ревью 13.09).
+ */
+export function shellArg(value: string): string {
+  return /^[\w@%+=:,./-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
 function day(value: string | null | undefined): string {
   return value ? value.slice(0, 10) : "";
 }
@@ -371,7 +381,10 @@ export async function dataMethodsCmd(opts: DataApiOptions): Promise<void> {
   for (const f of res.functions) {
     const where = f.path ? chalk.dim(f.path) : chalk.dim("не метод: шлюз зовёт функции только из схемы api");
     const pub = f.public_only ? chalk.yellow("  доступна всем по умолчанию Postgres — шлюз её не пустит") : "";
-    console.log(`  ${f.signature}  ${where}\n    POST ${LEVEL_WORD[f.level] ?? f.level}${pub}`);
+    const twin = f.overloaded
+      ? chalk.yellow("  в схеме api есть одноимённая функция или процедура — шлюз ищет по имени и может вызвать другую")
+      : "";
+    console.log(`  ${f.signature}  ${where}\n    POST ${LEVEL_WORD[f.level] ?? f.level}${pub}${twin}`);
   }
 }
 
@@ -400,7 +413,9 @@ function planLines(plan: DataApiLevelsPlan): string[] {
     );
   }
   out.push(chalk.dim("\nSQL:"), ...plan.sql.map((s) => `  ${s}`));
-  for (const w of plan.warnings) out.push(chalk.yellow(`⚠ ${w}`));
+  // Причины блокировки печатает сам отказ — здесь их не повторяем.
+  const blocked = new Set(plan.blocked ?? []);
+  for (const w of plan.warnings) if (!blocked.has(w)) out.push(chalk.yellow(`⚠ ${w}`));
   return out;
 }
 
@@ -414,6 +429,7 @@ function planEvent(org: string, ref: string, plan: DataApiLevelsPlan, applied: b
     next: plan.next,
     sql: plan.sql,
     warnings: plan.warnings,
+    blocked: plan.blocked ?? [],
     applied,
   };
 }
@@ -442,10 +458,23 @@ export async function dataGrantCmd(object: string, opts: DataApiOptions): Promis
     ...Object.entries(levels).map(([method, value]) => `--${method.toLowerCase()} ${value}`),
     ...(level ? [`--call ${level}`] : []),
   ].join(" ");
-  const retry = `layero data grant ${object} --db ${ref} ${flags} --yes`;
+  const retry = `layero data grant ${shellArg(object)} --db ${shellArg(ref)} ${flags} --yes`;
   const plan = await api.setDataLevels(org, db.id, { ...request, apply: false });
   const json = asJson(opts);
-  if (!json && !opts.yes) console.log(planLines(plan).join("\n"));
+  const blocked = plan.blocked ?? [];
+  if (!json && (!opts.yes || blocked.length)) console.log(planLines(plan).join("\n"));
+
+  // 🚨 БЛОКИРОВКУ СЕРВЕР ПРИМЕНИТЬ НЕ ДАСТ. Спрашивать «применить?» и слать
+  // применение с `--yes` значило бы задать вопрос с известным ответом и получить
+  // http_409 с подсказкой «исправьте запрос и повторите» (ревью 13.09).
+  if (blocked.length) {
+    if (json) emit(planEvent(org, ref, plan, false));
+    throw new LayeroError(
+      "data_levels_blocked",
+      `уровень доступа нельзя применить: ${blocked.join(" ")}`,
+      `измените запрос по тексту отказа; текущие уровни: layero data methods --db ${shellArg(ref)}`,
+    );
+  }
 
   const ok = await confirmed("\nприменить?", opts);
   if (ok === null) {

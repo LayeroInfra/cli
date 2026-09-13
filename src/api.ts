@@ -61,7 +61,10 @@ export interface DataApiMethods {
     name: string;
     args: string;
     signature: string;
+    kind?: "function" | "procedure";
     path: string | null;
+    /** В схеме api есть одноимённая функция или процедура: шлюз ищет по имени. */
+    overloaded?: boolean;
     level: string;
     public_only: boolean;
   }>;
@@ -74,6 +77,8 @@ export interface DataApiLevelsPlan {
   next: Record<string, string>;
   sql: string[];
   warnings: string[];
+  /** Причины, по которым применения не будет: сервер откажет. Входят и в `warnings`. */
+  blocked?: string[];
   applied: boolean;
 }
 export type UploadInit = Schemas["UploadInitOut"];

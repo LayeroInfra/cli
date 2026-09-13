@@ -54,6 +54,7 @@ import {
   dataOriginsAddCmd,
   dataOriginsRemoveCmd,
   registerDataApiCommands,
+  shellArg,
 } from "../src/commands/data-api.js";
 import { setMode } from "../src/agent.js";
 
@@ -260,6 +261,60 @@ describe("уровни доступа", () => {
   it("функция — уровнем вызова", async () => {
     await capture(() => dataGrantCmd("api.order_create", { db: "kofeinya", call: "server" }));
     expect(api.setDataLevels.mock.calls[0]![2]).toMatchObject({ levels: null, level: "server" });
+  });
+
+  it("подсказка повтора функции несёт --call и кавычки для shell", async () => {
+    const { error } = await capture(() => dataGrantCmd("api.pick(integer)", { db: "kofeinya", call: "server" }));
+    expect(error).toMatchObject({ code: "confirmation_required" });
+    expect(String(error.next_action)).toContain(
+      "layero data grant 'api.pick(integer)' --db kofeinya --call server --yes",
+    );
+  });
+
+  it("экранирование аргумента подсказки", () => {
+    expect(shellArg("app.products")).toBe("app.products");
+    expect(shellArg('app."Order"')).toBe(`'app."Order"'`);
+    expect(shellArg("it's")).toBe(`'it'\\''s'`);
+  });
+
+  it("блокировка — отказ без вопроса и без применения, даже с --yes", async () => {
+    const reason = "Схема app принадлежит другой роли";
+    api.setDataLevels.mockResolvedValue({ ...PLAN, warnings: [reason], blocked: [reason] });
+    const { events: out, error } = await capture(() =>
+      dataGrantCmd("app.products", { db: "kofeinya", get: "visitor", yes: true }));
+    expect(error).toMatchObject({ code: "data_levels_blocked" });
+    expect(String(error.message)).toContain(reason);
+    expect(api.setDataLevels).toHaveBeenCalledTimes(1);
+    expect(out).toEqual([expect.objectContaining({ event: "data_grant", applied: false, blocked: [reason] })]);
+
+    setMode({ agent: false, json: false, interactive: true, reason: "test" });
+    prompt.answer = "y";
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    let err: any;
+    try {
+      err = await dataGrantCmd("app.products", { db: "kofeinya", get: "visitor" }).then(() => null, (e) => e);
+    } finally {
+      log.mockRestore();
+    }
+    expect(err).toMatchObject({ code: "data_levels_blocked" });
+    expect(prompt.asked).toEqual([]);
+    expect(api.setDataLevels).toHaveBeenCalledTimes(2);
+  });
+
+  it("одноимённая функция помечена в описи методов", async () => {
+    setMode({ agent: false, json: false, interactive: true, reason: "test" });
+    api.listDataMethods.mockResolvedValue({
+      roles: {},
+      tables: [],
+      functions: [{ signature: "api.pr(x text)", level: "server", path: "/rest/v1/rpc/pr", public_only: false, overloaded: true }],
+    });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await dataMethodsCmd({ db: "kofeinya" });
+      expect(log.mock.calls.flat().join("\n")).toContain("одноимённая функция или процедура");
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it("неизвестный уровень и пустой набор — отказ до запроса", async () => {
