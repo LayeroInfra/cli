@@ -8261,6 +8261,12 @@ export interface components {
              * @default false
              */
             force: boolean;
+            /**
+             * Origin
+             * @default user
+             * @enum {string}
+             */
+            origin: "user" | "platform";
             /** Project Type */
             project_type: string;
         };
