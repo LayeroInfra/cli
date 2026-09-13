@@ -2614,6 +2614,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api Metrics
+         * @description Вызовы Data API за сутки, неделю или месяц — по времени и по методам (T-20260911-3).
+         *
+         *     Ряд вызовов и ошибок по часам или дням в поясе `tz`, итог окна и первые 50
+         *     адресов по числу вызовов. p95 — верхняя граница корзины времени ответа.
+         *     Любому участнику организации: это статистика, а не настройки.
+         */
+        get: operations["api_metrics_organizations__slug__databases__db_id__api_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/origins": {
         parameters: {
             query?: never;
@@ -13820,6 +13844,43 @@ export interface operations {
     api_methods_organizations__slug__databases__db_id__api_methods_get: {
         parameters: {
             query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_metrics_organizations__slug__databases__db_id__api_metrics_get: {
+        parameters: {
+            query?: {
+                range?: "24h" | "7d" | "30d";
+                tz?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
