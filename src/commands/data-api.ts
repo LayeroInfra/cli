@@ -76,7 +76,14 @@ async function target(opts: DataApiOptions, purpose: "api" | "enable" = "api"): 
     db = await pick(api, org, opts.db);
   } else {
     const list = await api.listDatabases(org);
-    const candidates = list.filter((d) => (purpose === "api" ? d.api_enabled : !d.api_enabled));
+    // Для включения — только базы Layero в работе: внешнюю и остановленную
+    // сервер всё равно не включит, а «единственная подходящая» не должна
+    // оказаться ею (ревью 13.09).
+    const candidates = list.filter((d) =>
+      purpose === "api"
+        ? d.api_enabled
+        : !d.api_enabled && d.status === "active" && d.placement !== "external" && d.provider !== "external",
+    );
     if (candidates.length !== 1) {
       throw new LayeroError(
         "database_unknown",
@@ -431,6 +438,11 @@ export async function dataGrantCmd(object: string, opts: DataApiOptions): Promis
     levels: Object.keys(levels).length ? levels : null,
     level: level ?? null,
   };
+  const flags = [
+    ...Object.entries(levels).map(([method, value]) => `--${method.toLowerCase()} ${value}`),
+    ...(level ? [`--call ${level}`] : []),
+  ].join(" ");
+  const retry = `layero data grant ${object} --db ${ref} ${flags} --yes`;
   const plan = await api.setDataLevels(org, db.id, { ...request, apply: false });
   const json = asJson(opts);
   if (!json && !opts.yes) console.log(planLines(plan).join("\n"));
@@ -440,13 +452,13 @@ export async function dataGrantCmd(object: string, opts: DataApiOptions): Promis
     if (json) {
       emit({
         ...planEvent(org, ref, plan, false),
-        next_action: "проверьте команды и предупреждения; применить — та же команда с --yes",
+        next_action: `проверьте команды и предупреждения; применить: ${retry}`,
       });
     }
     throw new LayeroError(
       "confirmation_required",
       "уровень доступа не применён: команды нужно подтвердить",
-      `проверьте команды и предупреждения и повторите с --yes: layero data grant ${object} --db ${ref} … --yes`,
+      `проверьте команды и предупреждения и повторите: ${retry}`,
     );
   }
   if (!ok) {

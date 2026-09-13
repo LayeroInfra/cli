@@ -8,6 +8,7 @@
 //  · применение уровней идёт со сверкой: серверу уходят ровно показанные команды.
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Command } from "commander";
+import { readFileSync } from "node:fs";
 
 const api = vi.hoisted(() => ({
   listOrganizations: vi.fn(),
@@ -98,7 +99,12 @@ beforeEach(() => {
   prompt.asked = [];
   setMode({ agent: true, json: true, interactive: false, reason: "test" });
   api.listOrganizations.mockResolvedValue([{ slug: "acme", kind: "personal" }]);
-  api.listDatabases.mockResolvedValue([DB, { id: "db-2", name: "Черновик", name_slug: "draft", api_enabled: false }]);
+  api.listDatabases.mockResolvedValue([
+    DB,
+    { id: "db-2", name: "Черновик", name_slug: "draft", api_enabled: false, status: "active", placement: "sandbox", provider: "layero" },
+    { id: "db-3", name: "Своя", name_slug: "own", api_enabled: false, status: "active", placement: "external", provider: "external" },
+    { id: "db-4", name: "Спит", name_slug: "sleep", api_enabled: false, status: "suspended", placement: "sandbox", provider: "layero" },
+  ]);
   // 🚨 В ФИКСТУРЕ ЕСТЬ ЗНАЧЕНИЕ, ХОТЯ СЕРВЕР ЕГО НЕ ШЛЁТ: худший случай нарочно.
   // Поле, которого в фикстуре нет, утечь в тесте не может.
   api.listDataKeys.mockResolvedValue([
@@ -211,19 +217,22 @@ describe("уровни доступа", () => {
     });
     expect(out).toEqual([expect.objectContaining({
       event: "data_grant", applied: false, sql: PLAN.sql, warnings: PLAN.warnings,
-      next_action: expect.stringContaining("--yes"),
+      next_action: expect.stringContaining("layero data grant app.products --db kofeinya --get visitor --yes"),
     })]);
+    expect(String(error.next_action)).not.toContain("…");
   });
 
   it("с --yes применяет ровно показанные команды и в --json не пишет человеческий текст", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     let out: any[];
+    let printed = -1;
     try {
       out = await events(() => dataGrantCmd("app.products", { db: "kofeinya", get: "VISITOR", delete: "closed", yes: true }));
+      printed = log.mock.calls.length;
     } finally {
       log.mockRestore();
     }
-    expect(log).not.toHaveBeenCalled();
+    expect(printed).toBe(0);
     expect(api.setDataLevels).toHaveBeenCalledTimes(2);
     expect(api.setDataLevels.mock.calls[1]![2]).toEqual({
       object: "app.products", levels: { GET: "visitor", DELETE: "closed" }, level: null,
@@ -273,6 +282,51 @@ describe("уровни доступа", () => {
       tables: [{ schema: "app", name: "products" }],
       functions: [{ signature: "api.menu()", level: "visitor" }],
     });
+  });
+});
+
+describe("связка команд", () => {
+  it("действие grant зовёт команду, а глобальный --json доезжает до неё", async () => {
+    const program = new Command();
+    program.option("--json");
+    program.exitOverride();
+    registerDataApiCommands(program.command("data"), program);
+    // Терминал и режим «не JSON»: единственный источник --json — глобальный флаг.
+    setMode({ agent: false, json: false, interactive: true, reason: "test" });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const refused = await capture(() => program.parseAsync(
+        ["node", "layero", "--json", "data", "grant", "app.products", "--db", "kofeinya", "--get", "visitor"],
+      ));
+      // Флаг дошёл: вопроса не было, отказ вместо него.
+      expect(refused.error).toMatchObject({ code: "confirmation_required" });
+      expect(prompt.asked).toEqual([]);
+      expect(api.setDataLevels).toHaveBeenCalledTimes(1);
+
+      const applied = await capture(() => program.parseAsync(
+        ["node", "layero", "--json", "data", "grant", "app.products", "--db", "kofeinya", "--get", "visitor", "--yes"],
+      ));
+      expect(applied.error).toBeNull();
+      expect(api.setDataLevels).toHaveBeenCalledTimes(3);
+      expect(api.setDataLevels.mock.calls[2]![2]).toMatchObject({
+        object: "app.products", levels: { GET: "visitor" }, apply: true, expected_sql: PLAN.sql,
+      });
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("--json в терминале не задаёт вопрос и требует --yes", async () => {
+    setMode({ agent: false, json: false, interactive: true, reason: "test" });
+    const { error } = await capture(() => dataGrantCmd("app.products", { db: "kofeinya", get: "visitor", json: true }));
+    expect(error).toMatchObject({ code: "confirmation_required" });
+    expect(prompt.asked).toEqual([]);
+    expect(api.setDataLevels).toHaveBeenCalledTimes(1);
+  });
+
+  it("bin регистрирует команды Data API", () => {
+    const bin = readFileSync(new URL("../src/bin/layero.ts", import.meta.url), "utf8");
+    expect(bin).toContain("registerDataApiCommands(data, program)");
   });
 });
 
