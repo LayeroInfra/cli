@@ -3,9 +3,11 @@
 // Главное, что проверяется:
 //  · значения ключей не уезжают в вывод списка — даже если сервер их пришлёт;
 //  · без `--yes` вне терминала ни уровень, ни отзыв, ни удаление сайта не
-//    применяются — агент получает команды и подсказку;
+//    применяются, и команда завершается ОШИБКОЙ, а не зелёным кодом 0;
+//  · ответ «нет» в терминале ничего не применяет;
 //  · применение уровней идёт со сверкой: серверу уходят ровно показанные команды.
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { Command } from "commander";
 
 const api = vi.hoisted(() => ({
   listOrganizations: vi.fn(),
@@ -20,6 +22,7 @@ const api = vi.hoisted(() => ({
   setDataLevels: vi.fn(),
   enableDataApi: vi.fn(),
 }));
+const prompt = vi.hoisted(() => ({ answer: "n", asked: [] as string[] }));
 
 vi.mock("../src/api.js", () => {
   class ApiError extends Error {
@@ -31,6 +34,14 @@ vi.mock("../src/api.js", () => {
   return { ApiClient, ApiError };
 });
 vi.mock("../src/config.js", () => ({ loadConfig: vi.fn(async () => ({ apiUrl: "x", token: "t" })) }));
+vi.mock("node:readline/promises", () => ({
+  default: {
+    createInterface: () => ({
+      question: async (q: string) => { prompt.asked.push(q); return prompt.answer; },
+      close: () => {},
+    }),
+  },
+}));
 
 import {
   dataEnableCmd,
@@ -41,6 +52,7 @@ import {
   dataMethodsCmd,
   dataOriginsAddCmd,
   dataOriginsRemoveCmd,
+  registerDataApiCommands,
 } from "../src/commands/data-api.js";
 import { setMode } from "../src/agent.js";
 
@@ -56,22 +68,34 @@ const PLAN = {
   applied: false,
 };
 
-async function events(run: () => Promise<unknown>): Promise<any[]> {
+/** Вывод команды событиями и её исход: ошибка не прячет то, что успело уйти в stdout. */
+async function capture(run: () => Promise<unknown>): Promise<{ events: any[]; error: any }> {
   const lines: string[] = [];
   const spy = vi.spyOn(process.stdout, "write").mockImplementation(((c: any) => {
     lines.push(String(c));
     return true;
   }) as any);
+  let error: any = null;
   try {
     await run();
+  } catch (e) {
+    error = e;
   } finally {
     spy.mockRestore();
   }
-  return lines.join("").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  return { events: lines.join("").split("\n").filter(Boolean).map((l) => JSON.parse(l)), error };
+}
+
+async function events(run: () => Promise<unknown>): Promise<any[]> {
+  const out = await capture(run);
+  if (out.error) throw out.error;
+  return out.events;
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  prompt.answer = "n";
+  prompt.asked = [];
   setMode({ agent: true, json: true, interactive: false, reason: "test" });
   api.listOrganizations.mockResolvedValue([{ slug: "acme", kind: "personal" }]);
   api.listDatabases.mockResolvedValue([DB, { id: "db-2", name: "Черновик", name_slug: "draft", api_enabled: false }]);
@@ -137,6 +161,29 @@ describe("ключи", () => {
     expect(api.revokeDataKey).toHaveBeenCalledWith("acme", "db-1", "k2");
     expect(out[0]).toMatchObject({ event: "data_key_revoked", id: "k2" });
   });
+
+  it("префикс нескольких ключей — отказ, а не первый попавшийся", async () => {
+    api.listDataKeys.mockResolvedValue([
+      { id: "k1", key_prefix: "pk_live_ab12", is_public: true },
+      { id: "k9", key_prefix: "pk_live_ab12", is_public: true },
+    ]);
+    const err = await dataKeysRevokeCmd("pk_live_ab12", { db: "kofeinya", yes: true }).then(() => null, (e) => e);
+    expect(err).toMatchObject({ code: "data_key_ambiguous" });
+    expect(String(err.next_action)).toContain("k9");
+    expect(api.revokeDataKey).not.toHaveBeenCalled();
+  });
+
+  it("ответ «нет» в терминале не отзывает", async () => {
+    setMode({ agent: false, json: false, interactive: true, reason: "test" });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await dataKeysRevokeCmd("pk_live_ab12", { db: "kofeinya" });
+    } finally {
+      log.mockRestore();
+    }
+    expect(prompt.asked[0]).toContain("pk_live_ab12");
+    expect(api.revokeDataKey).not.toHaveBeenCalled();
+  });
 });
 
 describe("сайты", () => {
@@ -155,8 +202,9 @@ describe("сайты", () => {
 });
 
 describe("уровни доступа", () => {
-  it("без --yes только показ: одна просьба без применения и подсказка", async () => {
-    const out = await events(() => dataGrantCmd("app.products", { db: "kofeinya", get: "visitor" }));
+  it("без --yes вне терминала — показ, ничего не применено и код ошибки", async () => {
+    const { events: out, error } = await capture(() => dataGrantCmd("app.products", { db: "kofeinya", get: "visitor" }));
+    expect(error).toMatchObject({ code: "confirmation_required" });
     expect(api.setDataLevels).toHaveBeenCalledTimes(1);
     expect(api.setDataLevels).toHaveBeenCalledWith("acme", "db-1", {
       object: "app.products", levels: { GET: "visitor" }, level: null, apply: false,
@@ -167,18 +215,41 @@ describe("уровни доступа", () => {
     })]);
   });
 
-  it("с --yes применяет ровно показанные команды", async () => {
-    const out = await events(() => dataGrantCmd("app.products", { db: "kofeinya", get: "VISITOR", delete: "closed", yes: true }));
+  it("с --yes применяет ровно показанные команды и в --json не пишет человеческий текст", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    let out: any[];
+    try {
+      out = await events(() => dataGrantCmd("app.products", { db: "kofeinya", get: "VISITOR", delete: "closed", yes: true }));
+    } finally {
+      log.mockRestore();
+    }
+    expect(log).not.toHaveBeenCalled();
     expect(api.setDataLevels).toHaveBeenCalledTimes(2);
     expect(api.setDataLevels.mock.calls[1]![2]).toEqual({
       object: "app.products", levels: { GET: "visitor", DELETE: "closed" }, level: null,
       apply: true, expected_sql: PLAN.sql,
     });
-    expect(out).toEqual([expect.objectContaining({ event: "data_grant", applied: true })]);
+    expect(out!).toEqual([expect.objectContaining({ event: "data_grant", applied: true })]);
+  });
+
+  it("в терминале: «нет» не применяет, «да» применяет показанное", async () => {
+    setMode({ agent: false, json: false, interactive: true, reason: "test" });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await dataGrantCmd("app.products", { db: "kofeinya", get: "visitor" });
+      expect(api.setDataLevels).toHaveBeenCalledTimes(1);
+      expect(log.mock.calls.flat().join("\n")).toContain("GRANT SELECT ON app.products");
+      prompt.answer = "y";
+      await dataGrantCmd("app.products", { db: "kofeinya", get: "visitor" });
+    } finally {
+      log.mockRestore();
+    }
+    expect(api.setDataLevels).toHaveBeenCalledTimes(3);
+    expect(api.setDataLevels.mock.calls[2]![2]).toMatchObject({ apply: true, expected_sql: PLAN.sql });
   });
 
   it("функция — уровнем вызова", async () => {
-    await events(() => dataGrantCmd("api.order_create", { db: "kofeinya", call: "server" }));
+    await capture(() => dataGrantCmd("api.order_create", { db: "kofeinya", call: "server" }));
     expect(api.setDataLevels.mock.calls[0]![2]).toMatchObject({ levels: null, level: "server" });
   });
 
@@ -190,18 +261,43 @@ describe("уровни доступа", () => {
     expect(api.setDataLevels).not.toHaveBeenCalled();
   });
 
-  it("методы отдаются как есть", async () => {
-    api.listDataMethods.mockResolvedValue({ roles: {}, tables: [{ schema: "app", name: "products" }], functions: [] });
+  it("методы отдаются как есть — и таблицы, и функции", async () => {
+    api.listDataMethods.mockResolvedValue({
+      roles: {},
+      tables: [{ schema: "app", name: "products" }],
+      functions: [{ signature: "api.menu()", level: "visitor" }],
+    });
     const out = await events(() => dataMethodsCmd({ db: "kofeinya" }));
-    expect(out[0]).toMatchObject({ event: "data_methods", tables: [{ schema: "app", name: "products" }] });
+    expect(out[0]).toMatchObject({
+      event: "data_methods",
+      tables: [{ schema: "app", name: "products" }],
+      functions: [{ signature: "api.menu()", level: "visitor" }],
+    });
   });
 });
 
 describe("включение", () => {
-  it("можно у базы без Data API и с секретным ключом", async () => {
+  it("без --db — единственная база без Data API, с секретным ключом", async () => {
     api.enableDataApi.mockResolvedValue({ slug: "draft", key: { key: "pk_live_new" }, secret_key: { key: SECRET } });
-    const out = await events(() => dataEnableCmd({ db: "draft", withSecret: true }));
+    const out = await events(() => dataEnableCmd({ withSecret: true }));
     expect(api.enableDataApi).toHaveBeenCalledWith("acme", "db-2", true);
     expect(out[0]).toMatchObject({ event: "data_api_enabled", public_key: "pk_live_new", secret_key: SECRET });
+  });
+});
+
+describe("регистрация команд", () => {
+  it("флаги уровней, подтверждения и срока объявлены", () => {
+    const program = new Command();
+    const data = program.command("data");
+    registerDataApiCommands(data, program);
+    const find = (path: string[]) => path.reduce<Command | undefined>(
+      (cmd, name) => cmd?.commands.find((c) => c.name() === name), data);
+    const flags = (path: string[]) => (find(path)?.options ?? []).map((o) => o.long);
+    expect(flags(["grant"])).toEqual(expect.arrayContaining(["--get", "--post", "--patch", "--delete", "--call", "--yes", "--db", "--org"]));
+    expect(flags(["keys", "issue"])).toEqual(expect.arrayContaining(["--kind", "--label", "--expires-in"]));
+    expect(flags(["keys", "revoke"])).toContain("--yes");
+    expect(flags(["origins", "remove"])).toContain("--yes");
+    expect(flags(["enable"])).toContain("--with-secret");
+    expect(find(["methods"])).toBeDefined();
   });
 });

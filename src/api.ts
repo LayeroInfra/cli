@@ -50,6 +50,9 @@ export interface DataApiMethods {
     kind: "table" | "view";
     rls: boolean | null;
     path: string;
+    /** Схема для заголовка профиля, когда путь без него ведёт на другую таблицу. */
+    profile?: string | null;
+    shadowed_by?: string | null;
     levels: Record<string, string>;
     writable: string[];
   }>;
@@ -66,7 +69,7 @@ export interface DataApiMethods {
 
 /** Показ или итог смены уровня: команды собирает сервер (`userdb_api_levels`). */
 export interface DataApiLevelsPlan {
-  object: { kind: "table" | "view" | "function"; schema: string; name: string; args?: string };
+  object: { kind: "table" | "view" | "function" | "procedure"; schema: string; name: string; args?: string };
   current: Record<string, string>;
   next: Record<string, string>;
   sql: string[];

@@ -11,11 +11,11 @@
 // одной копией правил прав и расходилась бы с кнопкой молча.
 //
 // ⚠️ Без `--yes` вне терминала `data grant`, отзыв ключа и удаление сайта
-// ничего не меняют: агент получает команды и `next_action`. «Открыть таблицу
-// интернету» и «уронить сайт отзывом ключа» должны быть решением, а не
-// побочным эффектом забытого флага.
+// ничего не меняют и завершаются ОШИБКОЙ `confirmation_required`. Код 0 здесь
+// значил бы зелёный CI-скрипт, который ничего не открыл (ревью 13.09).
 import readline from "node:readline/promises";
 import chalk from "chalk";
+import type { Command } from "commander";
 import { ApiClient, type DataApiKey, type DataApiLevelsPlan, type DatabaseSummary } from "../api.js";
 import { loadConfig } from "../config.js";
 import { LayeroError, detectMode, emit } from "../agent.js";
@@ -64,11 +64,11 @@ function asJson(opts: DataApiOptions): boolean {
 /**
  * База, с которой работает команда.
  *
- * Без `--db` — единственная база организации с включённым Data API: так
- * пишется скрипт для типового проекта с одной базой. Из нескольких не угадываем:
- * ключ, выпущенный не той базе, выглядит рабочим до первого запроса сайта.
+ * Без `--db` — единственная подходящая база организации: с включённым Data API
+ * для работы с ним и без него — для `enable`. Из нескольких не угадываем: ключ,
+ * выпущенный не той базе, выглядит рабочим до первого запроса сайта.
  */
-async function target(opts: DataApiOptions, needApi = true): Promise<Target> {
+async function target(opts: DataApiOptions, purpose: "api" | "enable" = "api"): Promise<Target> {
   const api = new ApiClient(await loadConfig());
   const org = await orgOf(api, opts);
   let db: DatabaseSummary;
@@ -76,25 +76,25 @@ async function target(opts: DataApiOptions, needApi = true): Promise<Target> {
     db = await pick(api, org, opts.db);
   } else {
     const list = await api.listDatabases(org);
-    const candidates = needApi ? list.filter((d) => d.api_enabled) : list;
+    const candidates = list.filter((d) => (purpose === "api" ? d.api_enabled : !d.api_enabled));
     if (candidates.length !== 1) {
       throw new LayeroError(
         "database_unknown",
         candidates.length
           ? "не понятно, с какой базой работать"
-          : needApi
+          : purpose === "api"
             ? `в организации «${org}» нет баз с включённым Data API`
-            : `в организации «${org}» нет баз`,
+            : `в организации «${org}» нет баз без Data API`,
         candidates.length
           ? `укажите --db: ${candidates.map((d) => d.name_slug ?? d.name).join(", ")}`
-          : needApi
+          : purpose === "api"
             ? "включите: layero data enable --db <база>"
-            : "заведите базу: layero db create <имя>",
+            : "укажите базу явно: --db <база>",
       );
     }
     db = candidates[0]!;
   }
-  if (needApi && !db.api_enabled) {
+  if (purpose === "api" && !db.api_enabled) {
     throw new LayeroError(
       "data_api_disabled",
       `у базы «${db.name}» не включён Data API`,
@@ -233,14 +233,24 @@ export async function dataKeysRevokeCmd(id: string, opts: DataApiOptions): Promi
   const { api, org, db, ref } = await target(opts);
   const rows = await api.listDataKeys(org, db.id);
   const needle = id.replace(/…$/, "");
-  const key = rows.find((k) => k.id === needle || k.key_prefix === needle);
-  if (!key) {
+  const matches = rows.filter((k) => k.id === needle || k.key_prefix === needle);
+  if (!matches.length) {
     throw new LayeroError(
       "data_key_unknown",
       `у базы «${db.name}» нет действующего ключа ${id}`,
       `список: layero data keys list --db ${ref}`,
     );
   }
+  // В префиксе всего несколько случайных знаков: молча взять первый из двух
+  // значило бы отозвать не тот ключ.
+  if (matches.length > 1) {
+    throw new LayeroError(
+      "data_key_ambiguous",
+      `префикс ${needle} есть у нескольких ключей базы «${db.name}»`,
+      `укажите id: ${matches.map((k) => k.id).join(", ")}`,
+    );
+  }
+  const key = matches[0]!;
   const what = `${key.is_public ? "публичный" : "секретный"} ключ ${key.key_prefix}…`;
   const warn = key.in_build ? " Он в сборке сайта: сайт перестанет получать данные." : "";
   const ok = await confirmed(`отозвать ${what}?${warn}`, opts);
@@ -345,7 +355,10 @@ export async function dataMethodsCmd(opts: DataApiOptions): Promise<void> {
       .map(([m, l]) => `${m} ${l === "closed" ? chalk.dim(LEVEL_WORD[l]) : LEVEL_WORD[l] ?? l}`)
       .join(" · ");
     const view = t.kind === "view" ? chalk.dim(" (представление)") : "";
-    console.log(`  ${t.schema}.${t.name}${view}  ${chalk.dim(t.path)}\n    ${levels}`);
+    const profile = t.shadowed_by
+      ? chalk.yellow(`  без заголовка Accept-Profile: ${t.schema} путь ведёт на ${t.shadowed_by}`)
+      : "";
+    console.log(`  ${t.schema}.${t.name}${view}  ${chalk.dim(t.path)}${profile}\n    ${levels}`);
   }
   if (res.functions.length) console.log(chalk.bold(`${res.tables.length ? "\n" : ""}RPC`));
   for (const f of res.functions) {
@@ -369,7 +382,9 @@ function checkLevel(flag: string, value: string): string {
 
 function planLines(plan: DataApiLevelsPlan): string[] {
   const o = plan.object;
-  const name = o.kind === "function" ? `${o.schema}.${o.name}(${o.args ?? ""})` : `${o.schema}.${o.name}`;
+  const name = o.kind === "function" || o.kind === "procedure"
+    ? `${o.schema}.${o.name}(${o.args ?? ""})`
+    : `${o.schema}.${o.name}`;
   const out = [chalk.bold(name)];
   for (const [method, to] of Object.entries(plan.next)) {
     const from = plan.current[method];
@@ -427,10 +442,12 @@ export async function dataGrantCmd(object: string, opts: DataApiOptions): Promis
         ...planEvent(org, ref, plan, false),
         next_action: "проверьте команды и предупреждения; применить — та же команда с --yes",
       });
-    } else {
-      console.log(chalk.dim("\nничего не изменено — применить: повторите с --yes"));
     }
-    return;
+    throw new LayeroError(
+      "confirmation_required",
+      "уровень доступа не применён: команды нужно подтвердить",
+      `проверьте команды и предупреждения и повторите с --yes: layero data grant ${object} --db ${ref} … --yes`,
+    );
   }
   if (!ok) {
     console.log(chalk.yellow("отменено."));
@@ -447,7 +464,7 @@ export async function dataGrantCmd(object: string, opts: DataApiOptions): Promis
 }
 
 export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
-  const { api, org, db, ref } = await target(opts, false);
+  const { api, org, db, ref } = await target(opts, "enable");
   const res = await api.enableDataApi(org, db.id, Boolean(opts.withSecret));
   const publicKey = res.key?.key ?? null;
   const secretKey = res.secret_key?.key ?? null;
@@ -469,4 +486,84 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
       "\n  Все методы закрыты, пока вы их не откроете: layero data methods, затем layero data grant",
     ),
   );
+}
+
+/**
+ * Подкоманды `layero data`, кроме `env`. Отдельной функцией, а не в
+ * `bin/layero.ts`: там разбор аргументов запускается при импорте, и проверить
+ * регистрацию флагов тестом было бы нечем.
+ */
+export function registerDataApiCommands(data: Command, program: Command): void {
+  const withDb = (c: Command) =>
+    c
+      .option("--db <name>", "база: имя, слаг или id (по умолчанию — единственная подходящая)")
+      .option("--org <slug>", "организация (по умолчанию единственная)");
+  const json = (opts: any) => ({ ...opts, json: program.opts().json });
+
+  const keys = data.command("keys").description("Ключи Data API: список, выпуск, отзыв.");
+  withDb(keys.command("list").description("Ключи базы: префикс, срок, последний вызов. Значений нет."))
+    .action(async (opts: any) => dataKeysListCmd(json(opts)));
+  withDb(
+    keys
+      .command("issue")
+      .description("Выпустить ключ. Значение печатается один раз.")
+      .option("--kind <kind>", "public — для сайта, secret — для сервера", "public")
+      .option("--label <text>", "подпись, по которой ключ узнают в списке")
+      .option("--expires-in <days>", "срок: 30, 90, 365 или never", "never"),
+  ).action(async (opts: any) => dataKeysIssueCmd(json(opts)));
+  withDb(
+    keys
+      .command("revoke <id>")
+      .description("Отозвать ключ по id или префиксу. Запросы с ним сразу получают отказ.")
+      .option("-y, --yes", "не спрашивать подтверждение"),
+  ).action(async (id: string, opts: any) => dataKeysRevokeCmd(id, json(opts)));
+
+  const origins = data.command("origins").description("Сайты, которым можно звать базу из браузера.");
+  withDb(origins.command("list").description("Адреса проектов базы и добавленные вручную."))
+    .action(async (opts: any) => dataOriginsListCmd(json(opts)));
+  withDb(
+    origins
+      .command("add <url>")
+      .description("Пустить сайт. Данных не открывает: это решают уровни доступа.")
+      .option("--note <text>", "зачем добавлен"),
+  ).action(async (url: string, opts: any) => dataOriginsAddCmd(url, json(opts)));
+  withDb(
+    origins
+      .command("remove <url>")
+      .description("Убрать сайт из списка.")
+      .option("-y, --yes", "не спрашивать подтверждение"),
+  ).action(async (url: string, opts: any) => dataOriginsRemoveCmd(url, json(opts)));
+
+  withDb(data.command("methods").description("REST и RPC базы с уровнем доступа на каждый метод."))
+    .action(async (opts: any) => dataMethodsCmd(json(opts)));
+
+  withDb(
+    data
+      .command("grant <object>")
+      .description("Уровень доступа к методам таблицы или функции: показывает SQL, применяет после подтверждения.")
+      .option("--get <level>", "чтение таблицы")
+      .option("--post <level>", "добавление строк")
+      .option("--patch <level>", "изменение строк")
+      .option("--delete <level>", "удаление строк")
+      .option("--call <level>", "вызов функции")
+      .option("-y, --yes", "применить без подтверждения")
+      .addHelpText(
+        "after",
+        "\nУровни: closed — закрыто, visitor — любой посетитель, user — вошедшие, server — только сервер.\n" +
+          "Неназванные методы таблицы сохраняют текущий уровень.\n" +
+          "\nПримеры:\n" +
+          "  $ layero data grant app.products --get visitor         # каталог виден сайту\n" +
+          "  $ layero data grant app.orders --get user --post user  # заказы — вошедшим\n" +
+          "  $ layero data grant api.order_create --call visitor     # функция для сайта\n" +
+          "  $ layero data grant 'api.pick(integer)' --call server   # перегрузка — по типам\n" +
+          "\nБез --yes вне терминала команда показывает SQL, ничего не меняет и завершается ошибкой.",
+      ),
+  ).action(async (object: string, opts: any) => dataGrantCmd(object, json(opts)));
+
+  withDb(
+    data
+      .command("enable")
+      .description("Включить Data API у базы: схема api, роли и публичный ключ. Методы закрыты.")
+      .option("--with-secret", "выпустить и секретный ключ для сервера"),
+  ).action(async (opts: any) => dataEnableCmd(json(opts)));
 }
