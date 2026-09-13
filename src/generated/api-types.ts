@@ -2672,6 +2672,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/probe-http": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Probe Http
+         * @description Проба метода настоящим HTTP-запросом через шлюз (T-20260911-1).
+         *
+         *     Ключ нужного вида и токен выбранного пользователя подставляет платформа;
+         *     разбор параметров, права, правила строк и отказы — шлюза. Запись
+         *     откатывается по подписи платформы. Только администратору: проба от имени
+         *     сервера видит всё, что открыто хоть кому-то.
+         */
+        post: operations["api_probe_http_organizations__slug__databases__db_id__api_probe_http_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/refusals": {
         parameters: {
             query?: never;
@@ -7507,6 +7532,31 @@ export interface components {
             p95_ms?: number | null;
             /** Requests */
             requests: number;
+        };
+        /** ProbeHttpIn */
+        ProbeHttpIn: {
+            /**
+             * As
+             * @default visitor
+             * @enum {string}
+             */
+            as: "visitor" | "user" | "server";
+            /** Body */
+            body?: {
+                [key: string]: unknown;
+            } | unknown[] | null;
+            /** Method */
+            method: string;
+            /** Path */
+            path: string;
+            /** Query */
+            query?: {
+                [key: string]: string;
+            } | null;
+            /** Schema */
+            schema?: string | null;
+            /** User Id */
+            user_id?: string | null;
         };
         /** ProbeIn */
         ProbeIn: {
@@ -13860,6 +13910,44 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ProbeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_probe_http_organizations__slug__databases__db_id__api_probe_http_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProbeHttpIn"];
             };
         };
         responses: {
