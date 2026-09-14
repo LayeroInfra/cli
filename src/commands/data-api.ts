@@ -358,10 +358,12 @@ export async function dataOriginsRemoveCmd(origin: string, opts: DataApiOptions)
 export async function dataMethodsCmd(opts: DataApiOptions): Promise<void> {
   const { api, org, db, ref } = await target(opts);
   const res = await api.listDataMethods(org, db.id);
+  const warnings = res.warnings ?? [];
   if (asJson(opts)) {
-    emit({ event: "data_methods", org, database: ref, tables: res.tables, functions: res.functions });
+    emit({ event: "data_methods", org, database: ref, warnings, tables: res.tables, functions: res.functions });
     return;
   }
+  for (const w of warnings) console.log(chalk.yellow(`⚠ ${w}\n`));
   if (!res.tables.length && !res.functions.length) {
     console.log(chalk.dim(`в базе «${db.name}» нет таблиц и функций, которые отдаёт Data API`));
     return;
@@ -379,7 +381,13 @@ export async function dataMethodsCmd(opts: DataApiOptions): Promise<void> {
   }
   if (res.functions.length) console.log(chalk.bold(`${res.tables.length ? "\n" : ""}RPC`));
   for (const f of res.functions) {
-    const where = f.path ? chalk.dim(f.path) : chalk.dim("не метод: шлюз зовёт функции только из схемы api");
+    // Причина «не метод» — по виду: процедура лежит в api, но шлюз её не вызывает.
+    const where = chalk.dim(
+      f.path ??
+        (f.kind === "procedure"
+          ? "не метод: процедуру шлюз не вызывает — только функции"
+          : "не метод: шлюз зовёт функции только из схемы api"),
+    );
     const pub = f.public_only ? chalk.yellow("  доступна всем по умолчанию Postgres — шлюз её не пустит") : "";
     const twin = f.overloaded
       ? chalk.yellow("  в схеме api есть одноимённая функция или процедура — шлюз ищет по имени и может вызвать другую")

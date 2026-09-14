@@ -225,7 +225,8 @@ export type Event =
     } & EventCommon)
   | ({ event: "data_origin_added"; org: string; database: string; origin: string } & EventCommon)
   | ({ event: "data_origin_removed"; org: string; database: string; origin: string } & EventCommon)
-  | ({ event: "data_methods"; org: string; database: string; tables: unknown[]; functions: unknown[] } & EventCommon)
+  // `warnings` — почему у роли не работает ни одна таблица (право в схеме без USAGE на неё).
+  | ({ event: "data_methods"; org: string; database: string; warnings: string[]; tables: unknown[]; functions: unknown[] } & EventCommon)
   // `applied: false` — показ: ничего не изменено. Без `--yes` вне терминала CLI
   // только показывает: агент обязан увидеть команды ДО того, как таблица
   // откроется интернету.

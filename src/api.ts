@@ -44,6 +44,8 @@ export interface DataApiKey {
 
 export interface DataApiMethods {
   roles: Record<string, string>;
+  /** Почему у роли не работает ни одна таблица: право в схеме без USAGE на неё. */
+  warnings?: string[];
   tables: Array<{
     schema: string;
     name: string;

@@ -301,6 +301,55 @@ describe("уровни доступа", () => {
     expect(api.setDataLevels).toHaveBeenCalledTimes(2);
   });
 
+  it("блокировка в терминале: план печатается и с --yes, причина — только в отказе", async () => {
+    const reason = "Метод не заработает: у посетителей не работает ни одна таблица по API";
+    api.setDataLevels.mockResolvedValue({ ...PLAN, warnings: [reason, "обычное предупреждение"], blocked: [reason] });
+    setMode({ agent: false, json: false, interactive: true, reason: "test" });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    let err: any;
+    let printed = "";
+    try {
+      err = await dataGrantCmd("app.products", { db: "kofeinya", get: "visitor", yes: true }).then(() => null, (e) => e);
+      printed = log.mock.calls.flat().join("\n");
+    } finally {
+      log.mockRestore();
+    }
+    expect(err).toMatchObject({ code: "data_levels_blocked" });
+    expect(String(err.message)).toContain(reason);
+    expect(printed).toContain("GRANT SELECT ON app.products");
+    expect(printed).toContain("обычное предупреждение");
+    expect(printed).not.toContain(reason);
+    expect(api.setDataLevels).toHaveBeenCalledTimes(1);
+  });
+
+  it("опись: предупреждения о каталоге и причина «не метод» по виду функции", async () => {
+    const warning = "У посетителей не работает ни одна таблица по API";
+    api.listDataMethods.mockResolvedValue({
+      roles: {},
+      warnings: [warning],
+      tables: [],
+      functions: [
+        { signature: "api.pr(x integer)", kind: "procedure", level: "server", path: null, public_only: false },
+        { signature: "app.helper()", kind: "function", level: "user", path: null, public_only: false },
+      ],
+    });
+    const out = await events(() => dataMethodsCmd({ db: "kofeinya" }));
+    expect(out[0]).toMatchObject({ event: "data_methods", warnings: [warning] });
+
+    setMode({ agent: false, json: false, interactive: true, reason: "test" });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    let lines: string[] = [];
+    try {
+      await dataMethodsCmd({ db: "kofeinya" });
+      lines = log.mock.calls.flat().join("\n").split("\n");
+    } finally {
+      log.mockRestore();
+    }
+    expect(lines.join("\n")).toContain(warning);
+    expect(lines.find((l) => l.includes("api.pr(x integer)"))).toContain("процедуру шлюз не вызывает");
+    expect(lines.find((l) => l.includes("app.helper()"))).toContain("только из схемы api");
+  });
+
   it("одноимённая функция помечена в описи методов", async () => {
     setMode({ agent: false, json: false, interactive: true, reason: "test" });
     api.listDataMethods.mockResolvedValue({
@@ -334,6 +383,7 @@ describe("уровни доступа", () => {
     const out = await events(() => dataMethodsCmd({ db: "kofeinya" }));
     expect(out[0]).toMatchObject({
       event: "data_methods",
+      warnings: [],
       tables: [{ schema: "app", name: "products" }],
       functions: [{ signature: "api.menu()", level: "visitor" }],
     });
