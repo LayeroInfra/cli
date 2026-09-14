@@ -249,6 +249,8 @@ export type Event =
       slug: string;
       public_key: string | null;
       secret_key: string | null;
+      // `true` — переприменение у базы с включённым API (`--repair`): права ролей на `public` сняты.
+      reapplied: boolean;
     } & EventCommon)
   // Базы организации (DX-03). `database_created` несёт строку подключения:
   // пароль показывается ОДИН раз, и агенту он нужен ровно так же, как человеку.

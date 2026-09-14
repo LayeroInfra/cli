@@ -31,6 +31,7 @@ export interface DataApiOptions {
   expiresIn?: string;
   note?: string;
   withSecret?: boolean;
+  repair?: boolean;
   get?: string;
   post?: string;
   patch?: string;
@@ -138,6 +139,10 @@ async function confirmed(question: string, opts: DataApiOptions): Promise<boolea
  */
 export function shellArg(value: string): string {
   return /^[\w@%+=:,./-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function _capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function day(value: string | null | undefined): string {
@@ -512,16 +517,83 @@ export async function dataGrantCmd(object: string, opts: DataApiOptions): Promis
   console.log(`\n${chalk.green("✓")} доступ изменён`);
 }
 
+// Что снимает переприменение: агент узла при каждом включении API отзывает у
+// ролей Data API всё в схеме `public` (`runtime/userdb-agent/agent.py`, `api_enable`).
+const REPAIR_LOSS = "роли Data API потеряют USAGE на схему public и все права на её таблицы";
+
+/**
+ * Включение Data API.
+ *
+ * 🚨 У БАЗЫ, ГДЕ API УЖЕ ВКЛЮЧЁН, — ОТКАЗ. Сервер включение повторяет, а агент
+ * узла при каждом включении снимает у ролей права на схему `public` и её таблицы:
+ * `data enable --db X` «на всякий случай» молча закрывал открытые уровни (ревью
+ * 13.09, 5-й круг).
+ *
+ * `--repair` оставлен осознанно: повторное включение — единственный путь вернуть
+ * роли, схему `api` и права на очередь, если их удалили или испортили руками, и
+ * именно его советуют отказы «роли Data API в базе нет — включите API заново». Он
+ * требует явного `--db` и подтверждения с предупреждением о `public`.
+ */
 export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
+  if (opts.repair && !opts.db) {
+    throw new LayeroError(
+      "database_unknown",
+      `переприменение Data API снимает права ролей на схему public — базу нужно указать явно`,
+      "layero data enable --db <база> --repair",
+    );
+  }
   const { api, org, db, ref } = await target(opts, "enable");
+  if (db.api_enabled && !opts.repair) {
+    throw new LayeroError(
+      "data_api_already_enabled",
+      `у базы «${db.name}» Data API уже включён — повторное включение ничего не выпускает, а ${REPAIR_LOSS}`,
+      `ключи: layero data keys list --db ${shellArg(ref)}; методы: layero data methods --db ${shellArg(ref)}; ` +
+        `переприменить роли и схему api: layero data enable --db ${shellArg(ref)} --repair`,
+    );
+  }
+  if (opts.repair) {
+    if (!db.api_enabled) {
+      throw new LayeroError(
+        "data_api_disabled",
+        `у базы «${db.name}» не включён Data API — переприменять нечего`,
+        `включите: layero data enable --db ${shellArg(ref)}`,
+      );
+    }
+    const ok = await confirmed(`переприменить Data API у базы «${db.name}»? ${_capitalize(REPAIR_LOSS)}`, opts);
+    if (ok === null) {
+      throw new LayeroError(
+        "confirmation_required",
+        `переприменение Data API не подтверждено: ${REPAIR_LOSS}`,
+        `если роли или схема api повреждены, повторите с --yes: layero data enable --db ${shellArg(ref)} --repair --yes`,
+      );
+    }
+    if (!ok) {
+      console.log(chalk.yellow("отменено."));
+      return;
+    }
+  }
   const res = await api.enableDataApi(org, db.id, Boolean(opts.withSecret));
   const publicKey = res.key?.key ?? null;
   const secretKey = res.secret_key?.key ?? null;
+  const reapplied = Boolean(opts.repair);
   if (asJson(opts)) {
-    emit({ event: "data_api_enabled", org, database: ref, slug: res.slug, public_key: publicKey, secret_key: secretKey });
+    emit({
+      event: "data_api_enabled",
+      org,
+      database: ref,
+      slug: res.slug,
+      public_key: publicKey,
+      secret_key: secretKey,
+      reapplied,
+    });
     return;
   }
-  console.log(`${chalk.green("✓")} Data API включён у базы «${db.name}»`);
+  console.log(
+    reapplied
+      ? `${chalk.green("✓")} Data API переприменён у базы «${db.name}»\n` +
+          chalk.yellow(`  ${_capitalize(REPAIR_LOSS)}: откройте нужные таблицы заново — layero data methods`)
+      : `${chalk.green("✓")} Data API включён у базы «${db.name}»`,
+  );
   if (publicKey) console.log(`\n  публичный ключ:  ${publicKey}`);
   if (secretKey) {
     console.log(
@@ -613,6 +685,11 @@ export function registerDataApiCommands(data: Command, program: Command): void {
     data
       .command("enable")
       .description("Включить Data API у базы: схема api, роли и публичный ключ. Методы закрыты.")
-      .option("--with-secret", "выпустить и секретный ключ для сервера"),
+      .option("--with-secret", "выпустить и секретный ключ для сервера")
+      .option(
+        "--repair",
+        "переприменить роли и схему api у базы с включённым Data API; снимает права ролей на схему public",
+      )
+      .option("-y, --yes", "не спрашивать подтверждение для --repair"),
   ).action(async (opts: any) => dataEnableCmd(json(opts)));
 }

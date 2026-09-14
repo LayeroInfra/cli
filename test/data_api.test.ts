@@ -440,7 +440,43 @@ describe("включение", () => {
     api.enableDataApi.mockResolvedValue({ slug: "draft", key: { key: "pk_live_new" }, secret_key: { key: SECRET } });
     const out = await events(() => dataEnableCmd({ withSecret: true }));
     expect(api.enableDataApi).toHaveBeenCalledWith("acme", "db-2", true);
-    expect(out[0]).toMatchObject({ event: "data_api_enabled", public_key: "pk_live_new", secret_key: SECRET });
+    expect(out[0]).toMatchObject({ event: "data_api_enabled", public_key: "pk_live_new", secret_key: SECRET, reapplied: false });
+  });
+
+  it("у базы с включённым Data API — отказ без вызова включения", async () => {
+    const err = await dataEnableCmd({ db: "kofeinya" }).then(() => null, (e) => e);
+    expect(err).toMatchObject({ code: "data_api_already_enabled" });
+    expect(String(err.message)).toContain("схему public");
+    expect(String(err.next_action)).toContain("layero data keys list --db kofeinya");
+    expect(String(err.next_action)).toContain("layero data enable --db kofeinya --repair");
+    expect(api.enableDataApi).not.toHaveBeenCalled();
+  });
+
+  it("--repair: только с --db, только у включённой базы и только с подтверждением", async () => {
+    await expect(dataEnableCmd({ repair: true, yes: true })).rejects.toMatchObject({ code: "database_unknown" });
+    await expect(dataEnableCmd({ db: "draft", repair: true, yes: true })).rejects.toMatchObject({ code: "data_api_disabled" });
+    const err = await dataEnableCmd({ db: "kofeinya", repair: true }).then(() => null, (e) => e);
+    expect(err).toMatchObject({ code: "confirmation_required" });
+    expect(String(err.message)).toContain("схему public");
+    expect(String(err.next_action)).toContain("layero data enable --db kofeinya --repair --yes");
+    expect(api.enableDataApi).not.toHaveBeenCalled();
+
+    setMode({ agent: false, json: false, interactive: true, reason: "test" });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await dataEnableCmd({ db: "kofeinya", repair: true });
+    } finally {
+      log.mockRestore();
+    }
+    expect(prompt.asked[0]).toContain("схему public");
+    expect(api.enableDataApi).not.toHaveBeenCalled();
+  });
+
+  it("--repair --yes переприменяет и помечает событие", async () => {
+    api.enableDataApi.mockResolvedValue({ slug: "kofeinya", key: null, secret_key: null });
+    const out = await events(() => dataEnableCmd({ db: "kofeinya", repair: true, yes: true }));
+    expect(api.enableDataApi).toHaveBeenCalledWith("acme", "db-1", false);
+    expect(out[0]).toMatchObject({ event: "data_api_enabled", reapplied: true });
   });
 });
 
@@ -456,7 +492,7 @@ describe("регистрация команд", () => {
     expect(flags(["keys", "issue"])).toEqual(expect.arrayContaining(["--kind", "--label", "--expires-in"]));
     expect(flags(["keys", "revoke"])).toContain("--yes");
     expect(flags(["origins", "remove"])).toContain("--yes");
-    expect(flags(["enable"])).toContain("--with-secret");
+    expect(flags(["enable"])).toEqual(expect.arrayContaining(["--with-secret", "--repair", "--yes"]));
     expect(find(["methods"])).toBeDefined();
   });
 });
