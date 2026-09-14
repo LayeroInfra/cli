@@ -2343,6 +2343,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/composition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api Composition
+         * @description Схемы базы с таблицами и функциями и признаком «в HTTP».
+         *
+         *     Служебные схемы (вход, файлы, платформа, `pg_*`, схемы расширений) и
+         *     объекты расширений не показываются. Функция в HTTP только из схемы под
+         *     гардом `PUBLIC EXECUTE`; `legacy` — у базы есть выбранные схемы без гарда.
+         */
+        get: operations["api_composition_organizations__slug__databases__db_id__api_composition_get"];
+        /**
+         * Api Set Composition
+         * @description Новый состав Data API: схемы и отдельные объекты.
+         *
+         *     По умолчанию только показ (`dry_run`): что станет методом, что перестанет,
+         *     с каких функций снимется право `PUBLIC` и какие схемы получат гард. Доступы,
+         *     выданные на убранные объекты, не снимаются — ответ говорит это до применения.
+         */
+        put: operations["api_set_composition_organizations__slug__databases__db_id__api_composition_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/disable": {
         parameters: {
             query?: never;
@@ -2372,6 +2404,9 @@ export interface paths {
         /**
          * Api Enable
          * @description Включает Data API: схема `api`, роли с нулевыми грантами, первый ключ.
+         *
+         *     Тело необязательно: `schemas` и `objects` — состав Data API (T-20260911-5).
+         *     Без тела состав прежний.
          *
          *     `with_secret` — выдать пару (публичный и сервисный) одной транзакцией. Его
          *     шлёт только экран первого включения: он показывает оба значения.
@@ -5874,6 +5909,28 @@ export interface components {
              */
             status: string;
         };
+        /** ApiCompositionIn */
+        ApiCompositionIn: {
+            /**
+             * Dry Run
+             * @default true
+             */
+            dry_run: boolean;
+            /** Objects */
+            objects?: components["schemas"]["ApiObjectIn"][];
+            /** Schemas */
+            schemas: string[];
+        };
+        /**
+         * ApiEnableIn
+         * @description Необязательное тело включения. Без него — прежний состав.
+         */
+        ApiEnableIn: {
+            /** Objects */
+            objects?: components["schemas"]["ApiObjectIn"][] | null;
+            /** Schemas */
+            schemas?: string[] | null;
+        };
         /** ApiFunctionGrantIn */
         ApiFunctionGrantIn: {
             /**
@@ -5945,6 +6002,26 @@ export interface components {
             } | null;
             /** Object */
             object: string;
+        };
+        /**
+         * ApiObjectIn
+         * @description Отдельный объект поверх схем: добавить в HTTP или убрать из него.
+         */
+        ApiObjectIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "table" | "function";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "include" | "exclude";
+            /** Name */
+            name: string;
+            /** Schema */
+            schema: string;
         };
         /** ApiTokenCreateIn */
         ApiTokenCreateIn: {
@@ -13370,6 +13447,78 @@ export interface operations {
             };
         };
     };
+    api_composition_organizations__slug__databases__db_id__api_composition_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_set_composition_organizations__slug__databases__db_id__api_composition_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiCompositionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     api_disable_organizations__slug__databases__db_id__api_disable_post: {
         parameters: {
             query?: never;
@@ -13419,7 +13568,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ApiEnableIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
