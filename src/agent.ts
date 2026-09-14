@@ -319,6 +319,35 @@ export type Event =
       deploy_id: string;
     } & EventCommon)
   | ({ event: "promoted"; url: string; deploy_id: string } & EventCommon)
+  // Проба метода Data API (T-20260911-9). Отказ шлюза — 401, 403, 404 — это
+  // результат пробы и приходит этим событием с кодом выхода 0. `not_rolled_back`
+  // — запись прошла, откат ждали, а шлюз его не подтвердил: следом придёт
+  // `error` с кодом `data_probe_not_rolled_back`.
+  | ({
+      event: "data_probe";
+      org: string;
+      database: string;
+      request: {
+        method: string;
+        path: string;
+        as: string;
+        user_id: string | null;
+        query: Record<string, string>;
+        schema: string | null;
+      };
+      status: number;
+      elapsed_ms: number;
+      caller: string | null;
+      rows: number | null;
+      total: number | null;
+      owner_total: number | null;
+      rollback_expected: boolean;
+      rolled_back: boolean;
+      not_rolled_back: boolean;
+      body_truncated: boolean;
+      headers: Record<string, string>;
+      body: unknown;
+    } & EventCommon)
   | ({ event: "error"; code: string; next_action: string; message: string } & EventCommon);
 
 export function emit(event: Event): void {

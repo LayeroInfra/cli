@@ -97,6 +97,31 @@ export type PerfCheckOut = Schemas["PerfCheckOut"];
 export type MetrikaIntegrationOut = Schemas["MetrikaIntegrationOut"];
 export type EnvVarOut = Schemas["EnvVarOut"];
 
+/**
+ * Ответ пробы метода через шлюз (T-20260911-1). У ручки нет модели ответа в
+ * схеме, поэтому форма описана здесь — та же, что у панели (`ProbeHttpResult`).
+ */
+export interface DataApiProbe {
+  status: number;
+  elapsed_ms: number;
+  headers: Record<string, string>;
+  /** JSON ответа; строка — не JSON или обрезано. */
+  body: unknown;
+  /** Ответ длиннее 64 КБ — в `body` только его начало. */
+  body_truncated: boolean;
+  /** Кем шлюз посчитал запрос (`x-layero-caller`); `null` — ключ или токен не приняты. */
+  caller: string | null;
+  rows: number | null;
+  /** Строк, видимых роли, — из `Content-Range`. */
+  total: number | null;
+  /** Строк в таблице у владельца — знаменатель «N из M». `null` — не посчиталось. */
+  owner_total: number | null;
+  /** Шлюз подтвердил откат (`x-layero-rolled-back`). */
+  rolled_back: boolean;
+  /** Откат ожидался — у всего, кроме `/whoami`. */
+  rollback_expected: boolean;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -823,6 +848,14 @@ export class ApiClient {
       "GET",
       `/auth/me/username/check?value=${encodeURIComponent(value)}`,
     );
+  }
+
+  /**
+   * Проба метода Data API настоящим запросом через шлюз; запись откатывается
+   * (T-20260911-1). Ответ шлюза, в том числе его отказ, приходит телом 200.
+   */
+  probeDataApi(org: string, dbId: string, input: Schemas["ProbeHttpIn"]): Promise<DataApiProbe> {
+    return this.request("POST", `/organizations/${org}/databases/${dbId}/api/probe-http`, input);
   }
 }
 

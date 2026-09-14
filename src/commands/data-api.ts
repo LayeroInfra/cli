@@ -20,6 +20,7 @@ import { ApiClient, type DataApiKey, type DataApiLevelsPlan, type DatabaseSummar
 import { loadConfig } from "../config.js";
 import { LayeroError, detectMode, emit } from "../agent.js";
 import { orgOf, pick } from "./db.js";
+import { registerDataProbeCommand } from "./data-probe.js";
 
 export interface DataApiOptions {
   org?: string;
@@ -69,7 +70,7 @@ function asJson(opts: DataApiOptions): boolean {
  * для работы с ним и без него — для `enable`. Из нескольких не угадываем: ключ,
  * выпущенный не той базе, выглядит рабочим до первого запроса сайта.
  */
-async function target(opts: DataApiOptions, purpose: "api" | "enable" = "api"): Promise<Target> {
+export async function target(opts: DataApiOptions, purpose: "api" | "enable" = "api"): Promise<Target> {
   const api = new ApiClient(await loadConfig());
   const org = await orgOf(api, opts);
   let db: DatabaseSummary;
@@ -692,4 +693,6 @@ export function registerDataApiCommands(data: Command, program: Command): void {
       )
       .option("-y, --yes", "не спрашивать подтверждение для --repair"),
   ).action(async (opts: any) => dataEnableCmd(json(opts)));
+
+  registerDataProbeCommand(data, withDb, json);
 }
