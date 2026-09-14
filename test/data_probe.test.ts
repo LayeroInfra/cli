@@ -283,6 +283,38 @@ describe("запрос пробы", () => {
     );
   });
 
+  it("обратная косая черта внутри $'…' удваивается", async () => {
+    const err = await refused(() => dataProbeCmd("GET", "/rest/v1/items?x=1", { db: "kofeinya", query: ["p=C:\\dir\tname\\"] }));
+    expect(String(err.next_action)).toBe(
+      "layero data probe GET /rest/v1/items --query x=1 --query $'p=C:\\\\dir\\tname\\\\' --db kofeinya",
+    );
+  });
+
+  it("DEL — тоже управляющий: в одинарных кавычках интерактивный bash стёр бы символ", async () => {
+    const err = await refused(() => dataProbeCmd("GET", "/rest/v1/items?x=1", { db: "kofeinya", query: ["d=ab\x7fc"] }));
+    expect(String(err.next_action)).toBe(
+      "layero data probe GET /rest/v1/items --query x=1 --query $'d=ab\\x7fc' --db kofeinya",
+    );
+  });
+
+  it.each([
+    ["схема у функции", "POST", "/rest/v1/rpc/menu?x=1", { schema: "app", body: "{}" }, "data_probe_schema",
+      "layero data probe POST /rest/v1/rpc/menu --query x=1 --body '{}' --db kofeinya"],
+    ["PATCH функции", "PATCH", "/rest/v1/rpc/menu?x=1", { body: "{}" }, "data_probe_method",
+      "layero data probe POST /rest/v1/rpc/menu --query x=1 --body '{}' --db kofeinya"],
+    ["косая черта в конце", "GET", "/rest/v1/items/?x=1", { as: "server" }, "data_probe_path",
+      "layero data probe GET /rest/v1/items --query x=1 --as server --db kofeinya"],
+    ["тело у GET", "GET", "/rest/v1/items?x=1", { body: "{}" }, "data_probe_body",
+      "layero data probe GET /rest/v1/items --query x=1 --db kofeinya"],
+    ["POST whoami", "POST", "/whoami?x=1", { body: "{}" }, "data_probe_method",
+      "layero data probe GET /whoami --query x=1 --db kofeinya"],
+  ])("«?» и %s — сначала этот отказ, и его подсказка уже без «?»", async (_name, method, path, extra, code, hint) => {
+    const err = await refused(() => dataProbeCmd(method, path, { db: "kofeinya", ...extra }));
+    expect(err).toMatchObject({ code });
+    expect(String(err.next_action)).toBe(hint);
+    expect(api.probeDataApi).not.toHaveBeenCalled();
+  });
+
   it("подсказка несёт --body-file", async () => {
     const err = await refused(() => dataProbeCmd("POST", "/rest/v1/cart?x=1", { db: "kofeinya", bodyFile: "order it's.json" }));
     expect(String(err.next_action)).toBe(
@@ -383,6 +415,13 @@ describe("запрос пробы", () => {
     expect(error).toBeNull();
     expect(api.probeDataApi.mock.calls[0]![2].schema).toBeNull();
     expect(events[0].request.schema).toBeNull();
+  });
+
+  it("BOM в начале схемы срезается, как пробел: --schema app с BOM — это app", async () => {
+    const schema = String.fromCharCode(0xfeff) + "app";
+    const { error } = await capture(() => dataProbeCmd("GET", "/rest/v1/products", { db: "kofeinya", schema }));
+    expect(error).toBeNull();
+    expect(api.probeDataApi.mock.calls[0]![2].schema).toBe("app");
   });
 
   it.each(["", "   "])("пустая --schema %j — как без флага и в подсказку не попадает", async (schema) => {

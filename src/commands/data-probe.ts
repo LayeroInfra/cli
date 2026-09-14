@@ -283,12 +283,16 @@ async function requestOf(
       "GET, POST, PATCH или DELETE",
     );
   }
-  const path = String(pathArg);
-  const cut = path.indexOf("?");
+  const rawPath = String(pathArg);
+  const cut = rawPath.indexOf("?");
+  // Путь режем по «?» сразу. Проверки ниже смотрят на путь без строки запроса, а их
+  // подсказки уже несут параметры из неё флагами --query: иначе исправлять пришлось
+  // бы в два шага — сначала «?», потом схему или метод. Отказ за сам «?» — после них.
+  const path = cut >= 0 ? rawPath.slice(0, cut) : rawPath;
+  const fromPath = cut >= 0
+    ? [...new URLSearchParams(rawPath.slice(cut + 1)).entries()].map(([k, v]) => `${k}=${v}`)
+    : [];
   if (cut >= 0) {
-    // Ручка принимает путь без строки запроса и отвечает общим «адрес пробы: …» —
-    // из него не понять, что параметры надо было отдать отдельно.
-    const fromPath = [...new URLSearchParams(path.slice(cut + 1)).entries()].map(([k, v]) => `${k}=${v}`);
     // Имя и в пути, и во флаге: подсказка несла бы два `--query` с одним именем, и
     // повтор упал бы на них же. Отказываем сразу и говорим, где второе.
     const nameOf = (q: string) => (q.includes("=") ? q.slice(0, q.indexOf("=")) : q);
@@ -303,11 +307,6 @@ async function requestOf(
     }
     // Остальное, на чём упал бы повтор (пустое имя, повтор внутри «?»), — сейчас.
     queryOf([...fromPath, ...(opts.query ?? [])]);
-    throw new LayeroError(
-      "data_probe_path",
-      `в пути «${path}» есть «?»: параметры запроса проба принимает только флагами --query`,
-      retryCommand(method, path.slice(0, cut), opts, fromPath),
-    );
   }
   const bare = /^\/rest\/v1(\/rpc)?\/+$/.exec(path);
   if (bare) {
@@ -324,7 +323,7 @@ async function requestOf(
     throw new LayeroError(
       "data_probe_path",
       `в пути «${path}» лишняя косая черта в конце: такой адрес ручка не примет`,
-      retryCommand(method, path.replace(/\/+$/, ""), opts),
+      retryCommand(method, path.replace(/\/+$/, ""), opts, fromPath),
     );
   }
   const whoami = path === "/whoami";
@@ -333,14 +332,14 @@ async function requestOf(
     throw new LayeroError(
       "data_probe_method",
       "/whoami отвечает только на GET",
-      retryCommand("GET", path, { ...opts, body: undefined, bodyFile: undefined }),
+      retryCommand("GET", path, { ...opts, body: undefined, bodyFile: undefined }, fromPath),
     );
   }
   if (rpc && method !== "GET" && method !== "POST") {
     throw new LayeroError(
       "data_probe_method",
       `функцию вызывают GET или POST, а метод — ${method}`,
-      retryCommand("POST", path, opts),
+      retryCommand("POST", path, opts, fromPath),
     );
   }
 
@@ -389,7 +388,7 @@ async function requestOf(
         throw new LayeroError(
           "data_probe_schema",
           `у функций схема — только api: шлюз зовёт функции из api, а не из ${opts.schema!.trim()}`,
-          retryCommand(method, path, { ...opts, schema: undefined }),
+          retryCommand(method, path, { ...opts, schema: undefined }, fromPath),
         );
       }
     } else if (SCHEMAS.includes(schemaArg)) {
@@ -411,7 +410,17 @@ async function requestOf(
     throw new LayeroError(
       "data_probe_body",
       `тело бывает только у POST и PATCH, а метод — ${method}`,
-      retryCommand(method, path, { ...opts, body: undefined, bodyFile: undefined }),
+      retryCommand(method, path, { ...opts, body: undefined, bodyFile: undefined }, fromPath),
+    );
+  }
+  if (cut >= 0) {
+    // Ручка принимает путь без строки запроса и отвечает общим «адрес пробы: …» —
+    // из него не понять, что параметры надо было отдать отдельно. До чтения файла
+    // тела: подсказка не зависит от него.
+    throw new LayeroError(
+      "data_probe_path",
+      `в пути «${rawPath}» есть «?»: параметры запроса проба принимает только флагами --query`,
+      retryCommand(method, path, opts, fromPath),
     );
   }
   const body = await bodyOf(opts);
