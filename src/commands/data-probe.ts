@@ -86,6 +86,24 @@ function pluralRu(n: number, one: string, few: string, many: string): string {
   return many;
 }
 
+const CONTROL = /[\x00-\x1f\x7f]/;
+
+/**
+ * Слово для shell. Значение с управляющими символами — записью `$'…'`.
+ *
+ * 🚨 Внутри одинарных кавычек интерактивный bash съедает табуляцию (это клавиша
+ * автодополнения), и набранный повтор уходил бы без неё. В `$'…'` табуляция —
+ * текст `\t`. `!` там же — `\x21`: иначе интерактивный bash развернул бы историю.
+ */
+function shellWord(value: string): string {
+  if (!CONTROL.test(value)) return shellArg(value);
+  const named: Record<string, string> = { "\t": "\\t", "\n": "\\n", "\r": "\\r", "\\": "\\\\", "'": "\\'", "!": "\\x21" };
+  const body = [...value]
+    .map((c) => named[c] ?? (CONTROL.test(c) ? `\\x${c.charCodeAt(0).toString(16).padStart(2, "0")}` : c))
+    .join("");
+  return `$'${body}'`;
+}
+
 /**
  * Команда повтора со ВСЕМИ флагами, которые передал человек.
  *
@@ -93,14 +111,15 @@ function pluralRu(n: number, one: string, few: string, many: string): string {
  * повторила бы пробу посетителем в другой схеме — ответ на другой вопрос.
  */
 function retryCommand(method: string, path: string, opts: DataProbeOptions, fromPath: string[] = []): string {
-  const parts = ["layero data probe", method, shellArg(path)];
+  const parts = ["layero data probe", method, shellWord(path)];
   const flag = (name: string, value: string | undefined) => {
-    if (value !== undefined) parts.push(name, shellArg(value));
+    if (value !== undefined) parts.push(name, shellWord(value));
   };
   for (const q of [...fromPath, ...(opts.query ?? [])]) flag("--query", q);
   flag("--as", opts.as);
   flag("--user", opts.user);
-  flag("--schema", opts.schema);
+  // Пустая схема — отсутствие схемы, в повтор не переносится.
+  flag("--schema", opts.schema?.trim() ? opts.schema : undefined);
   flag("--body", opts.body);
   flag("--body-file", opts.bodyFile);
   flag("--expect", opts.expect);
@@ -169,7 +188,8 @@ function lossyNumber(raw: string): { text: string; sent: string } | null {
     if (c === "-" || (c >= "0" && c <= "9")) {
       number.lastIndex = i;
       const text = number.exec(raw)?.[0] ?? c;
-      const sent = String(Number(text));
+      // Так число уйдёт в запрос: `JSON.stringify` пишет бесконечность как `null`.
+      const sent = JSON.stringify(Number(text));
       if (decimal(text) !== decimal(sent)) return { text, sent };
       i += text.length;
       continue;
@@ -269,10 +289,35 @@ async function requestOf(
     // Ручка принимает путь без строки запроса и отвечает общим «адрес пробы: …» —
     // из него не понять, что параметры надо было отдать отдельно.
     const fromPath = [...new URLSearchParams(path.slice(cut + 1)).entries()].map(([k, v]) => `${k}=${v}`);
+    // Имя и в пути, и во флаге: подсказка несла бы два `--query` с одним именем, и
+    // повтор упал бы на них же. Отказываем сразу и говорим, где второе.
+    const nameOf = (q: string) => (q.includes("=") ? q.slice(0, q.indexOf("=")) : q);
+    const inPath = new Set(fromPath.map(nameOf));
+    const twice = (opts.query ?? []).map(nameOf).find((n) => inPath.has(n));
+    if (twice !== undefined) {
+      throw new LayeroError(
+        "data_probe_query",
+        `параметр «${twice}» задан и в пути после «?», и флагом --query: проба передаёт одно значение на имя`,
+        "оставьте одно значение: уберите параметр из пути или из --query",
+      );
+    }
+    // Остальное, на чём упал бы повтор (пустое имя, повтор внутри «?»), — сейчас.
+    queryOf([...fromPath, ...(opts.query ?? [])]);
     throw new LayeroError(
       "data_probe_path",
       `в пути «${path}» есть «?»: параметры запроса проба принимает только флагами --query`,
       retryCommand(method, path.slice(0, cut), opts, fromPath),
+    );
+  }
+  const bare = /^\/rest\/v1(\/rpc)?\/+$/.exec(path);
+  if (bare) {
+    // Срезанная косая черта сделала бы из `/rest/v1/rpc/` пробу таблицы `rpc`.
+    throw new LayeroError(
+      "data_probe_path",
+      bare[1]
+        ? `в пути «${path}» нет имени функции: /rest/v1/rpc/<функция>`
+        : `в пути «${path}» нет имени таблицы: /rest/v1/<таблица>`,
+      `имена таблиц и функций — layero data methods${opts.db ? ` --db ${shellWord(opts.db)}` : ""}`,
     );
   }
   if (path.length > 1 && path.endsWith("/")) {
@@ -332,22 +377,27 @@ async function requestOf(
     );
   }
 
+  // Правило схемы — то же, что у MCP (`data_api.probe_request`). Пустая — отсутствие.
+  // У `/whoami` схему молча отбрасываем: его ответ от неё не зависит.
+  const schemaArg = opts.schema?.trim().toLowerCase() || null;
   let schema: string | null = null;
-  if (opts.schema !== undefined) {
-    if (whoami || rpc) {
+  if (schemaArg !== null && !whoami) {
+    if (rpc) {
+      // Функции шлюз зовёт только из api, и `api` отдаёт опись методов — это
+      // законно. Ручке схема функции не нужна: профиль она ставит только таблице.
+      if (schemaArg !== "api") {
+        throw new LayeroError(
+          "data_probe_schema",
+          `у функций схема — только api: шлюз зовёт функции из api, а не из ${opts.schema!.trim()}`,
+          retryCommand(method, path, { ...opts, schema: undefined }),
+        );
+      }
+    } else if (SCHEMAS.includes(schemaArg)) {
+      schema = schemaArg;
+    } else {
       throw new LayeroError(
         "data_probe_schema",
-        whoami
-          ? "у /whoami нет схемы: --schema выбирает таблицу"
-          : "у функции нет выбора схемы: шлюз зовёт функции только из схемы api, а --schema выбирает таблицу",
-        retryCommand(method, path, { ...opts, schema: undefined }),
-      );
-    }
-    schema = String(opts.schema).trim().toLowerCase();
-    if (!SCHEMAS.includes(schema)) {
-      throw new LayeroError(
-        "data_probe_schema",
-        `схемы «${opts.schema}» среди тех, что отдаёт шлюз, нет — флаг был бы молча проигнорирован`,
+        `схемы «${opts.schema!.trim()}» среди тех, что отдаёт шлюз, нет — флаг был бы молча проигнорирован`,
         "--schema api, public или app; без флага шлюз ищет таблицу в api, затем в public, затем в app",
       );
     }
@@ -393,7 +443,7 @@ const REFUSAL_HINTS: Array<[string, (ref: string) => string]> = [
   ["не включён вход", () => "у базы нет вошедших пользователей — пробуйте --as visitor или --as server"],
   ["не включён Data API", (ref) => `включите: layero data enable --db ${ref}`],
   ["роли Data API не заведены", () => "роли заводит включение Data API — включите его заново в панели базы, раздел «API»"],
-  ["не найдена или не активна", () => "список баз и их состояние: layero db list"],
+  ["не найдена", () => "список баз и их состояние: layero db list"],
   ["ещё не умеет пробу", () => "запрос не выполнен, данные не тронуты — повторите пробу после выкатки шлюза данных"],
 ];
 
@@ -435,7 +485,9 @@ function refusal(err: unknown, ref: string): LayeroError | null {
   const found = REFUSAL_HINTS.find(([mark]) => message!.includes(mark));
   const hint = found
     ? found[1](db)
-    : err.status === 403
+    : err.status === 404
+      ? "список баз и их состояние: layero db list"
+      : err.status === 403
       ? "проба доступна только администратору организации"
       : err.status === 422
         ? "исправьте флаги по тексту отказа"

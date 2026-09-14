@@ -193,7 +193,8 @@ describe("запрос пробы", () => {
     ['{"id":9007199254740993}', "9007199254740993", "9007199254740992"],
     ['{"price":12345678901234567.89}', "12345678901234567.89", "12345678901234568"],
     ['{"id":1152921504606846976}', "1152921504606846976", "1152921504606847000"],
-    ['[1, {"a":[1e400]}]', "1e400", "Infinity"],
+    ['[1, {"a":[1e400]}]', "1e400", "в запрос ушло бы null"],
+    ['{"a":1e-400}', "1e-400", "в запрос ушло бы 0"],
   ])("число %s теряет точность — отказ до запроса", async (body, text, sent) => {
     const err = await refused(() => dataProbeCmd("POST", "/rest/v1/cart", { db: "kofeinya", body }));
     expect(err).toMatchObject({ code: "data_probe_body" });
@@ -222,6 +223,12 @@ describe("запрос пробы", () => {
     expect(await refused(() => dataProbeCmd("GET", "/rest/v1/cart", { db: "kofeinya", user: USER })))
       .toMatchObject({ code: "data_probe_as" });
     expect(await refused(() => dataProbeCmd("GET", "/rest/v1/cart", { db: "kofeinya", as: "admin" })))
+      .toMatchObject({ code: "data_probe_as" });
+    expect(api.probeDataApi).not.toHaveBeenCalled();
+  });
+
+  it("--user '' при посетителе — тоже отказ: флаг передан, значит, ждали пользователя", async () => {
+    expect(await refused(() => dataProbeCmd("GET", "/rest/v1/cart", { db: "kofeinya", user: "" })))
       .toMatchObject({ code: "data_probe_as" });
     expect(api.probeDataApi).not.toHaveBeenCalled();
   });
@@ -265,6 +272,46 @@ describe("запрос пробы", () => {
       "layero data probe POST '/rest/v1/товары' --query 'название=eq.Кофе латте' --query 'q=a b'" +
         ` --body '{"qty":1}' --db kofeinya`,
     );
+  });
+
+  it("управляющие символы в подсказке — записью $'…', «!» там же — \\x21", async () => {
+    const err = await refused(() => dataProbeCmd("GET", "/rest/v1/items?x=a%09b", {
+      db: "kofeinya", query: ["n=it's\n!\x01"],
+    }));
+    expect(String(err.next_action)).toBe(
+      "layero data probe GET /rest/v1/items --query $'x=a\\tb' --query $'n=it\\'s\\n\\x21\\x01' --db kofeinya",
+    );
+  });
+
+  it("подсказка несёт --body-file", async () => {
+    const err = await refused(() => dataProbeCmd("POST", "/rest/v1/cart?x=1", { db: "kofeinya", bodyFile: "order it's.json" }));
+    expect(String(err.next_action)).toBe(
+      "layero data probe POST /rest/v1/cart --query x=1 --body-file 'order it'\\''s.json' --db kofeinya",
+    );
+  });
+
+  it.each([
+    ["/rest/v1/items?select=id", ["select=title"], "и в пути после «?», и флагом --query"],
+    ["/rest/v1/items?a=1&a=2", [], "указан дважды"],
+    ["/rest/v1/items?=x", [], "не пара имя=значение"],
+  ])("«?» в %s с параметрами, на которых упал бы повтор, — отказ сразу", async (path, query, text) => {
+    const err = await refused(() => dataProbeCmd("GET", path, { db: "kofeinya", query }));
+    expect(err).toMatchObject({ code: "data_probe_query" });
+    expect(String(err.message)).toContain(text);
+    expect(api.listDatabases).not.toHaveBeenCalled();
+    expect(api.probeDataApi).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["/rest/v1/rpc/", "нет имени функции"],
+    ["/rest/v1/rpc//", "нет имени функции"],
+    ["/rest/v1/", "нет имени таблицы"],
+  ])("путь %s без имени — отказ, а не проба таблицы", async (path, text) => {
+    const err = await refused(() => dataProbeCmd("POST", path, { db: "kofeinya" }));
+    expect(err).toMatchObject({ code: "data_probe_path" });
+    expect(String(err.message)).toContain(text);
+    expect(String(err.next_action)).toBe("имена таблиц и функций — layero data methods --db kofeinya");
+    expect(api.probeDataApi).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -315,14 +362,35 @@ describe("запрос пробы", () => {
     expect(api.probeDataApi).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["/rest/v1/rpc/menu", "POST"],
-    ["/whoami", "GET"],
-  ])("--schema у %s — отказ, в подсказке без схемы", async (path, method) => {
-    const err = await refused(() => dataProbeCmd(method, path, { db: "kofeinya", schema: "api" }));
+  it.each(["api", "API", " Api "])("--schema %j у функции законна: не уходит, в эхе null", async (schema) => {
+    const { events, error } = await capture(() => dataProbeCmd("POST", "/rest/v1/rpc/menu", { db: "kofeinya", schema, body: "{}" }));
+    expect(error).toBeNull();
+    expect(api.probeDataApi.mock.calls[0]![2].schema).toBeNull();
+    expect(events[0].request.schema).toBeNull();
+  });
+
+  it("у функции другая схема — отказ, в подсказке без схемы", async () => {
+    const err = await refused(() => dataProbeCmd("POST", "/rest/v1/rpc/menu", { db: "kofeinya", schema: "App", body: "{}" }));
     expect(err).toMatchObject({ code: "data_probe_schema" });
-    expect(String(err.next_action)).toBe(`layero data probe ${method} ${path} --db kofeinya`);
+    expect(String(err.message)).toContain("у функций схема — только api");
+    expect(String(err.message)).toContain("а не из App");
+    expect(String(err.next_action)).toBe("layero data probe POST /rest/v1/rpc/menu --body '{}' --db kofeinya");
     expect(api.probeDataApi).not.toHaveBeenCalled();
+  });
+
+  it.each(["app", "hidden"])("у /whoami --schema %s молча отбрасывается", async (schema) => {
+    const { events, error } = await capture(() => dataProbeCmd("GET", "/whoami", { db: "kofeinya", schema }));
+    expect(error).toBeNull();
+    expect(api.probeDataApi.mock.calls[0]![2].schema).toBeNull();
+    expect(events[0].request.schema).toBeNull();
+  });
+
+  it.each(["", "   "])("пустая --schema %j — как без флага и в подсказку не попадает", async (schema) => {
+    const { error } = await capture(() => dataProbeCmd("GET", "/rest/v1/products", { db: "kofeinya", schema }));
+    expect(error).toBeNull();
+    expect(api.probeDataApi.mock.calls[0]![2].schema).toBeNull();
+    const err = await refused(() => dataProbeCmd("GET", "/rest/v1/products/", { db: "kofeinya", schema }));
+    expect(String(err.next_action)).toBe("layero data probe GET /rest/v1/products --db kofeinya");
   });
 
   it.each(["abc", "600", "2x", "20", ",", "2xx,oops"])("--expect %s — отказ до запроса", async (value) => {
@@ -352,6 +420,13 @@ describe("отказ ручки до шлюза", () => {
     expect(err).toMatchObject({ code: "data_probe_rejected" });
     expect(String(err.message)).toContain(detail);
     expect(String(err.next_action)).toContain(hint);
+  });
+
+  it.each(["база не найдена", "not found"])("404 ручки «%s» — подсказка layero db list", async (detail) => {
+    reject(404, detail);
+    const err = await refused(() => dataProbeCmd("GET", "/rest/v1/cart", { db: "kofeinya" }));
+    expect(err).toMatchObject({ code: "data_probe_rejected" });
+    expect(String(err.next_action)).toBe("список баз и их состояние: layero db list");
   });
 
   it("шлюз данных не ответил — data_probe_gateway_failed, а не отказ", async () => {
@@ -415,6 +490,7 @@ describe("код выхода", () => {
     [200, "403", "data_probe_unexpected_status"],
     [403, "401,403", null],
     [403, "4xx", null],
+    [403, " 401 , 403 ", null],
     [200, "2XX", null],
     [503, "503", null],
     [503, "5xx", null],
