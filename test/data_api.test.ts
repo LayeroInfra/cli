@@ -449,6 +449,12 @@ describe("включение", () => {
     expect(String(err.message)).toContain("схему public");
     expect(String(err.next_action)).toContain("layero data keys list --db kofeinya");
     expect(String(err.next_action)).toContain("layero data enable --db kofeinya --repair");
+    expect(String(err.next_action)).not.toContain("keys issue");
+    expect(api.enableDataApi).not.toHaveBeenCalled();
+    // С --with-secret подсказка ведёт на выпуск секретного ключа.
+    const secret = await dataEnableCmd({ db: "kofeinya", withSecret: true }).then(() => null, (e) => e);
+    expect(secret).toMatchObject({ code: "data_api_already_enabled" });
+    expect(String(secret.next_action)).toContain("layero data keys issue --db kofeinya --kind secret");
     expect(api.enableDataApi).not.toHaveBeenCalled();
   });
 
@@ -477,6 +483,30 @@ describe("включение", () => {
     const out = await events(() => dataEnableCmd({ db: "kofeinya", repair: true, yes: true }));
     expect(api.enableDataApi).toHaveBeenCalledWith("acme", "db-1", false);
     expect(out[0]).toMatchObject({ event: "data_api_enabled", reapplied: true });
+  });
+
+  it("текст после переприменения — о случившемся и без «всё закрыто»", async () => {
+    api.enableDataApi.mockResolvedValue({ slug: "kofeinya", key: null, secret_key: null });
+    setMode({ agent: false, json: false, interactive: true, reason: "test" });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    let repaired = "";
+    let enabled = "";
+    try {
+      await dataEnableCmd({ db: "kofeinya", repair: true, yes: true });
+      repaired = log.mock.calls.flat().join("\n");
+      log.mockClear();
+      api.enableDataApi.mockResolvedValue({ slug: "draft", key: { key: "pk_live_new" }, secret_key: null });
+      await dataEnableCmd({ db: "draft" });
+      enabled = log.mock.calls.flat().join("\n");
+    } finally {
+      log.mockRestore();
+    }
+    expect(repaired).toContain("переприменён");
+    expect(repaired).toContain("лишились прав на схему public (USAGE)");
+    expect(repaired).toContain("схемах api и app сохранились");
+    expect(repaired).not.toContain("потеряют");
+    expect(repaired).not.toContain("Все методы закрыты");
+    expect(enabled).toContain("Все методы закрыты");
   });
 });
 

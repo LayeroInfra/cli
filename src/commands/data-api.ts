@@ -520,7 +520,7 @@ export async function dataGrantCmd(object: string, opts: DataApiOptions): Promis
 
 // Что снимает переприменение: агент узла при каждом включении API отзывает у
 // ролей Data API всё в схеме `public` (`runtime/userdb-agent/agent.py`, `api_enable`).
-const REPAIR_LOSS = "роли Data API потеряют USAGE на схему public и все права на её таблицы";
+const REPAIR_LOSS = "роли Data API потеряют права на схему public (USAGE) и на все её таблицы";
 
 /**
  * Включение Data API.
@@ -548,7 +548,9 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
     throw new LayeroError(
       "data_api_already_enabled",
       `у базы «${db.name}» Data API уже включён — повторное включение ничего не выпускает, а ${REPAIR_LOSS}`,
-      `ключи: layero data keys list --db ${shellArg(ref)}; методы: layero data methods --db ${shellArg(ref)}; ` +
+      // `--with-secret` здесь ничего не выпустит: секретный ключ выпускается отдельной командой.
+      (opts.withSecret ? `секретный ключ: layero data keys issue --db ${shellArg(ref)} --kind secret; ` : "") +
+        `ключи: layero data keys list --db ${shellArg(ref)}; методы: layero data methods --db ${shellArg(ref)}; ` +
         `переприменить роли и схему api: layero data enable --db ${shellArg(ref)} --repair`,
     );
   }
@@ -589,10 +591,16 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
     });
     return;
   }
+  // После переприменения — уже случившееся, а не будущее, и не «всё закрыто»:
+  // агент снимает права только в `public`, уровни в `api` и `app` остаются.
   console.log(
     reapplied
       ? `${chalk.green("✓")} Data API переприменён у базы «${db.name}»\n` +
-          chalk.yellow(`  ${_capitalize(REPAIR_LOSS)}: откройте нужные таблицы заново — layero data methods`)
+          chalk.yellow(
+            "  Роли Data API лишились прав на схему public (USAGE) и на все её таблицы. " +
+              "Уровни таблиц в схемах api и app сохранились; таблицы public, если они были открыты, " +
+              "откройте заново: layero data methods, затем layero data grant",
+          )
       : `${chalk.green("✓")} Data API включён у базы «${db.name}»`,
   );
   if (publicKey) console.log(`\n  публичный ключ:  ${publicKey}`);
@@ -603,11 +611,13 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
     );
   }
   if (!publicKey && !secretKey) console.log(chalk.dim(`  ключи уже были — список: layero data keys list --db ${ref}`));
-  console.log(
-    chalk.dim(
-      "\n  Все методы закрыты, пока вы их не откроете: layero data methods, затем layero data grant",
-    ),
-  );
+  if (!reapplied) {
+    console.log(
+      chalk.dim(
+        "\n  Все методы закрыты, пока вы их не откроете: layero data methods, затем layero data grant",
+      ),
+    );
+  }
 }
 
 /**
