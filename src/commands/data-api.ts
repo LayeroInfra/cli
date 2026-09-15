@@ -387,12 +387,15 @@ export async function dataMethodsCmd(opts: DataApiOptions): Promise<void> {
   }
   if (res.functions.length) console.log(chalk.bold(`${res.tables.length ? "\n" : ""}RPC`));
   for (const f of res.functions) {
-    // Причина «не метод» — по виду: процедура лежит в api, но шлюз её не вызывает.
+    // Причина «не метод» — по виду: процедура лежит в api, но шлюз её не вызывает;
+    // либо она затенена одноимённой функцией схемы раньше по составу (shadowed_by).
     const where = chalk.dim(
       f.path ??
         (f.kind === "procedure"
           ? "не метод: процедуру шлюз не вызывает — только функции"
-          : "не метод: шлюз зовёт функции только из схемы api"),
+          : f.shadowed_by
+            ? `не метод: по этому имени шлюз зовёт ${f.shadowed_by}`
+            : "не метод: шлюз зовёт функции только из схемы api"),
     );
     const pub = f.public_only ? chalk.yellow("  доступна всем по умолчанию Postgres — шлюз её не пустит") : "";
     const twin = f.overloaded

@@ -350,6 +350,32 @@ describe("уровни доступа", () => {
     expect(lines.find((l) => l.includes("app.helper()"))).toContain("только из схемы api");
   });
 
+  it("затенённая функция называет ту, что вызывает шлюз (T-20260915-6)", async () => {
+    api.listDataMethods.mockResolvedValue({
+      roles: {},
+      tables: [],
+      functions: [
+        { signature: "api.pr(x integer)", kind: "function", level: "server", path: null,
+          public_only: false, shadowed_by: "shop.pr" },
+      ],
+    });
+    const out = await events(() => dataMethodsCmd({ db: "kofeinya" }));
+    expect(out[0].functions[0]).toMatchObject({ shadowed_by: "shop.pr" });
+
+    setMode({ agent: false, json: false, interactive: true, reason: "test" });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    let lines: string[] = [];
+    try {
+      await dataMethodsCmd({ db: "kofeinya" });
+      lines = log.mock.calls.flat().join("\n").split("\n");
+    } finally {
+      log.mockRestore();
+    }
+    const line = lines.find((l) => l.includes("api.pr(x integer)"));
+    expect(line).toContain("шлюз зовёт shop.pr");
+    expect(line).not.toContain("только из схемы api");
+  });
+
   it("одноимённая функция помечена в описи методов", async () => {
     setMode({ agent: false, json: false, interactive: true, reason: "test" });
     api.listDataMethods.mockResolvedValue({

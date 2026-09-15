@@ -65,6 +65,8 @@ export interface DataApiMethods {
     signature: string;
     kind?: "function" | "procedure";
     path: string | null;
+    /** Адрес ведёт на другую функцию/процедуру: "схема.имя" вызываемой вместо этой. */
+    shadowed_by?: string | null;
     /** В схеме api есть одноимённая функция или процедура: шлюз ищет по имени. */
     overloaded?: boolean;
     level: string;
