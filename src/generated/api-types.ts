@@ -1996,6 +1996,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/auth/logins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api List Auth Logins
+         * @description График входов, регистраций и отказов по способам (§5.2).
+         */
+        get: operations["api_list_auth_logins_organizations__slug__databases__db_id__api_auth_logins_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/auth/providers": {
         parameters: {
             query?: never;
@@ -2297,6 +2317,26 @@ export interface paths {
          * @description Выкинуть человека со всех устройств, не трогая пароль.
          */
         post: operations["api_revoke_app_user_sessions_organizations__slug__databases__db_id__api_auth_users__user_id__revoke_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/api/auth/users/{user_id}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api List App User Sessions
+         * @description Активные сессии человека — список в карточке (§5.1).
+         */
+        get: operations["api_list_app_user_sessions_organizations__slug__databases__db_id__api_auth_users__user_id__sessions_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6130,6 +6170,10 @@ export interface components {
              * @default false
              */
             unban: boolean;
+            /** User Metadata */
+            user_metadata?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** AttachExternalIn */
         AttachExternalIn: {
@@ -12725,6 +12769,43 @@ export interface operations {
             };
         };
     };
+    api_list_auth_logins_organizations__slug__databases__db_id__api_auth_logins_get: {
+        parameters: {
+            query?: {
+                range?: string;
+                tz?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     api_list_auth_providers_organizations__slug__databases__db_id__api_auth_providers_get: {
         parameters: {
             query?: never;
@@ -13348,6 +13429,41 @@ export interface operations {
         };
     };
     api_revoke_app_user_sessions_organizations__slug__databases__db_id__api_auth_users__user_id__revoke_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_list_app_user_sessions_organizations__slug__databases__db_id__api_auth_users__user_id__sessions_get: {
         parameters: {
             query?: never;
             header?: {
