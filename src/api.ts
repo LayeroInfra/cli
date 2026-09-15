@@ -83,6 +83,8 @@ export interface DataApiLevelsPlan {
   warnings: string[];
   /** Причины, по которым применения не будет: сервер откажет. Входят и в `warnings`. */
   blocked?: string[];
+  /** Поменяют ли команды права в базе. Нет поля — старый сервер: считать, что поменяют. */
+  changes?: boolean;
   applied: boolean;
 }
 export type UploadInit = Schemas["UploadInitOut"];

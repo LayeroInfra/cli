@@ -479,6 +479,24 @@ export async function dataGrantCmd(object: string, opts: DataApiOptions): Promis
   const plan = await api.setDataLevels(org, db.id, { ...request, apply: false });
   const json = asJson(opts);
   const blocked = plan.blocked ?? [];
+
+  // 🚨 ПУСТЫХ КОМАНД У ТАБЛИЦЫ НЕ БЫВАЕТ: сервер пишет итоговое состояние
+  // целиком, и при уже выданном уровне команды повторяют выданное. Менять ли
+  // права, говорит `changes` — сверка прав в базе. Спрашивать «применить?» здесь
+  // значило бы учить соглашаться не глядя (T-20260914-9). Нет поля — старый
+  // сервер: спросить, как раньше.
+  if (plan.changes === false && !blocked.length) {
+    if (json) {
+      emit({
+        ...planEvent(org, ref, plan, false),
+        next_action: `менять нечего: доступ уже такой; текущие уровни: layero data methods --db ${shellArg(ref)}`,
+      });
+      return;
+    }
+    console.log(`${chalk.green("✓")} доступ уже такой: ${object} — менять нечего`);
+    return;
+  }
+
   if (!json && (!opts.yes || blocked.length)) console.log(planLines(plan).join("\n"));
 
   // 🚨 БЛОКИРОВКУ СЕРВЕР ПРИМЕНИТЬ НЕ ДАСТ. Спрашивать «применить?» и слать

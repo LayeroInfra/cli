@@ -258,6 +258,45 @@ describe("уровни доступа", () => {
     expect(api.setDataLevels.mock.calls[2]![2]).toMatchObject({ apply: true, expected_sql: PLAN.sql });
   });
 
+  it("план без изменений — «доступ уже такой» без вопроса и без применения (T-20260914-9)", async () => {
+    const same = { ...PLAN, current: PLAN.next, changes: false };
+    api.setDataLevels.mockImplementation(async () => same);
+    const { events: out, error } = await capture(() => dataGrantCmd("app.products", { db: "kofeinya", get: "visitor" }));
+    expect(error).toBeNull();
+    expect(out).toEqual([expect.objectContaining({
+      event: "data_grant", applied: false, next_action: expect.stringContaining("доступ уже такой"),
+    })]);
+    await capture(() => dataGrantCmd("app.products", { db: "kofeinya", get: "visitor", yes: true }));
+    setMode({ agent: false, json: false, interactive: true, reason: "test" });
+    prompt.answer = "y";
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await dataGrantCmd("app.products", { db: "kofeinya", get: "visitor" });
+      expect(log.mock.calls.flat().join("\n")).toContain("доступ уже такой");
+      expect(log.mock.calls.flat().join("\n")).not.toContain("GRANT");
+    } finally {
+      log.mockRestore();
+    }
+    expect(prompt.asked).toEqual([]);
+    expect(api.setDataLevels).toHaveBeenCalledTimes(3);
+    expect(api.setDataLevels.mock.calls.every((c: any[]) => !c[2].apply)).toBe(true);
+  });
+
+  it("меняющий план с признаком по-прежнему спрашивает", async () => {
+    setMode({ agent: false, json: false, interactive: true, reason: "test" });
+    api.setDataLevels.mockImplementation(async (_o: string, _d: string, body: any) =>
+      body.apply ? { ...PLAN, current: PLAN.next, applied: true, changes: true } : { ...PLAN, changes: true });
+    prompt.answer = "y";
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await dataGrantCmd("app.products", { db: "kofeinya", get: "visitor" });
+    } finally {
+      log.mockRestore();
+    }
+    expect(prompt.asked.length).toBe(1);
+    expect(api.setDataLevels.mock.calls[1]![2]).toMatchObject({ apply: true, expected_sql: PLAN.sql });
+  });
+
   it("функция — уровнем вызова", async () => {
     await capture(() => dataGrantCmd("api.order_create", { db: "kofeinya", call: "server" }));
     expect(api.setDataLevels.mock.calls[0]![2]).toMatchObject({ levels: null, level: "server" });
