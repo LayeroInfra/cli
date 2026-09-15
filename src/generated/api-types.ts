@@ -2057,6 +2057,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/auth/preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Auth Schema Preflight
+         * @description Годится ли имя схемы и что под ним уже лежит в базе — ничего не меняя.
+         */
+        post: operations["api_auth_schema_preflight_organizations__slug__databases__db_id__api_auth_preflight_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/auth/providers": {
         parameters: {
             query?: never;
@@ -6255,6 +6275,14 @@ export interface components {
             enabled?: boolean | null;
             /** Return Urls */
             return_urls?: string[] | null;
+        };
+        /**
+         * AuthSchemaIn
+         * @description Имя схемы входа (§2); не задано — прежнее у базы, по умолчанию `auth`.
+         */
+        AuthSchemaIn: {
+            /** Schema */
+            schema?: string | null;
         };
         /**
          * AuthSettingsIn
@@ -12824,7 +12852,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AuthSchemaIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -12930,6 +12962,44 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_auth_schema_preflight_organizations__slug__databases__db_id__api_auth_preflight_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthSchemaIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
