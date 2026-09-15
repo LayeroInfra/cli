@@ -2061,6 +2061,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/auth/providers/{provider}/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Api Set Auth Provider Options
+         * @description Выключить или включить провайдера, не трогая ключи.
+         */
+        put: operations["api_set_auth_provider_options_organizations__slug__databases__db_id__api_auth_providers__provider__options_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/auth/refusals": {
         parameters: {
             query?: never;
@@ -6122,10 +6142,24 @@ export interface components {
         AuthProviderIn: {
             /** Client Id */
             client_id: string;
-            /** Client Secret */
+            /**
+             * Client Secret
+             * @default
+             */
             client_secret: string;
             /** Provider */
             provider: string;
+        };
+        /**
+         * AuthProviderOptionsIn
+         * @description Выключатель провайдера (§6.4). Адреса возврата принимаются и не
+         *     сохраняются, пока сервер не объявил `return_urls` (T-20260915-18).
+         */
+        AuthProviderOptionsIn: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Return Urls */
+            return_urls?: string[] | null;
         };
         /**
          * AuthSettingsIn
@@ -12812,6 +12846,45 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_set_auth_provider_options_organizations__slug__databases__db_id__api_auth_providers__provider__options_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthProviderOptionsIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
