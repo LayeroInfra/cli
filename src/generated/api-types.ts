@@ -2363,6 +2363,9 @@ export interface paths {
          * Api Set Composition
          * @description Новый состав Data API: схемы и отдельные объекты.
          *
+         *     Применение — только показанного плана: `expected_plan_hash` = `plan_hash`
+         *     из ответа показа; план стал другим — 412 и ничего не применено.
+         *
          *     По умолчанию только показ (`dry_run`): что станет методом, что перестанет,
          *     с каких функций снимется право `PUBLIC` и какие схемы получат гард. Доступы,
          *     выданные на убранные объекты, не снимаются — ответ говорит это до применения.
@@ -5916,6 +5919,8 @@ export interface components {
              * @default true
              */
             dry_run: boolean;
+            /** Expected Plan Hash */
+            expected_plan_hash?: string | null;
             /** Objects */
             objects?: components["schemas"]["ApiObjectIn"][];
             /** Schemas */
