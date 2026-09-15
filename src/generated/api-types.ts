@@ -6196,8 +6196,7 @@ export interface components {
         };
         /**
          * AuthProviderOptionsIn
-         * @description Выключатель провайдера (§6.4). Адреса возврата принимаются и не
-         *     сохраняются, пока сервер не объявил `return_urls` (T-20260915-18).
+         * @description Выключатель провайдера (§6.4) и его адреса возврата (§6.6).
          */
         AuthProviderOptionsIn: {
             /** Enabled */
@@ -6220,6 +6219,8 @@ export interface components {
             confirm_email?: boolean | null;
             /** Disabled */
             disabled?: boolean | null;
+            /** Email Return Urls */
+            email_return_urls?: string[] | null;
             /** Magiclink Enabled */
             magiclink_enabled?: boolean | null;
             /** Mfa Enabled */
@@ -6234,6 +6235,10 @@ export interface components {
             password_min_length?: number | null;
             /** Password Required */
             password_required?: string[] | null;
+            /** Rate Limits */
+            rate_limits?: {
+                [key: string]: unknown;
+            } | null;
             /** Refresh Ttl Days */
             refresh_ttl_days?: number | null;
             /** Signup Open */
