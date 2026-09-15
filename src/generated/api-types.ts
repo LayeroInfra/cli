@@ -1928,6 +1928,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/auth/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Disable Auth
+         * @description Выключить вход. Удаление необратимо и отказывает, если схему задевают
+         *     объекты приложения снаружи (политики, внешние ключи).
+         */
+        post: operations["api_disable_auth_organizations__slug__databases__db_id__api_auth_disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/auth/enable": {
         parameters: {
             query?: never;
@@ -6181,6 +6202,17 @@ export interface components {
             dsn: string;
             /** Name */
             name: string;
+        };
+        /**
+         * AuthDisableIn
+         * @description Выключение входа (§8): без удаления — пауза, с удалением — схема уходит.
+         */
+        AuthDisableIn: {
+            /**
+             * Drop Data
+             * @default false
+             */
+            drop_data: boolean;
         };
         /** AuthProviderIn */
         AuthProviderIn: {
@@ -12651,6 +12683,44 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_disable_auth_organizations__slug__databases__db_id__api_auth_disable_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthDisableIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
