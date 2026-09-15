@@ -1949,6 +1949,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/api/auth/emails/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Send Auth Test Letter
+         * @description Пробное письмо входа себе — с текстом и отправителем владельца.
+         */
+        post: operations["api_send_auth_test_letter_organizations__slug__databases__db_id__api_auth_emails_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/api/auth/enable": {
         parameters: {
             query?: never;
@@ -6253,6 +6273,10 @@ export interface components {
             disabled?: boolean | null;
             /** Email Return Urls */
             email_return_urls?: string[] | null;
+            /** Emails */
+            emails?: {
+                [key: string]: unknown;
+            } | null;
             /** Magiclink Enabled */
             magiclink_enabled?: boolean | null;
             /** Mfa Enabled */
@@ -6318,6 +6342,14 @@ export interface components {
         AuthSmtpTestIn: {
             /** To Email */
             to_email: string;
+        };
+        /**
+         * AuthTestLetterIn
+         * @description Пробное письмо владельцу: `confirm`, `link`, `code` или `recovery`.
+         */
+        AuthTestLetterIn: {
+            /** Kind */
+            kind: string;
         };
         /**
          * BackupCreateIn
@@ -12719,6 +12751,44 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AuthDisableIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_send_auth_test_letter_organizations__slug__databases__db_id__api_auth_emails_test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthTestLetterIn"];
             };
         };
         responses: {
