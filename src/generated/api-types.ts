@@ -3304,6 +3304,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/backups/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Backups Quote
+         * @description Сколько стоит включить копии или изменить их число — ДО нажатия.
+         *
+         *     Тот же расчёт, что исполнит включение: диалог называет ту сумму, которую
+         *     потом спишет, а не соседнюю.
+         */
+        get: operations["backups_quote_organizations__slug__databases__db_id__backups_quote_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/backups/settings": {
         parameters: {
             query?: never;
@@ -6569,10 +6592,34 @@ export interface components {
              */
             kind: string;
         };
+        /**
+         * BackupsQuoteOut
+         * @description Во что обойдётся опция копий у выделенной базы с таким числом копий.
+         */
+        BackupsQuoteOut: {
+            /** Billable */
+            billable: boolean;
+            /** Keep */
+            keep: number;
+            /** Price Month */
+            price_month: number;
+            /** Price Month Now */
+            price_month_now: number;
+            /** Price Rub */
+            price_rub: number;
+            /** Topup Kopecks */
+            topup_kopecks: number;
+            /** Unused Days */
+            unused_days: number;
+        };
         /** BackupsSettingsIn */
         BackupsSettingsIn: {
             /** Enabled */
             enabled: boolean;
+            /** Hour */
+            hour?: number | null;
+            /** Keep */
+            keep?: number | null;
         };
         /** BranchOut */
         BranchOut: {
@@ -15732,6 +15779,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    backups_quote_organizations__slug__databases__db_id__backups_quote_get: {
+        parameters: {
+            query?: {
+                keep?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupsQuoteOut"];
                 };
             };
             /** @description Validation Error */
