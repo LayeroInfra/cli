@@ -113,7 +113,9 @@ export async function claimStatusCmd(code: string | undefined, opts: { json?: bo
   try {
     status = await api.getClaimStatus(ref.code);
   } catch (err) {
-    if (err instanceof ApiError && err.status === 404) {
+    // 422 — код не той формы (короче 8 символов): для человека это тот же
+    // «кода нет», а не внутренняя ошибка CLI.
+    if (err instanceof ApiError && (err.status === 404 || err.status === 422)) {
       throw new LayeroError(
         "claim_unknown",
         `заявки с кодом ${ref.code} нет — истекла или код неверный`,
