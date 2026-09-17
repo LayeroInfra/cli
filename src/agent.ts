@@ -124,7 +124,13 @@ export type Event =
   | ({ event: "packing"; files: number; bytes: number; sha256: string; prebuilt_dir?: string } & EventCommon)
   | ({ event: "uploading" } & EventCommon)
   | ({ event: "uploaded"; archive_key: string } & EventCommon)
-  | ({ event: "setup_applied" } & EventCommon)
+  // У `projects create --repo` — с итогом детекта: что применили за человека.
+  | ({ event: "setup_applied"; project?: string; framework?: string; build_cmd?: string | null; output_dir?: string | null; layero_found?: boolean } & EventCommon)
+  // Проект создан, но мастер не завершён: по `--no-deploy` (pending) или
+  // потому что детект/настройка/первая сборка не удались (failed). В обоих
+  // случаях `url` — адрес мастера в панели, где человек доделает.
+  | ({ event: "setup_pending"; project: string; url: string; hint: string } & EventCommon)
+  | ({ event: "setup_failed"; project: string; reason: string; url: string; hint: string } & EventCommon)
   | ({ event: "runtime_type_applied"; project_type: "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web" } & EventCommon)
   | ({ event: "runtime_type_apply_failed"; error: string } & EventCommon)
   // Стоп на повторяющейся ошибке (V224): подряд идущие сборки падают с одной
@@ -156,7 +162,7 @@ export type Event =
       // почему это произошло, и мог сказать человеку число.
       limit?: number;
     } & EventCommon)
-  | ({ event: "deploy_started"; deploy_id: string } & EventCommon)
+  | ({ event: "deploy_started"; deploy_id: string; project?: string; url?: string } & EventCommon)
   | ({ event: "build_log"; line: string; stream: string } & EventCommon)
   | ({ event: "stage"; name: string } & EventCommon)
   // Диагностика (AGENT-08). `build_log_excerpt` — ВЫЖИМКА вокруг фатальной
@@ -433,7 +439,8 @@ export type Event =
   // Вебхук — отдельным событием, а не полем: без него пуш в репозиторий не
   // соберётся, и агент обязан сказать об этом человеку словами, а не
   // пропустить `false` в середине объекта.
-  | ({ event: "webhook_installed"; project: string; url: string } & EventCommon)
+  // `url` нет у GitHub App: там вебхук — часть установки, своего адреса у него нет.
+  | ({ event: "webhook_installed"; project: string; url?: string } & EventCommon)
   | ({ event: "webhook_unavailable"; project: string; url: string; hint: string } & EventCommon)
   | ({
       event: "environments";
@@ -534,7 +541,15 @@ function renderHuman(event: Event): void {
       // intentionally quiet in human mode — the next stage line takes over
       break;
     case "setup_applied":
-      process.stdout.write(`✓ Setup applied\n`);
+      process.stdout.write(
+        event.framework ? `✓ Setup applied (${event.framework})\n` : `✓ Setup applied\n`,
+      );
+      break;
+    case "setup_pending":
+      process.stdout.write(`· Проект ждёт настройки в панели: ${event.url}\n`);
+      break;
+    case "setup_failed":
+      process.stdout.write(`! ${event.hint}\n  Причина: ${event.reason}\n`);
       break;
     case "preview_evicted": {
       // Предупреждение, а не отчёт: перестал отвечать адрес, который кому-то

@@ -1,6 +1,7 @@
 import readline from "node:readline/promises";
-import { ApiClient, ApiError, ProjectSummary } from "../api.js";
+import { ApiClient, ApiError, ProjectDetectOut, ProjectSetupIn, ProjectSummary, RuntimeKind } from "../api.js";
 import { loadConfig } from "../config.js";
+import { dashboardOrigin } from "../urls.js";
 import { LayeroError, detectMode, emit } from "../agent.js";
 import { orgOf } from "./db.js";
 
@@ -40,6 +41,8 @@ interface CreateOptions {
   name?: string;
   org?: string;
   json?: boolean;
+  /** `--no-deploy` → false: проект остаётся в мастере, сборку не запускаем. */
+  deploy?: boolean;
 }
 
 /**
@@ -140,7 +143,10 @@ export async function projectsCreateCmd(opts: CreateOptions): Promise<void> {
     emitCreated(project, repo.path, branch);
     emit({ event: "source_connected", org, connection_id: account.key, provider, account: account.login });
     // У GitHub App вебхук — часть установки: без него App не существует.
-    emit({ event: "webhook_installed", project: project.slug, url: "" });
+    // Отдельного адреса у него нет, и пустая строка в `url` читалась бы как
+    // «адрес потерян» — поля нет вовсе.
+    emit({ event: "webhook_installed", project: project.slug });
+    await finishSetup(api, project, opts);
     return;
   }
 
@@ -184,6 +190,108 @@ export async function projectsCreateCmd(opts: CreateOptions): Promise<void> {
       hint:
         connected.webhook_hint ??
         "провайдер не дал создать вебхук этим токеном — заведите его в настройках репозитория вручную",
+    });
+  }
+  await finishSetup(api, connected.project, opts);
+}
+
+/** Адрес мастера проекта в панели — туда идёт человек, если мы не смогли. */
+async function setupUrl(project: ProjectSummary): Promise<string> {
+  const cfg = await loadConfig();
+  return `${dashboardOrigin(cfg.apiUrl)}/projects/${project.id}/setup`;
+}
+
+/** Рантайм, который панель ставит проекту ДО первой сборки; статика — как есть. */
+const RUNTIME_KINDS = new Set<string>(["ssr_next", "streamlit", "gradio", "flask", "python_web", "node_web"]);
+/** Приложения, у которых `framework_hint` — рудимент: панель шлёт им `static`. */
+const HINT_IS_STATIC = new Set<string>(["ssr_next", "streamlit", "gradio"]);
+const PACKAGE_MANAGERS = new Set<string>(["npm", "yarn", "pnpm", "bun"]);
+
+/**
+ * Тело `/setup` из подсказки детекта — так же, как его собирает мастер панели.
+ *
+ * Пишем только то, что детект действительно дал: пустое поле — не заглушка,
+ * а «решит сборщик по репозиторию» (правило 3 `core/docs/BUILD-CONFIG.md`).
+ * Менеджер пакетов закрепляем только из `layero.json`: это выбор владельца,
+ * а вывод по лок-файлу сборщик и так повторит сам.
+ */
+export function setupPayloadFromDetect(d: ProjectDetectOut): ProjectSetupIn {
+  const kind = d.runtime_kind ?? null;
+  const payload: ProjectSetupIn = {
+    framework_hint: kind && HINT_IS_STATIC.has(kind) ? "static" : d.framework,
+  };
+  if (d.build_cmd) payload.build_cmd = d.build_cmd;
+  if (d.output_dir) payload.output_dir = d.output_dir;
+  if (d.layero_found && d.package_manager && PACKAGE_MANAGERS.has(d.package_manager)) {
+    payload.package_manager = d.package_manager as ProjectSetupIn["package_manager"];
+  }
+  if (d.suggested_root_directory) payload.root_directory = d.suggested_root_directory;
+  return payload;
+}
+
+/**
+ * Завершить мастер и запустить первую сборку — то, что панель делает по
+ * кнопке «Начать деплой». До 0.10.2 команда на этом останавливалась:
+ * проект оставался в `pending_setup`, первая сборка ждала клика в панели, а
+ * агент без панели узнавал об этом только по вечному «сборок ещё не было».
+ *
+ * Сбой детекта или настройки создание НЕ роняет: проект уже есть, адрес
+ * занят, и правильный исход — сказать «доделайте в панели» и выйти нулём.
+ */
+async function finishSetup(api: ApiClient, project: ProjectSummary, opts: CreateOptions): Promise<void> {
+  const panel = await setupUrl(project);
+  if (opts.deploy === false) {
+    emit({ event: "setup_pending", project: project.slug, url: panel, hint: "проект ждёт настройки в мастере панели" });
+    return;
+  }
+  let detected: ProjectDetectOut;
+  let payload: ProjectSetupIn;
+  try {
+    detected = await api.detectProject(project.id);
+    payload = setupPayloadFromDetect(detected);
+    await api.applySetup(project.id, payload);
+  } catch (err) {
+    const reason = err instanceof ApiError ? err.body.slice(0, 300) : String(err);
+    emit({
+      event: "setup_failed",
+      project: project.slug,
+      reason,
+      url: panel,
+      hint: `проект создан, но настроить его не вышло — завершите в панели: ${panel}`,
+    });
+    return;
+  }
+  emit({
+    event: "setup_applied",
+    project: project.slug,
+    framework: payload.framework_hint,
+    build_cmd: payload.build_cmd ?? null,
+    output_dir: payload.output_dir ?? null,
+    layero_found: detected.layero_found,
+  });
+  // Приложение, а не статика: тип — до первой сборки, иначе сборщик падает на
+  // детекте («похоже на ssr_next, а настроено как spa»). Возражение сервера
+  // (409) сборку не запирает: это подсказка детекта, а не выбор человека.
+  const kind = detected.runtime_kind ?? null;
+  if (kind && RUNTIME_KINDS.has(kind) && project.project_type !== kind) {
+    try {
+      await api.setRuntimeType(project.id, kind as RuntimeKind);
+      emit({ event: "runtime_type_applied", project_type: kind });
+    } catch {
+      /* сборщик переставит тип сам, если репозиторий его подтвердит */
+    }
+  }
+  try {
+    const deploy = await api.triggerRepoDeploy(project.id);
+    emit({ event: "deploy_started", project: project.slug, deploy_id: deploy.id, url: `https://${project.apex_hostname}` });
+  } catch (err) {
+    const reason = err instanceof ApiError ? err.body.slice(0, 300) : String(err);
+    emit({
+      event: "setup_failed",
+      project: project.slug,
+      reason,
+      url: panel,
+      hint: `настройки применены, но первая сборка не запустилась — запустите в панели: ${panel}`,
     });
   }
 }

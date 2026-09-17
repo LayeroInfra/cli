@@ -141,12 +141,16 @@ async function main(): Promise<void> {
     .option("--branch <name>", "основная ветка (по умолчанию — ветка репозитория по умолчанию)")
     .option("--name <name>", "имя проекта (по умолчанию — имя репозитория)")
     .option("--org <slug>", "организация (по умолчанию единственная)")
+    .option("--no-deploy", "не применять настройки и не запускать первую сборку — проект останется в мастере панели")
     .addHelpText(
       "after",
       "\nПримеры:\n" +
         "  $ layero projects create --repo github:acme/site\n" +
         "  $ layero projects create --repo gitverse:acme/site --branch develop --json\n" +
-        "\nСобытия в --json: project_created, source_connected, webhook_installed | webhook_unavailable.\n" +
+        "\nПосле привязки команда сама применяет настройки из детекта и запускает первую сборку,\n" +
+        "как кнопка «Начать деплой» в панели. С --no-deploy проект остаётся в мастере.\n" +
+        "\nСобытия в --json: project_created, source_connected, webhook_installed | webhook_unavailable,\n" +
+        "затем setup_applied + deploy_started | setup_pending | setup_failed (проект создан, доделать в панели).\n" +
         "Без вебхука push не собирается — заведите его вручную по адресу из webhook_unavailable.",
     )
     .action(async (opts) => projectsCreateCmd({ ...opts, json: program.opts().json }));

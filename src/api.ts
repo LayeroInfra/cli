@@ -89,6 +89,8 @@ export interface DataApiLevelsPlan {
 }
 export type UploadInit = Schemas["UploadInitOut"];
 export type DeployOut = Schemas["DeployOut"];
+export type ProjectDetectOut = Schemas["ProjectDetectOut"];
+export type ProjectSetupIn = Schemas["ProjectSetup"];
 export type ProbeOut = Schemas["ProbeOut"];
 export type LogsPollOut = Schemas["DeployLogsPollOut"];
 export type DeploySessionOut = Schemas["DeploySessionOut"];
@@ -966,6 +968,32 @@ export class ApiClient {
     input: { connection_id: string; repo_path: string; branch?: string | null },
   ): Promise<ConnectSourceOut> {
     return this.request<ConnectSourceOut>("POST", `/projects/${projectId}/connect-source`, input);
+  }
+
+  /**
+   * Подсказка детекта для проекта с репозиторием — то, что панель показывает
+   * в мастере: фреймворк, команда сборки, папка результата, менеджер пакетов,
+   * найден ли `layero.json`.
+   */
+  detectProject(projectId: string): Promise<ProjectDetectOut> {
+    return this.request<ProjectDetectOut>("GET", `/projects/${projectId}/detect`);
+  }
+
+  /**
+   * Завершить мастер за человека: та же ручка, что у кнопки «Начать деплой»
+   * в панели. Обязателен только `framework_hint`; остальное — то, что дал
+   * детект. Не заданное здесь не заглушка, а «решит сборщик по репозиторию».
+   */
+  applySetup(projectId: string, input: ProjectSetupIn): Promise<ProjectSummary> {
+    return this.request<ProjectSummary>("POST", `/projects/${projectId}/setup`, input);
+  }
+
+  /**
+   * Первая сборка проекта с репозиторием: без архива — сервер сам берёт HEAD
+   * ветки по умолчанию. Панель после мастера делает ровно этот вызов.
+   */
+  triggerRepoDeploy(projectId: string): Promise<DeployOut> {
+    return this.request<DeployOut>("POST", `/projects/${projectId}/deploy`, {});
   }
 
   /** Окружения проекта: ветки с адресами. Архивные и снятые с раздачи не входят. */

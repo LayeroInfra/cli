@@ -74,7 +74,7 @@ The first `layero deploy` in a directory creates a project and links it via
 | `layero login` / `logout` / `whoami` | Browser device-flow sign-in, sign-out, current account. |
 | `layero deploy` | Pack the current directory, build on the platform, publish. `--claim` — without an account. |
 | `layero projects list` | Projects on your account with addresses. |
-| `layero projects create --repo <provider>:<owner/repo>` | Create a project from a repository of a connected provider. Events: `project_created`, `source_connected`, `webhook_installed` \| `webhook_unavailable`. |
+| `layero projects create --repo <provider>:<owner/repo>` | Create a project from a repository of a connected provider, apply the detected settings and start the first build (what the dashboard's "Start deploy" button does); `--no-deploy` leaves it in the wizard. Events: `project_created`, `source_connected`, `webhook_installed` \| `webhook_unavailable`, then `setup_applied` + `deploy_started` \| `setup_pending` \| `setup_failed`. |
 | `layero projects delete <slug> --yes` | Delete a project. Irreversible; needs a token with scope `admin`. |
 | `layero sources list` | Git providers the platform supports and the organization's connections. |
 | `layero sources connect <provider> --token-stdin` | Connect a provider by personal access token (read from stdin so it never lands in shell history). |
@@ -196,6 +196,14 @@ SourceCraft, which has no outgoing webhooks), the CLI says so with
 `webhook_unavailable` and the URL to register by hand — the repository is
 connected either way, only push-triggered builds wait for the webhook.
 
+Once linked, the command finishes the setup wizard itself: it takes the
+detection hint (framework, build command, output directory), applies it and
+starts the first build — exactly what the dashboard's "Start deploy" button
+does (`setup_applied`, `deploy_started`). `--no-deploy` leaves the project in
+the wizard (`setup_pending` with the dashboard URL). If detection or setup
+fails, the project is still created and the exit code is 0: `setup_failed`
+carries the reason and the wizard URL.
+
 ## Deploy hooks — webhook URLs that trigger builds
 
 ```bash
@@ -270,7 +278,9 @@ Every command emits events — one JSON object per line on stdout:
 {"event":"project_created","project_id":"…","slug":"…","organization":"…","url":"…","repo":"…","branch":"…"}
 {"event":"project_linked","project_id":"…","slug":"…","url":"…"}
 {"event":"source_connected","org":"…","connection_id":"…","provider":"…","account":"…"}
-{"event":"webhook_installed","project":"…","url":"…"}   |   {"event":"webhook_unavailable","project":"…","url":"…","hint":"…"}
+{"event":"webhook_installed","project":"…"}   |   {"event":"webhook_unavailable","project":"…","url":"…","hint":"…"}
+{"event":"setup_applied","project":"…","framework":"…","build_cmd":"…","output_dir":"…","layero_found":false}
+{"event":"setup_pending","project":"…","url":"https://app.layero.ru/projects/…/setup","hint":"…"}   |   {"event":"setup_failed","project":"…","reason":"…","url":"…","hint":"…"}
 {"event":"sources","org":"…","providers":[…],"connections":[…]}
 {"event":"source_repos","org":"…","connection_id":"…","repos":[…]}
 {"event":"environments","project":"…","environments":[{"branch":"main","url":"https://…","production":true,…}]}
