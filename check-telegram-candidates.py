@@ -54,6 +54,16 @@ def main() -> int:
             print(f"✗ не нашёл {path.relative_to(ROOT)} — файл переименован "
                   f"или переехал; поправьте путь в этом гейте", file=sys.stderr)
             return 1
+    # Совпадение списков ничего не стоит, если systemd получит из юнита один
+    # адрес: без кавычек вокруг присваивания он режет значение по пробелам.
+    # Так было до 17.09.2026 при зелёном гейте.
+    unit_line = re.search(r"^Environment=.*TELEGRAM_CANDIDATES=.*$",
+                          COPY.read_text(encoding="utf-8"), re.M)
+    if not unit_line or not unit_line.group(0).startswith('Environment="'):
+        print(f"✗ в {COPY.relative_to(ROOT)} строка Environment с "
+              "TELEGRAM_CANDIDATES должна быть целиком в кавычках: "
+              'Environment="TELEGRAM_CANDIDATES=$CANDIDATES"', file=sys.stderr)
+        return 1
     want, got = эталон(), копия()
     if want == got:
         print(f"check-telegram-candidates: ok — {len(want)} адресов, копия совпадает")
