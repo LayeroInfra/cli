@@ -7,7 +7,7 @@
   "homepage": "https://docs.layero.ru/cli/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/LayeroInfra/cli"
+    "url": "git+https://github.com/LayeroInfra/cli.git"
   },
   "bugs": {
     "url": "https://github.com/LayeroInfra/cli/issues"
