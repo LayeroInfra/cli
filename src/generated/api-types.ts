@@ -3334,6 +3334,9 @@ export interface paths {
         /**
          * Download Backup
          * @description Ссылка на скачивание копии. Она же — ответ на «что будет, если я уйду».
+         *
+         *     Идентификатор — строка: у копии в нашем бакете это uuid, у копии
+         *     провайдера — его число. Форму проверяет тот, кто её понимает.
          */
         get: operations["download_backup_organizations__slug__databases__db_id__backups__backup_id__download_get"];
         put?: never;
