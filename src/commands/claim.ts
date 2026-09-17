@@ -49,10 +49,14 @@ export async function createClaimable(
   try {
     created = await api.createClaimableProject(input);
   } catch (err) {
-    if (err instanceof ApiError && (err.status === 404 || err.status === 501)) {
+    // 404/501 — ручки нет; 503 — платформа выключила песочницы; 429 — квота
+    // заявок исчерпана. Все три — «сейчас так нельзя», и совет один: войти.
+    if (err instanceof ApiError && [404, 429, 501, 503].includes(err.status)) {
       throw new LayeroError(
         "claimable_unavailable",
-        "деплой без аккаунта на этой платформе ещё не включён",
+        err.status === 429
+          ? "лимит заявок без аккаунта исчерпан — попробуйте позже"
+          : "деплой без аккаунта на этой платформе сейчас не включён",
         "войдите: `layero login`, либо задайте LAYERO_TOKEN (выпуск — `layero token create` или app.layero.ru/settings/cli)",
       );
     }

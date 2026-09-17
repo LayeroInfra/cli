@@ -104,10 +104,12 @@ describe("createClaimable", () => {
     expect(claimCodeOf({ claim_url: "https://app/claim?code=Q", claim_code: "SRV" })).toBe("SRV");
     expect(claimCodeOf({ claim_url: "https://app.layero.ru/claim/XYZ" })).toBe("XYZ");
   });
-  it("бэкенд без /claimable (404) — claimable_unavailable с подсказкой войти", async () => {
+  it("бэкенд без /claimable (404), выключено (503), квота (429) — claimable_unavailable с подсказкой войти", async () => {
     const { ApiError } = await import("../src/api.js");
-    M.createClaimableProject.mockRejectedValue(new ApiError("x", 404, ""));
-    await expect(createClaimable({ apiUrl: "x" }, "/cwd", {})).rejects.toMatchObject({ code: "claimable_unavailable", next_action: expect.stringContaining("layero login") });
+    for (const status of [404, 503, 429]) {
+      M.createClaimableProject.mockRejectedValue(new ApiError("x", status, ""));
+      await expect(createClaimable({ apiUrl: "x" }, "/cwd", {})).rejects.toMatchObject({ code: "claimable_unavailable", next_action: expect.stringContaining("layero login") });
+    }
   });
 });
 
