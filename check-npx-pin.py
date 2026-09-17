@@ -41,9 +41,12 @@ SURFACES = (
     "mcp/server/prompts",
     "mcp/README.md",
     "mcp/docs",
+    # Панель (AX-аудит 17.09.2026, этап C): подсказки «задеплойте командой»
+    # в мастере и на страницах проекта копируют так же, как доки.
+    "frontend/control-plane/src",
 )
 
-SUFFIXES = {".md", ".mdx", ".txt", ".html", ".json"}
+SUFFIXES = {".md", ".mdx", ".txt", ".html", ".json", ".ts", ".tsx"}
 
 # Поверхности, на которых расхождение = ОТКАЗ. Остальное печатается
 # предупреждением, и файл переезжает сюда, когда вычищен (та же схема, что у
@@ -61,6 +64,7 @@ STRICT = (
     "mcp/server/prompts",
     "mcp/README.md",
     "mcp/docs",
+    "frontend/control-plane/src",
 )
 
 # `npx layero`, за которым НЕ идёт `@`.

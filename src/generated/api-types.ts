@@ -4,6 +4,30 @@
  */
 
 export interface paths {
+    "/.well-known/oauth-authorization-server": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Authorization Server Metadata
+         * @description Метаданные сервера авторизации (RFC 8414).
+         *
+         *     `issuer` — api.layero.ru, а страница согласия — на app.layero.ru: RFC 8414
+         *     не требует, чтобы `authorization_endpoint` жил на том же хосте, а страница
+         *     обязана быть панелью — там уже есть вход и сессия пользователя.
+         */
+        get: operations["authorization_server_metadata__well_known_oauth_authorization_server_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/abuse": {
         parameters: {
             query?: never;
@@ -607,6 +631,77 @@ export interface paths {
          *     могла кешировать и понимать, когда каталог протух.
          */
         get: operations["get_build_presets_build_presets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/claimable/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Project
+         * @description Забрать песочницу в личную организацию.
+         *
+         *     Механика та же, что у принятия передачи проекта (`project_transfer.accept`),
+         *     без ветвей про GitHub: у песочницы нет ни репозитория, ни вебхука, а зона
+         *     адреса у всех организаций одна (`layero.app`), поэтому адрес сайта не
+         *     меняется. Административный маршрут (`ADMIN_ROUTES`): забор — то же
+         *     принятие передачи, и токен без `admin` его делать не должен.
+         */
+        post: operations["claim_project_claimable_claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/claimable/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Claimable Project
+         * @description Завести песочницу без аккаунта.
+         *
+         *     Возвращает токен со скоупом deploy (обычный `layero_ci_*`, привязан к
+         *     держателю песочницы) и ссылку `claim_url`, по которой человек заберёт
+         *     проект в свой аккаунт. Песочница живёт 72 часа.
+         */
+        post: operations["create_claimable_project_claimable_projects_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/claimable/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Claimable Status
+         * @description Состояние песочницы по коду забора. Без аутентификации: ссылку
+         *     показывает агент, а открывает человек, у которого сессии может не быть.
+         */
+        get: operations["claimable_status_claimable_status_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1271,6 +1366,95 @@ export interface paths {
         get: operations["my_pending_transfers_me_pending_transfers_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/authorize/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve
+         * @description Пользователь нажал «Разрешить доступ»: выпустить код и вернуть адрес
+         *     возврата. Редирект делает панель — бэкенд лишь собирает адрес, чтобы
+         *     `redirect_uri` был сверен с зарегистрированным здесь, а не в браузере.
+         *
+         *     Административный маршрут (`token_scopes.ADMIN_ROUTES`): по сути это выпуск
+         *     токена, как `POST /auth/tokens`, — токен без `admin` не должен уметь
+         *     выписать себе новый.
+         */
+        post: operations["approve_oauth_authorize_approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/authorize/info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Authorize Info
+         * @description Что показать на странице согласия. Под сессией панели, чтобы имена
+         *     клиентов не перебирались по client_id снаружи.
+         */
+        get: operations["authorize_info_oauth_authorize_info_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register Client
+         * @description Динамическая регистрация клиента (RFC 7591). Публичный клиент, без секрета.
+         */
+        post: operations["register_client_oauth_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Token
+         * @description Обмен кода на токен (RFC 6749 §4.1.3 + PKCE RFC 7636).
+         *
+         *     Ответ — обычный `layero_ci_*` без срока; см. докстроку модуля.
+         */
+        post: operations["token_oauth_token_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6430,6 +6614,32 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** ApproveIn */
+        ApproveIn: {
+            /** Client Id */
+            client_id: string;
+            /** Code Challenge */
+            code_challenge: string;
+            /**
+             * Code Challenge Method
+             * @default S256
+             * @constant
+             */
+            code_challenge_method: "S256";
+            /** Redirect Uri */
+            redirect_uri: string;
+            /** Resource */
+            resource?: string | null;
+            /** Scope */
+            scope?: string | null;
+            /** State */
+            state?: string | null;
+        };
+        /** ApproveOut */
+        ApproveOut: {
+            /** Redirect To */
+            redirect_to: string;
+        };
         /** AttachExternalIn */
         AttachExternalIn: {
             /** Dsn */
@@ -6573,6 +6783,19 @@ export interface components {
             /** Kind */
             kind: string;
         };
+        /** AuthorizeInfoOut */
+        AuthorizeInfoOut: {
+            /** Asks Admin */
+            asks_admin: boolean;
+            /** Client Id */
+            client_id: string;
+            /** Client Name */
+            client_name: string;
+            /** Redirect Uri */
+            redirect_uri: string;
+            /** Scopes */
+            scopes: string[];
+        };
         /**
          * BackupCreateIn
          * @description Копия в хранилище. Тип больше не выбирается.
@@ -6620,6 +6843,21 @@ export interface components {
             hour?: number | null;
             /** Keep */
             keep?: number | null;
+        };
+        /** Body_token_oauth_token_post */
+        Body_token_oauth_token_post: {
+            /** Client Id */
+            client_id?: string | null;
+            /** Code */
+            code?: string | null;
+            /** Code Verifier */
+            code_verifier?: string | null;
+            /** Grant Type */
+            grant_type: string;
+            /** Redirect Uri */
+            redirect_uri?: string | null;
+            /** Resource */
+            resource?: string | null;
         };
         /** BranchOut */
         BranchOut: {
@@ -6759,6 +6997,54 @@ export interface components {
             name: string;
             /** Url Template */
             url_template: string;
+        };
+        /** ClaimIn */
+        ClaimIn: {
+            /** Code */
+            code: string;
+        };
+        /** ClaimableCreateIn */
+        ClaimableCreateIn: {
+            /** Framework Hint */
+            framework_hint?: string | null;
+            /** Name */
+            name?: string | null;
+        };
+        /** ClaimableCreateOut */
+        ClaimableCreateOut: {
+            /** Claim Code */
+            claim_code: string;
+            /** Claim Url */
+            claim_url: string;
+            /** Expires At */
+            expires_at: string;
+            /** Organization */
+            organization: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Slug */
+            slug: string;
+            /** Token */
+            token: string;
+            /** Url */
+            url: string;
+        };
+        /** ClaimableStatusOut */
+        ClaimableStatusOut: {
+            /** Expires At */
+            expires_at: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "unclaimed" | "claimed" | "expired";
+            /** Url */
+            url: string;
         };
         /** ConnectProjectIn */
         ConnectProjectIn: {
@@ -9122,6 +9408,43 @@ export interface components {
             /** Ram Mb */
             ram_mb: number;
         };
+        /** RegisterIn */
+        RegisterIn: {
+            /** Client Name */
+            client_name: string;
+            /** Client Uri */
+            client_uri?: string | null;
+            /** Grant Types */
+            grant_types?: string[] | null;
+            /** Redirect Uris */
+            redirect_uris: string[];
+            /** Response Types */
+            response_types?: string[] | null;
+            /** Scope */
+            scope?: string | null;
+            /** Token Endpoint Auth Method */
+            token_endpoint_auth_method?: string | null;
+        };
+        /** RegisterOut */
+        RegisterOut: {
+            /** Client Id */
+            client_id: string;
+            /** Client Id Issued At */
+            client_id_issued_at: number;
+            /** Client Name */
+            client_name: string;
+            /** Grant Types */
+            grant_types: string[];
+            /** Redirect Uris */
+            redirect_uris: string[];
+            /** Response Types */
+            response_types: string[];
+            /**
+             * Token Endpoint Auth Method
+             * @constant
+             */
+            token_endpoint_auth_method: "none";
+        };
         /** RenameIn */
         RenameIn: {
             /** Name */
@@ -9865,6 +10188,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    authorization_server_metadata__well_known_oauth_authorization_server_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     submit_abuse_abuse_post: {
         parameters: {
             query?: never;
@@ -10825,6 +11168,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BuildPresetCatalogOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_project_claimable_claim_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_claimable_project_claimable_projects_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ClaimableCreateIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimableCreateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claimable_status_claimable_status_get: {
+        parameters: {
+            query: {
+                code: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimableStatusOut"];
                 };
             };
             /** @description Validation Error */
@@ -11807,6 +12249,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransferOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_oauth_authorize_approve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApproveOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    authorize_info_oauth_authorize_info_get: {
+        parameters: {
+            query: {
+                client_id: string;
+                redirect_uri: string;
+                scope?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthorizeInfoOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    register_client_oauth_register_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    token_oauth_token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": components["schemas"]["Body_token_oauth_token_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
