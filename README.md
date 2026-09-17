@@ -1,70 +1,93 @@
 # layero
 
-CLI for [Layero](https://layero.ru) — publish a local directory with one command. **No git or GitHub required.**
+CLI for [Layero](https://layero.ru) — hosting with build servers in Russia.
+Deploy a directory or connect a repository with one command; every command
+speaks JSON for AI agents and CI.
 
-## For AI agents (Cursor, Claude Code, Aider…)
+Source: [github.com/LayeroInfra/cli](https://github.com/LayeroInfra/cli)
+(public mirror of the `cli/` directory of the platform monorepo).
+Docs: [docs.layero.ru/cli](https://docs.layero.ru/cli/).
 
-If you're an agent reading this: the user asked you to deploy their site with Layero. Do exactly this — no git repo, no GitHub setup, no dashboard visits required:
+## For AI agents (Cursor, Claude Code, Codex, Aider…)
 
-```bash
-npx layero@latest init            # scaffolds .layero/ + adds a block to AGENTS.md
-npx layero@latest login           # one-time: prints a URL, user clicks once
-npx layero@latest deploy --json   # ships current dir, streams JSON events to stdout
-```
+The canonical agent skill lives in
+[LayeroInfra/layero-agents](https://github.com/LayeroInfra/layero-agents):
+`npx skills add LayeroInfra/layero-agents`, or for Claude Code
+`claude plugin marketplace add LayeroInfra/layero-agents && claude plugin install layero@layero`.
+Agent docs: [docs.layero.ru/agents](https://docs.layero.ru/agents/).
 
-`layero deploy` prints `{"event":"ready","url":"https://..."}` on success. Show the URL to the user. That's the whole job.
+Three paths — pick by situation:
 
-**If the user has no code yet** and wants a landing page built from scratch, this CLI is the wrong tool. Layero runs a remote MCP server for that — `https://mcp.layero.ru/mcp` (Streamable HTTP), registered as `ru.layero/layero` in the official MCP registry. It builds the page from a two-or-three-question brief and deploys it. Install it with `claude plugin marketplace add LayeroInfra/layero-agents && claude plugin install layero@layero-claude`, `codex mcp add layero --url https://mcp.layero.ru/mcp --bearer-token-env-var LAYERO_TOKEN`, or one click in Cursor from [land.layero.app](https://land.layero.app). Details: [docs.layero.ru/en/plugin/intro](https://docs.layero.ru/en/plugin/intro).
+1. **The user has a repository** (GitHub, GitVerse, GitLab, GitFlic,
+   SourceCraft): connect it, then push to a branch = preview, push to `main`
+   = production.
+   ```bash
+   npx layero@latest projects create --repo github:owner/repo --json
+   ```
+2. **The user has a directory with code**: the CLI packs it, the platform
+   builds it. No git repository is needed for this path.
+   ```bash
+   npx layero@latest deploy --json
+   ```
+3. **The site is already on Layero**: `diagnose`, `logs`, `rollback`,
+   `envs list`, `domains`, `env`, `analytics`, `data` — or the MCP server
+   `https://mcp.layero.ru/mcp` (`npx -y add-mcp https://mcp.layero.ru/mcp`).
+
+`layero deploy --json` prints `{"event":"ready","url":"https://…"}` on
+success. Show `url` to the user as-is. Not logged in? The command starts the
+browser device flow itself and prints `auth_required` with a `url` — render
+it as a link and keep waiting. No account at all? `--claim` (see below).
 
 ## Install
 
 ```bash
-# Recommended (project-local):
-npm install -D layero
-# or one-shot:
-npx layero@latest deploy
-
-# System-wide (advanced; needs sudo on most setups):
-npm install -g layero
+npx layero@latest deploy          # one-shot, always the current version
+npm install -D layero             # project-local
 ```
 
-Requires Node.js ≥ 20.
+Requires Node.js ≥ 20. Do not `npm install -g layero`: without `@latest` a
+bare `npx layero` call then runs the globally installed copy for years.
 
 ## Quick start
 
 ```bash
-layero login          # device-flow: prints a URL + code, you sign in once (email code or Yandex ID)
+layero login          # device flow: prints a URL + code, sign in once (email code or Yandex ID)
 cd my-site
-layero deploy         # auto-detects framework, packs, uploads, builds, ships
+layero deploy         # detects the framework, packs, uploads, builds, ships
 ```
 
 The first `layero deploy` in a directory creates a project and links it via
-`./.layero/project.json`. Subsequent runs reuse the same project — re-edit code,
-re-run `layero deploy`.
+`./.layero/project.json`. Later runs reuse the same project.
 
 > **A plain `layero deploy` is not a preview.** For a project created from the
-> CLI, direct uploads auto-promote: every run replaces what visitors see at the
-> project's public address — the same `ready.url` the previous run printed.
-> `--prod` matters only for projects with a connected git repository, where it
-> targets the production environment. Isolated previews come from pushing to a
-> branch of a connected repo, nothing else: `--branch` is accepted and silently
-> ignored for direct uploads.
+> CLI, direct uploads auto-promote: every run replaces what visitors see at
+> `ready.url`. `--branch` is **refused** with `branch_unsupported` (exit 4):
+> archive uploads always land in the reserved `cli` environment, so the flag
+> cannot give you a preview. Isolated previews come from pushing a branch of
+> a connected repository — `layero projects create --repo …`.
 
 ## Commands
 
 | Command | Description |
 |---|---|
-| `layero init` | Scaffold `.layero/project.json` + write a deploy block into `AGENTS.md` / `CLAUDE.md` / `.cursorrules` so future agent sessions know how to ship. |
-| `layero login` | Authenticate via browser. |
-| `layero logout` | Remove the saved auth token. |
-| `layero whoami` | Show current account. |
-| `layero projects list` | List projects on your account. |
-| `layero link <id_or_slug>` | Link cwd to an existing project. |
-| `layero deploy` | Auto-detect framework, pack cwd, build, ship. |
-| `layero deploys list` | List recent deploys. |
-| `layero rollback` | Re-activate the previous successful deploy. |
-| `layero hooks list/create/delete` | Manage deploy hooks (URL tokens that trigger builds from CMS / cron / external CI). |
-| `layero token` | Manage the auth token directly. |
+| `layero init` | Scaffold `.layero/project.json` and write a Layero block into `AGENTS.md` / `CLAUDE.md` / `.cursorrules` (compact index; full skill in `layero-agents`). |
+| `layero login` / `logout` / `whoami` | Browser device-flow sign-in, sign-out, current account. |
+| `layero deploy` | Pack the current directory, build on the platform, publish. `--claim` — without an account. |
+| `layero projects list` | Projects on your account with addresses. |
+| `layero projects create --repo <provider>:<owner/repo>` | Create a project from a repository of a connected provider. Events: `project_created`, `source_connected`, `webhook_installed` \| `webhook_unavailable`. |
+| `layero projects delete <slug> --yes` | Delete a project. Irreversible; needs a token with scope `admin`. |
+| `layero sources list` | Git providers the platform supports and the organization's connections. |
+| `layero sources connect <provider> --token-stdin` | Connect a provider by personal access token (read from stdin so it never lands in shell history). |
+| `layero sources repos <connection_id>` | Repositories visible to a connection. |
+| `layero envs list` | Environments (branches) of a project with their addresses. |
+| `layero deploys list` / `rollback` / `promote` | Deploy history, roll back, pin the apex. |
+| `layero diagnose` / `logs` | Why a deploy is in its state; build and runtime logs. |
+| `layero claim status` / `claim accept <code>` | Claimable project: status of the claim, open the claim page. |
+| `layero domains …` / `env …` / `analytics …` / `perf …` | Custom domains, environment variables, Yandex Metrika, performance checks. |
+| `layero db …` / `data …` | Postgres databases and the Data API. |
+| `layero hooks list/create/delete` | Deploy hooks — URL tokens that trigger builds from CMS / cron / external CI. |
+| `layero token create <name>` | Long-lived token for CI and agents (`--scope read,deploy,admin`). |
+| `layero link <id_or_slug>` | Link the current directory to an existing project. |
 
 Run `layero <cmd> --help` for full options.
 
@@ -72,29 +95,48 @@ Run `layero <cmd> --help` for full options.
 
 - `--type <preset>` — framework override: `vite`, `vitepress`, `next`,
   `astro`, `cra`, `sveltekit`, `nuxt`, `gatsby`, `docusaurus`, `eleventy`
-  (alias `11ty`), `hugo`, `static`. **Optional** — auto-detected from
-  `package.json` and config files when omitted.
+  (alias `11ty`), `hugo`, `static`; runtime kinds `node_web`, `python_web`,
+  `flask`, `streamlit`, `gradio`, `ssr_next` (aliases `express`, `fastapi`,
+  `django`, …). **Optional** — auto-detected when omitted.
 - `--prebuilt [dir]` — ship an already-built artifact instead of building
-  remotely. Without an argument, picks the first existing of
-  `dist/`, `build/`, `public/`, `out/`, `_site/`, `.output/public/`,
-  `docs/.vitepress/dist/`, `.vitepress/dist/`. With `--prebuilt ./my-out`
-  uses that explicit path. Use this for CI flows that build in the
-  pipeline, Webflow / Framer exports, or whenever you don't want the
-  platform to run install/build for you.
-- `--root <dir>` — monorepo: tell the builder the app lives in a
-  subdirectory of the repo (e.g. `--root apps/web`). Saved on the
-  project; future GitHub-push and hook triggers use the same value.
-  CLI auto-detect honours it: framework signals are looked up inside
-  `<cwd>/<root>` so a `package.json` workspace at the repo root
-  doesn't shadow the real app's stack.
+  remotely. Without an argument, picks the first existing of `dist/`,
+  `build/`, `public/`, `out/`, `_site/`, `.output/public/`,
+  `docs/.vitepress/dist/`, `.vitepress/dist/`.
+- `--root <dir>` — monorepo: the app lives in a subdirectory (`--root apps/web`).
 - `--name <name>` — project name (only on first deploy).
 - `--project <id_or_slug>` — deploy into an existing project, ignoring
-  `./.layero/project.json` (useful for CI).
-- `--prod` — target the production environment of a repository-linked project. **Redundant for CLI projects**: a project created by `layero deploy` auto-promotes to its apex on every deploy, so a plain `deploy` already replaces the live site. `--branch` does **not** help here: it is accepted and silently ignored, because every archive upload is filed under the reserved `cli` environment. A publish that leaves the live address alone does not exist for a CLI project — it is done by connecting a repository and pushing to a branch.
-- `--branch <name>` — deploy to a specific branch's environment.
-- `--org <slug>` — Layero organization for first-time project creation.
+  `./.layero/project.json` (use this in CI, not `--name`).
+- `--prod` — target the production environment of a repository-linked
+  project. Redundant for CLI projects: they auto-promote on every deploy.
+- `--branch <name>` — **refused** (`branch_unsupported`, exit 4), see above.
+- `--claim` — deploy without an account: a temporary project for 72 hours
+  plus a `claim_url` for a human to take it over. Turns on by itself when
+  there is no token, the run is non-interactive (an agent, not CI) and
+  `--yes` is passed. In CI a missing `LAYERO_TOKEN` stays an error.
+- `--org <slug>` — organization for first-time project creation.
 - `--yes` / `-y` — non-interactive mode.
-- `--json` — emit JSON-lines events on stdout (for agents and CI).
+- `--json` — JSON-lines events on stdout (for agents and CI).
+
+## Deploy without an account (`--claim`)
+
+```bash
+npx layero@latest deploy --claim --json
+```
+
+The platform creates a temporary project and a token for it; the CLI deploys
+with that token and prints, before `ready`:
+
+```
+{"event":"claimable","url":"https://swift-fox.layero.app","claim_url":"https://app.layero.ru/claim?code=…","expires_at":"…"}
+```
+
+The site lives for 72 hours. A human opens `claim_url`, signs in and takes
+the project into their account — the CLI cannot accept a claim by itself.
+The claim code is saved in `.layero/project.json`; the temporary token stays
+in `~/.layero/config.json`, so `layero deploy` in the same directory keeps
+updating the same site until the claim expires or is accepted.
+`layero claim status` shows where things stand; `layero claim accept` opens
+the page in a browser (in agent mode it prints the link).
 
 ## Framework auto-detection
 
@@ -120,8 +162,7 @@ Run `layero <cmd> --help` for full options.
 
 Auto-detection above is a default, not a decision. Drop a `layero.json` at the
 root of the repository and Layero uses what you set there instead — for the
-CLI, the dashboard and pushes alike. It travels with your code, so it can
-differ per branch, and it beats any dashboard setting.
+CLI, the dashboard and pushes alike. It beats any dashboard setting.
 
 ```json title="layero.json"
 {
@@ -134,25 +175,30 @@ differ per branch, and it beats any dashboard setting.
 }
 ```
 
-Every field is optional; `{}` is valid and means "decide everything yourself".
-Short names (`install`, `build`, `output`, `node`, `start`) work too and are not
-deprecated. A field declared here is shown in the dashboard with a badge instead
-of an edit button — an edit there would be undone by the next build.
-
-An error in the file never fails a build: unreadable values become warnings in
-the build log.
-
+Every field is optional; `{}` is valid. An error in the file never fails a
+build: unreadable values become warnings in the build log.
 Full reference: https://docs.layero.ru/deploys/layero-json
+
+## Repositories: `sources` and `projects create`
+
+```bash
+layero sources list                                          # providers + connections
+echo "$GITVERSE_TOKEN" | layero sources connect gitverse --token-stdin
+layero sources repos <connection_id>
+layero projects create --repo gitverse:acme/site --branch main --json
+```
+
+GitHub is connected by installing the Layero GitHub App in the dashboard; the
+other providers take a personal access token. `projects create` validates the
+repository against the connection, creates the project and installs the
+webhook. If the provider refuses the webhook (token permissions, or
+SourceCraft, which has no outgoing webhooks), the CLI says so with
+`webhook_unavailable` and the URL to register by hand — the repository is
+connected either way, only push-triggered builds wait for the webhook.
 
 ## Deploy hooks — webhook URLs that trigger builds
 
-When something *other than you* should kick a build — a headless CMS
-publishing content, a cron job, an external CI pipeline — create a
-deploy hook. You get back an opaque URL; whoever POSTs to it fires a
-deploy.
-
 ```bash
-# Inside a linked project directory:
 layero hooks create strapi-content          # preview-target, default branch
 layero hooks create publish --prod          # production-target hook
 layero hooks create staging --branch=dev    # explicit branch
@@ -160,64 +206,37 @@ layero hooks list
 layero hooks delete <id>                    # revoke immediately
 ```
 
-The created URL looks like `https://api.layero.ru/hooks/<token>`. Paste
-it into Strapi / Sanity / Contentful / Decap CMS / GitHub Actions / a
-cron job — any tool that can POST to a URL. Token = credential; rotate
-by `delete` + `create`. There is no per-token rate limit yet; rely on
-the platform's natural in-flight-commit dedup if the same commit gets
-fired more than once.
+The URL (`https://api.layero.ru/hooks/<token>`) is a credential: anyone who
+has it can start a build. Rotate with `delete` + `create`.
 
 ## Bring-your-own-build (`--prebuilt`)
 
-If you already build your site yourself — in CI, via a desktop tool like
-Webflow/Framer, or because you want a guaranteed deterministic artifact —
-skip the platform's install/build entirely:
-
 ```bash
-# Auto-pick the output directory:
-layero deploy --prebuilt
-
-# Or point at a specific one:
-layero deploy --prebuilt ./dist
-layero deploy --prebuilt ./build/static
+layero deploy --prebuilt            # auto-pick the output directory
+layero deploy --prebuilt ./dist     # or point at a specific one
 ```
 
-What changes: only the files inside the directory you point at are
-uploaded (no source-tree filters like `.gitignore` apply). The platform
-ships them verbatim — no detect, no install, no build. Smaller archive,
-faster deploys, no surprises from the platform's package-manager defaults.
-
-⚠️ The flip side of ignoring `.gitignore`: `--prebuilt .` at your project
-root publishes **everything there** except the built-in denylist, including
-drafts you hid via `.gitignore` (verified on a live deploy — such a file comes
-back with a 200). Secrets are still safe: `.env`, `.env.*`, `.git`,
-`node_modules` and the rule files are excluded on this path too, nested
-directories included. Even so, name the directory explicitly rather than
-using `.`.
-
-Override anything by editing `.layero/project.json` after the first `layero init`.
+Only the files inside that directory are uploaded and shipped verbatim — no
+detect, no install, no build. `.gitignore` is **not** applied on this path
+(`.env*`, `.git`, `node_modules` and the rule files are still excluded), so
+name the directory explicitly rather than using `.`.
 
 ## In CI
 
 `layero login` opens a browser — there isn't one on a runner, so a pipeline
-authenticates with a long-lived token instead. Create it at
-[app.layero.ru/settings/cli](https://app.layero.ru/settings/cli) and pass it
-through the environment:
+authenticates with a long-lived token. Create it with `layero token create ci`
+or at [app.layero.ru/settings/cli](https://app.layero.ru/settings/cli):
 
 ```bash
-LAYERO_TOKEN=... npx layero@latest deploy --prod --yes
+LAYERO_TOKEN=... npx layero@latest deploy --project <slug> --json --yes
 ```
 
-`LAYERO_TOKEN` is read **before** `~/.layero/config.json`, deliberately: on a
-developer machine that is already signed in to a different account, the
-opposite order would silently deploy to the wrong place. `--yes` skips the
-confirmation prompt that would otherwise wait forever with nobody to answer it.
+`LAYERO_TOKEN` is read **before** `~/.layero/config.json`. `--yes` skips the
+confirmation that would otherwise wait forever. `--project`, not `--name`:
+`--name` only names a project on creation, and a clean checkout without
+`.layero/project.json` would create a new project on every run.
 
-The token is account-scoped, like a login session, so create a separate one per
-repository — then a leak is contained to that repository. Revoke on the same
-page; running builds start failing immediately.
-
-On GitHub Actions there is an official action that wraps the above:
+On GitHub Actions there is an official action:
 
 ```yaml
       - uses: LayeroInfra/deploy-action@v1
@@ -226,85 +245,102 @@ On GitHub Actions there is an official action that wraps the above:
           prod: true
 ```
 
-Note that if the repository is already linked to a Layero project, a push
-builds it automatically — a pipeline would only duplicate that work. Reach for
-CI when the build itself needs secrets or private dependencies the platform
-does not have, then ship the result with `prebuilt: dist`.
-
+If the repository is already connected to a Layero project, a push builds it
+automatically — reach for CI only when the build itself needs secrets the
+platform does not have, then ship the result with `--prebuilt`.
 Full guide: <https://docs.layero.ru/cli/github-actions>
 
 ## Agent / JSON mode
 
-`layero` auto-switches to non-interactive + structured-output mode when any of these is true:
+`layero` switches to non-interactive, structured output when any of these holds:
 
-- `--json` flag passed
-- `LAYERO_JSON=1` env var
-- `CURSOR_AGENT`, `CLAUDECODE`, `LAYERO_AGENT` env vars set
+- `--json` flag or `LAYERO_JSON=1`
+- `CURSOR_AGENT`, `CLAUDECODE`, `LAYERO_AGENT` env vars
 - `CI=1` (non-interactive only; JSON-lines requires explicit opt-in)
 - stdout is not a TTY
 
-Event types emitted on stdout:
+Every command emits events — one JSON object per line on stdout:
 
 ```
 {"event":"auth_required","url":"…","user_code":"…"}
 {"event":"authorized","user":"…"}
-{"event":"project_created","project_id":"…","slug":"…","organization":"…"}
-{"event":"project_linked","project_id":"…","slug":"…"}
+{"event":"me","id":"…","username":"…","email":"…"}
+{"event":"projects","projects":[{"slug":"…","url":"https://…","repo":null,…}]}
+{"event":"organizations","organizations":[{"slug":"…","kind":"personal","role":"admin"}]}
+{"event":"project_created","project_id":"…","slug":"…","organization":"…","url":"…","repo":"…","branch":"…"}
+{"event":"project_linked","project_id":"…","slug":"…","url":"…"}
+{"event":"source_connected","org":"…","connection_id":"…","provider":"…","account":"…"}
+{"event":"webhook_installed","project":"…","url":"…"}   |   {"event":"webhook_unavailable","project":"…","url":"…","hint":"…"}
+{"event":"sources","org":"…","providers":[…],"connections":[…]}
+{"event":"source_repos","org":"…","connection_id":"…","repos":[…]}
+{"event":"environments","project":"…","environments":[{"branch":"main","url":"https://…","production":true,…}]}
 {"event":"detected","framework":"…","build_cmd":"…","output_dir":"…","confident":true}
 {"event":"packing","files":N,"bytes":N,"sha256":"…"}
-{"event":"uploading"}
-{"event":"uploaded","archive_key":"…"}
-{"event":"setup_applied"}
+{"event":"uploading"}  {"event":"uploaded","archive_key":"…"}
 {"event":"deploy_started","deploy_id":"…"}
 {"event":"build_log","line":"…","stream":"…"}
 {"event":"stage","name":"…"}
-{"event":"ready","url":"…","preview_url":"…","dashboard_url":"…","edge_ready":false,"edge_eta_seconds":N,"deploy_id":"…"}
-{"event":"promoted","url":"…","deploy_id":"…"}
+{"event":"claimable","project_id":"…","slug":"…","url":"…","claim_url":"…","expires_at":"…"}
+{"event":"ready","url":"…","dashboard_url":"…","deploy_id":"…"}
+{"event":"hooks","project":"…","hooks":[…]}  {"event":"hook_created",…}  {"event":"hook_deleted",…}
+{"event":"project_deleted","project_id":"…","slug":"…"}
+{"event":"claim_status","code":"…","status":"…","claimed":false,"expires_at":"…","url":"…","claim_url":"…"}
+{"event":"claim_accept","code":"…","claim_url":"…","opened":false}
+{"event":"logged_out","config_path":"…"}
 {"event":"error","code":"…","next_action":"…","message":"…"}
 ```
 
-On `ready`, `url` is the **live public site** — reachable the moment the event
-arrives. Show it as-is and never rebuild the hostname from a template: project
-addresses live in the `layero.app` zone, organizations that have not migrated
-yet still use the older `<org>-<project>.layero.ru` scheme, and a guessed host
-will be wrong for one of the two. `dashboard_url` is the management page, not
-the site.
-
-`preview_url`, `edge_ready` and `edge_eta_seconds` are legacy fields from the
-era when user sites sat behind a CDN that needed warming. They no longer do —
-sites are served straight from the platform edge. `preview_url` is `null` for
-projects in the `layero.app` zone. **Do not gate on `edge_ready`**: waiting for
-it means waiting for something that will not arrive.
-
-Not logged in? `deploy` starts the device-flow itself (`auth_required`).
+On `ready`, `url` is the **live public site** — show it as-is and never
+rebuild the hostname from a template. `dashboard_url` is the management page,
+not the site. `preview_url`, `edge_ready` and `edge_eta_seconds` are legacy
+fields; do not wait for them.
 
 Errors carry a stable `code` (`auth_required`, `auth_expired`, `auth_timeout`,
 `project_unknown`, `project_not_found`, `cli_deploys_disabled`, `invalid_type`,
-`prebuilt_no_dir`, `prebuilt_no_index`, `deploy_not_started`, `deploy_failed`,
-`internal`, and a few command-specific ones) plus a `next_action` hint, so your
-agent can react without parsing prose. The failure code is assembled as
-`deploy_<status>` and a deploy only has `ready`, `building`, `failed` and
-`cancelled` — so `deploy_error` and `deploy_timed_out` do not exist.
+`prebuilt_no_dir`, `prebuilt_no_index`, `branch_unsupported`,
+`deploy_not_started`, `deploy_failed`, `internal`, and command-specific ones)
+plus a `next_action` hint. The failure code is assembled as `deploy_<status>`
+and a deploy only has `ready`, `building`, `failed` and `cancelled` — so
+`deploy_error`, `deploy_timed_out` and `not_logged_in` do not exist.
+Full reference: <https://docs.layero.ru/cli/json-events>
+
+### Exit codes
+
+| Code | Class | Error codes |
+|---|---|---|
+| 0 | success | |
+| 1 | other | `plan_limit`, `forbidden`, `confirmation_required`, `repeated_failure`, … |
+| 2 | sign-in needed | `auth_required`, `auth_expired`, `auth_timeout` |
+| 3 | not found | `project_unknown`, `project_not_found`, `org_unknown`, `hook_not_found`, `connection_not_found`, `claim_unknown`, … |
+| 4 | invalid input | `invalid_type`, `prebuilt_no_dir`, `prebuilt_no_index`, `branch_unsupported`, `repo_format`, `token_missing`, `bad_format`, … |
+| 5 | remote failure | `deploy_failed`, `deploy_cancelled`, `deploy_not_started`, `internal`, 5xx from the platform |
 
 ## Ignore rules
 
-`layero deploy` honours `.gitignore` and `.layeroignore`. The following are
-always excluded: `node_modules`, `.git`, `dist`, `build`, `.next`, `.env*`,
-`.DS_Store`, and the rule files themselves (`.gitignore`, `.layeroignore`) —
-they have no business being on the web, and they list exactly the filenames
-you chose to hide. Maximum archive size is 200 MB.
+`layero deploy` honours `.gitignore` and `.layeroignore`. Always excluded:
+`node_modules`, `.git`, `dist`, `build`, `.next`, `.env*`, `.DS_Store`, and
+the rule files themselves. Maximum archive size is 200 MB.
 
 ## Config
 
-- Auth token: `~/.layero/config.json` (chmod 600).
+- Auth token: `~/.layero/config.json` (chmod 600). Claim tokens of temporary
+  projects live there too, keyed by project.
 - Per-project link: `./.layero/project.json` — `project_id`, `slug`,
-  `organization_slug`, `apex_hostname` are managed by the CLI;
+  `organization_slug`, `apex_hostname`, `claim` are managed by the CLI;
   `framework_hint`, `build_cmd`, `output_dir`, `analytics_enabled`,
   `env_vars` are user-editable and override auto-detection.
 
+## Contributing
+
+The package is developed in the `cli/` directory of the platform monorepo and
+mirrored to [LayeroInfra/cli](https://github.com/LayeroInfra/cli) on every
+release (`git subtree push --prefix=cli https://github.com/LayeroInfra/cli main`,
+`make cli-mirror`). Issues and pull requests are welcome on the mirror.
+`npm test` runs the unit tests; `npm run build` compiles with `tsc`.
+
 ## Links
 
-- Website: https://layero.ru
-- Docs: https://docs.layero.ru
+- Docs: https://docs.layero.ru/cli/
+- For agents: https://docs.layero.ru/agents/ · skill: https://github.com/LayeroInfra/layero-agents
+- Source: https://github.com/LayeroInfra/cli · issues: https://github.com/LayeroInfra/cli/issues
 - Support: https://docs.layero.ru/contacts/
-- MCP server / IDE plugin: https://docs.layero.ru/en/plugin/intro

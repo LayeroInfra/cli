@@ -16,6 +16,13 @@ export interface ProjectConfig {
   output_dir?: string;
   analytics_enabled?: boolean;
   env_vars?: Record<string, string>;
+  // Claimable-проект (этап 13): код заявки и адрес, по которому человек
+  // забирает сайт в свой аккаунт. Токена здесь нет намеренно — файл в git.
+  claim?: {
+    code: string;
+    claim_url: string;
+    expires_at: string;
+  };
 }
 
 export function projectConfigPath(cwd: string): string {
@@ -81,6 +88,7 @@ export async function persistProjectLinking(
     organization_slug: string;
     apex_hostname: string;
     api_url?: string;
+    claim?: ProjectConfig["claim"];
   },
   fallbackHint?: string | null,
 ): Promise<ProjectConfig> {
@@ -106,6 +114,7 @@ export async function persistProjectLinking(
     apex_hostname: linking.apex_hostname,
   };
   if (linking.api_url !== undefined) merged.api_url = linking.api_url;
+  if (linking.claim !== undefined) merged.claim = linking.claim;
   // Only seed framework_hint if the user hasn't set one yet — once it's in
   // the file (manually or from a prior --type), leave it alone.
   if (

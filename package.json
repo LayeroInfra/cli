@@ -1,12 +1,16 @@
 {
   "name": "layero",
-  "version": "0.9.5",
-  "description": "Layero CLI \u2014 publish a local site with one command. No git, no GitHub, agent-friendly (Cursor, Claude Code).",
+  "version": "0.10.0",
+  "description": "Layero CLI — deploy a directory or a repo to hosting with build servers in Russia. JSON events and exit codes for AI agents and CI.",
   "license": "MIT",
   "type": "module",
-  "homepage": "https://layero.ru",
+  "homepage": "https://docs.layero.ru/cli/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LayeroInfra/cli"
+  },
   "bugs": {
-    "url": "https://docs.layero.ru/contacts/"
+    "url": "https://github.com/LayeroInfra/cli/issues"
   },
   "keywords": [
     "layero",
@@ -39,7 +43,8 @@
   "files": [
     "dist",
     "scripts/postinstall.cjs",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",

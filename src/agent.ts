@@ -117,8 +117,8 @@ export type Event =
   | ({ event: "auth_required"; url: string; user_code: string } & EventCommon)
   | ({ event: "authorized"; user: string } & EventCommon)
   | ({ event: "username_set"; username: string; organization: string } & EventCommon)
-  | ({ event: "project_created"; project_id: string; slug: string; organization: string } & EventCommon)
-  | ({ event: "project_linked"; project_id: string; slug: string } & EventCommon)
+  | ({ event: "project_created"; project_id: string; slug: string; organization: string; url?: string; repo?: string; branch?: string } & EventCommon)
+  | ({ event: "project_linked"; project_id: string; slug: string; url?: string; status?: string } & EventCommon)
   | ({ event: "detected"; framework: string; build_cmd: string; output_dir: string; confident: boolean; runtime_kind?: "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web"; ssr_warning?: string } & EventCommon)
   | ({ event: "prebuilt"; dir: string } & EventCommon)
   | ({ event: "packing"; files: number; bytes: number; sha256: string; prebuilt_dir?: string } & EventCommon)
@@ -348,6 +348,126 @@ export type Event =
       headers: Record<string, string>;
       body: unknown;
     } & EventCommon)
+  // --- Этап 6 (AX-аудит 17.09.2026): `--json` у всех команд. ------------
+  // Команды без событий печатали человеку и молчали агенту: `whoami`,
+  // `projects list`, `orgs list`, `link`, `hooks *`, `logout` отдавали
+  // stdout строками с цветом, и агент разбирал их регулярками. Ниже —
+  // события этих команд; человеку они рендерятся как раньше.
+  | ({ event: "me"; id: string; username: string | null; email: string | null; github_login?: string | null } & EventCommon)
+  | ({ event: "logged_out"; config_path: string } & EventCommon)
+  | ({
+      event: "projects";
+      projects: Array<{
+        id: string;
+        slug: string;
+        name: string;
+        organization: string;
+        url: string;
+        source_type: string;
+        repo: string | null;
+        status: string;
+      }>;
+    } & EventCommon)
+  | ({
+      event: "organizations";
+      organizations: Array<{ id: string; slug: string; kind: string; role: string }>;
+    } & EventCommon)
+  | ({
+      event: "hooks";
+      project: string;
+      hooks: Array<{
+        id: string;
+        name: string;
+        branch: string | null;
+        target: string;
+        url: string;
+        last_triggered_at: string | null;
+      }>;
+    } & EventCommon)
+  // Адрес хука — секрет: кто угодно с ним запускает сборку. Он показывается
+  // при создании один раз, как ключ Data API; в списке он тоже есть, потому
+  // что платформа его хранит и отдаёт — прятать его от владельца незачем.
+  | ({ event: "hook_created"; project: string; id: string; name: string; branch: string | null; target: string; url: string } & EventCommon)
+  | ({ event: "hook_deleted"; project: string; id: string } & EventCommon)
+  | ({
+      event: "init_done";
+      framework: string;
+      agent_docs: Array<{ file: string; result: "created" | "updated" | "unchanged" }>;
+      project_json: "created" | "unchanged";
+    } & EventCommon)
+  // --- Источники кода (git-провайдеры) и окружения. -----------------------
+  | ({
+      event: "sources";
+      org: string;
+      providers: Array<{
+        id: string;
+        title: string;
+        self_hosted: boolean;
+        webhook_supported: boolean;
+        token_hint: string | null;
+      }>;
+      connections: Array<{
+        id: string;
+        provider: string;
+        account: string | null;
+        status: string;
+        projects_count: number;
+        token_expiry_state: string;
+        last_error: string | null;
+      }>;
+    } & EventCommon)
+  | ({ event: "source_connected"; org: string; connection_id: string; provider: string; account: string | null } & EventCommon)
+  | ({
+      event: "source_repos";
+      org: string;
+      connection_id: string;
+      repos: Array<{
+        path: string;
+        name: string;
+        default_branch: string;
+        private: boolean;
+        can_admin: boolean;
+        updated_at: string | null;
+      }>;
+    } & EventCommon)
+  // Вебхук — отдельным событием, а не полем: без него пуш в репозиторий не
+  // соберётся, и агент обязан сказать об этом человеку словами, а не
+  // пропустить `false` в середине объекта.
+  | ({ event: "webhook_installed"; project: string; url: string } & EventCommon)
+  | ({ event: "webhook_unavailable"; project: string; url: string; hint: string } & EventCommon)
+  | ({
+      event: "environments";
+      project: string;
+      environments: Array<{
+        id: string;
+        branch: string;
+        url: string;
+        hostname: string;
+        active_deploy_id: string | null;
+        active_deploy_at: string | null;
+        production: boolean;
+      }>;
+    } & EventCommon)
+  | ({ event: "project_deleted"; project_id: string; slug: string } & EventCommon)
+  // --- Claimable (этап 13): сайт без аккаунта, человек забирает потом. -----
+  | ({
+      event: "claimable";
+      project_id: string;
+      slug: string;
+      url: string;
+      claim_url: string;
+      expires_at: string;
+    } & EventCommon)
+  | ({
+      event: "claim_status";
+      code: string;
+      status: string;
+      claimed: boolean;
+      expires_at: string | null;
+      url: string | null;
+      claim_url: string | null;
+    } & EventCommon)
+  | ({ event: "claim_accept"; code: string; claim_url: string; opened: boolean } & EventCommon)
   | ({ event: "error"; code: string; next_action: string; message: string } & EventCommon);
 
 export function emit(event: Event): void {
@@ -378,10 +498,19 @@ function renderHuman(event: Event): void {
       );
       break;
     case "project_created":
-      process.stdout.write(`✓ Created project ${event.slug} (org: ${event.organization})\n`);
+      process.stdout.write(
+        `✓ Created project ${event.slug} (org: ${event.organization})` +
+          `${event.repo ? ` from ${event.repo}@${event.branch ?? "main"}` : ""}` +
+          `${event.url ? ` → ${event.url}` : ""}\n`,
+      );
       break;
     case "project_linked":
-      process.stdout.write(`→ Project ${event.slug}\n`);
+      process.stdout.write(`→ Project ${event.slug}${event.url ? `  ${event.url}` : ""}\n`);
+      if (event.status === "pending_setup") {
+        process.stdout.write(
+          "  проект в pending_setup: `layero deploy` загрузит код и применит настройку\n",
+        );
+      }
       break;
     case "detected":
       process.stdout.write(
@@ -464,6 +593,144 @@ function renderHuman(event: Event): void {
       break;
     case "promoted":
       process.stdout.write(`✓ Published apex → ${event.url}\n`);
+      break;
+    case "me":
+      process.stdout.write(`id:       ${event.id}\n`);
+      process.stdout.write(`username: ${event.username ?? "(не задано)"}\n`);
+      process.stdout.write(`email:    ${event.email ?? "(нет)"}\n`);
+      if (event.github_login) process.stdout.write(`github:   ${event.github_login}\n`);
+      break;
+    case "logged_out":
+      process.stdout.write(`✓ Выход выполнен (удалён ${event.config_path})\n`);
+      break;
+    case "projects":
+      if (event.projects.length === 0) {
+        process.stdout.write("Проектов пока нет — `layero deploy` создаст первый.\n");
+        break;
+      }
+      for (const p of event.projects) {
+        const tag = p.source_type === "cli" ? "[cli]" : "[git]";
+        process.stdout.write(`${tag} ${p.slug}  ${p.id}  ${p.url}\n`);
+      }
+      break;
+    case "organizations":
+      if (event.organizations.length === 0) {
+        process.stdout.write("У аккаунта нет организаций.\n");
+        break;
+      }
+      for (const o of event.organizations) {
+        process.stdout.write(`  ${o.slug.padEnd(20)} ${o.kind}  (${o.role})\n`);
+      }
+      break;
+    case "hooks":
+      if (event.hooks.length === 0) {
+        process.stdout.write("Хуков пока нет — `layero hooks create <имя>` заведёт первый.\n");
+        break;
+      }
+      for (const h of event.hooks) {
+        const last = h.last_triggered_at ? `срабатывал ${h.last_triggered_at}` : "не срабатывал";
+        process.stdout.write(
+          `[${h.target}] ${h.name}  branch=${h.branch ?? "default"}  (${last})\n` +
+            `        ${h.id}\n        ${h.url}\n`,
+        );
+      }
+      break;
+    case "hook_created":
+      process.stdout.write(`✓ Хук [${event.target}] ${event.name}\n  ${event.id}\n  ${event.url}\n`);
+      process.stdout.write(
+        "\n  Вставьте адрес в CMS / cron / внешний CI как POST-вебхук. " +
+          "Любой, у кого он есть, запускает сборку — храните как секрет; " +
+          "ротация: delete + create.\n",
+      );
+      break;
+    case "hook_deleted":
+      process.stdout.write(`✓ Хук ${event.id} отозван\n`);
+      break;
+    case "init_done":
+      for (const d of event.agent_docs) {
+        const mark = d.result === "created" ? "✓ создан" : d.result === "updated" ? "✓ обновлён" : "= без изменений";
+        process.stdout.write(`  ${mark} ${d.file}\n`);
+      }
+      process.stdout.write(
+        `  ${event.project_json === "created" ? "✓ создан" : "= без изменений"} .layero/project.json\n`,
+      );
+      process.stdout.write("\nДальше:\n  $ npx layero@latest login    # один раз, в браузере\n  $ npx layero@latest deploy   # выложить текущую папку\n");
+      break;
+    case "sources":
+      process.stdout.write(`Провайдеры (${event.org}):\n`);
+      for (const p of event.providers) {
+        const flags = [p.self_hosted ? "свой инстанс" : null, p.webhook_supported ? null : "без вебхуков"]
+          .filter(Boolean)
+          .join(", ");
+        process.stdout.write(`  ${p.id.padEnd(12)} ${p.title}${flags ? `  (${flags})` : ""}\n`);
+      }
+      process.stdout.write("Подключения:\n");
+      if (event.connections.length === 0) {
+        process.stdout.write("  нет — `layero sources connect <provider> --token-stdin`\n");
+      }
+      for (const c of event.connections) {
+        process.stdout.write(
+          `  ${c.id}  ${c.provider.padEnd(12)} ${c.account ?? "—"}  ${c.status}` +
+            `  проектов: ${c.projects_count}${c.last_error ? `  ! ${c.last_error}` : ""}\n`,
+        );
+      }
+      break;
+    case "source_connected":
+      process.stdout.write(
+        `✓ Подключён ${event.provider}${event.account ? ` (${event.account})` : ""}: ${event.connection_id}\n`,
+      );
+      break;
+    case "source_repos":
+      if (event.repos.length === 0) {
+        process.stdout.write("Токену не видно ни одного репозитория.\n");
+        break;
+      }
+      for (const r of event.repos) {
+        process.stdout.write(
+          `  ${r.path.padEnd(40)} ${r.default_branch.padEnd(10)} ${r.private ? "private" : "public"}\n`,
+        );
+      }
+      break;
+    case "webhook_installed":
+      process.stdout.write(`✓ Вебхук установлен — push в репозиторий запускает сборку\n`);
+      break;
+    case "webhook_unavailable":
+      process.stdout.write(
+        `! Вебхук не установлен: ${event.hint}\n  Адрес для ручной настройки: ${event.url}\n`,
+      );
+      break;
+    case "environments":
+      if (event.environments.length === 0) {
+        process.stdout.write("Окружений пока нет — сначала `layero deploy` или push в репозиторий.\n");
+        break;
+      }
+      for (const e of event.environments) {
+        const mark = e.production ? "★" : " ";
+        const when = e.active_deploy_at ? `  ${e.active_deploy_at}` : "  (нет активного деплоя)";
+        process.stdout.write(`${mark} ${e.branch.padEnd(24)} ${e.url}${when}\n`);
+      }
+      break;
+    case "project_deleted":
+      process.stdout.write(`✓ Проект ${event.slug} удалён (очистка ресурсов идёт в фоне)\n`);
+      break;
+    case "claimable":
+      process.stdout.write(`→ Временный проект ${event.slug}: ${event.url}\n`);
+      process.stdout.write(`  Сайт живёт до ${event.expires_at} (72 часа). Забрать в аккаунт: ${event.claim_url}\n`);
+      break;
+    case "claim_status":
+      process.stdout.write(
+        `Код ${event.code}: ${event.status}${event.claimed ? " (забран)" : ""}` +
+          `${event.expires_at ? `, действует до ${event.expires_at}` : ""}\n`,
+      );
+      if (event.url) process.stdout.write(`  сайт: ${event.url}\n`);
+      if (event.claim_url && !event.claimed) process.stdout.write(`  забрать: ${event.claim_url}\n`);
+      break;
+    case "claim_accept":
+      process.stdout.write(
+        event.opened
+          ? `→ Открыл ${event.claim_url} — подтвердите в панели\n`
+          : `→ Откройте в браузере и подтвердите в панели: ${event.claim_url}\n`,
+      );
       break;
     case "error":
       process.stderr.write(`Error: ${event.code}\n`);

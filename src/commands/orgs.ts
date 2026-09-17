@@ -1,25 +1,25 @@
-import chalk from "chalk";
 import { ApiClient } from "../api.js";
 import { loadConfig } from "../config.js";
+import { LayeroError, emit } from "../agent.js";
 
-/** `layero orgs list` — show every Layero organization the caller belongs to.
+/** `layero orgs list` — организации аккаунта: личная и команды.
  *
- * Useful before `layero deploy --org=<slug>` so the user can see which
- * slugs to pass without leaving the terminal.
+ * Нужна перед `layero deploy --org=<slug>`, чтобы увидеть слаги, не выходя
+ * из терминала.
  */
 export async function orgsListCmd(): Promise<void> {
   const cfg = await loadConfig();
-  if (!cfg.token) throw new Error("not logged in. run `layero login` first.");
+  if (!cfg.token) {
+    throw new LayeroError(
+      "auth_required",
+      "вход не выполнен",
+      "выполните `layero login` или задайте LAYERO_TOKEN",
+    );
+  }
   const api = new ApiClient(cfg);
   const orgs = await api.listOrganizations();
-  if (orgs.length === 0) {
-    console.log(chalk.dim("no organizations on this account."));
-    return;
-  }
-  for (const o of orgs) {
-    const kindBadge =
-      o.kind === "personal" ? chalk.dim("personal") : chalk.cyan("team");
-    const roleBadge = chalk.dim(`(${o.my_role})`);
-    console.log(`  ${chalk.bold(o.slug.padEnd(20))} ${kindBadge}  ${roleBadge}`);
-  }
+  emit({
+    event: "organizations",
+    organizations: orgs.map((o) => ({ id: o.id, slug: o.slug, kind: o.kind, role: o.my_role })),
+  });
 }

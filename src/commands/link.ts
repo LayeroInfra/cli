@@ -1,31 +1,21 @@
-import chalk from "chalk";
 import { ApiClient } from "../api.js";
 import { loadConfig } from "../config.js";
 import { persistProjectLinking } from "../project-config.js";
+import { LayeroError, emit } from "../agent.js";
 
 export async function linkCmd(idOrSlug: string): Promise<void> {
   const cfg = await loadConfig();
   if (!cfg.token) {
-    console.error(chalk.yellow("not logged in. run `layero login` first."));
-    process.exitCode = 1;
-    return;
+    throw new LayeroError(
+      "auth_required",
+      "вход не выполнен",
+      "выполните `layero login` или задайте LAYERO_TOKEN",
+    );
   }
   const api = new ApiClient(cfg);
-  // The backend accepts UUIDs only on /projects/{id}; for slug we fall back
-  // to listing — this is fine because users typically have <100 projects.
-  let proj;
-  try {
-    proj = await api.getProject(idOrSlug);
-  } catch {
-    const all = await api.listProjects();
-    const match = all.find((p) => p.slug === idOrSlug);
-    if (!match) {
-      console.error(chalk.red(`no project with id/slug "${idOrSlug}"`));
-      process.exitCode = 1;
-      return;
-    }
-    proj = match;
-  }
+  // Слаг или id — различает клиент по форме значения (`resolveProject`):
+  // UUID, ушедший в поиск по слагу, не нашёлся бы.
+  const proj = await api.resolveProject(idOrSlug);
   await persistProjectLinking(
     process.cwd(),
     {
@@ -36,15 +26,11 @@ export async function linkCmd(idOrSlug: string): Promise<void> {
     },
     proj.framework_hint ?? null,
   );
-  console.log(
-    chalk.green(`linked ${proj.slug} (${proj.id}) → ./.layero/project.json`),
-  );
-  if (proj.status === "pending_setup") {
-    console.log(
-      chalk.yellow(
-        "  note: project is in pending_setup. finish the setup wizard in the dashboard, " +
-          "or run `layero deploy` to upload source and get the wizard URL.",
-      ),
-    );
-  }
+  emit({
+    event: "project_linked",
+    project_id: proj.id,
+    slug: proj.slug,
+    url: `https://${proj.apex_hostname}`,
+    status: proj.status,
+  });
 }

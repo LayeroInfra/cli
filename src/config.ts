@@ -10,6 +10,10 @@ export interface CliConfig {
     username: string | null;
     email?: string | null;
   };
+  // Токены claimable-проектов (этап 13): проект → токен, выданный при
+  // создании заявки. Живут здесь, а не в `.layero/project.json`: та папка
+  // уходит в git, а токен даёт право деплоить в проект до конца срока.
+  claim_tokens?: Record<string, string>;
 }
 
 const CONFIG_DIR = path.join(homedir(), ".layero");
@@ -40,6 +44,7 @@ export async function loadConfig(): Promise<CliConfig> {
       // окружения: файл мог остаться от другого аккаунта, и подпись в
       // выводе врала бы. Кто мы — узнаем у API.
       user: ENV_TOKEN ? undefined : parsed.user,
+      claim_tokens: parsed.claim_tokens,
     };
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {

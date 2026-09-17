@@ -1,0 +1,153 @@
+import open from "open";
+import { ApiClient, ApiError, ClaimableProjectOut } from "../api.js";
+import { CliConfig, loadConfig, saveConfig } from "../config.js";
+import { loadProjectConfig, persistProjectLinking } from "../project-config.js";
+import { LayeroError, detectMode, emit } from "../agent.js";
+import { dashboardOrigin } from "../urls.js";
+
+/**
+ * Claimable-проекты (этап 13 AX-аудита).
+ *
+ * Сценарий: агент работает без аккаунта Layero — токена нет, браузера нет,
+ * человек не рядом. Платформа заводит временный проект и выдаёт токен на
+ * него; сайт живёт 72 часа; человек забирает его в свой аккаунт по ссылке
+ * `claim_url`. Принять заявку можно ТОЛЬКО в панели: CLI и агент не
+ * подтверждают её ни при каких флагах.
+ */
+
+/** Код заявки: из ответа сервера, а если его там нет — из `claim_url`. */
+export function claimCodeOf(created: Pick<ClaimableProjectOut, "claim_url" | "claim_code">): string {
+  if (created.claim_code) return created.claim_code;
+  try {
+    const u = new URL(created.claim_url);
+    const q = u.searchParams.get("code");
+    if (q) return q;
+    const last = u.pathname.split("/").filter(Boolean).pop();
+    if (last) return last;
+  } catch {
+    /* не URL — ниже */
+  }
+  throw new LayeroError(
+    "claimable_unavailable",
+    "платформа не вернула код заявки",
+    "повторите позже; если повторяется — сообщите на https://docs.layero.ru/contacts/",
+  );
+}
+
+/**
+ * Создать claimable-проект и запомнить его: токен — в `~/.layero/config.json`
+ * (по проекту), код и ссылку — в `.layero/project.json`. Возвращает конфиг
+ * с токеном заявки, которым идёт деплой.
+ */
+export async function createClaimable(
+  cfg: CliConfig,
+  cwd: string,
+  input: { name?: string; framework_hint?: string },
+): Promise<{ cfg: CliConfig; created: ClaimableProjectOut; code: string }> {
+  const api = new ApiClient(cfg);
+  let created: ClaimableProjectOut;
+  try {
+    created = await api.createClaimableProject(input);
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 404 || err.status === 501)) {
+      throw new LayeroError(
+        "claimable_unavailable",
+        "деплой без аккаунта на этой платформе ещё не включён",
+        "войдите: `layero login`, либо задайте LAYERO_TOKEN (выпуск — `layero token create` или app.layero.ru/settings/cli)",
+      );
+    }
+    throw err;
+  }
+  const code = claimCodeOf(created);
+  const next: CliConfig = {
+    ...cfg,
+    token: created.token,
+    claim_tokens: { ...(cfg.claim_tokens ?? {}), [created.project_id]: created.token },
+  };
+  // В файл — только карту токенов заявок, не сам токен как «вход»: иначе
+  // следующий `layero whoami` считал бы временный токен аккаунтом.
+  await saveConfig({ ...cfg, claim_tokens: next.claim_tokens });
+  await persistProjectLinking(cwd, {
+    project_id: created.project_id,
+    slug: created.slug,
+    organization_slug: created.organization,
+    apex_hostname: created.url ? new URL(created.url).hostname : `${created.slug}.layero.app`,
+    claim: { code, claim_url: created.claim_url, expires_at: created.expires_at },
+  });
+  return { cfg: next, created, code };
+}
+
+/** Токен заявки для проекта из `.layero/project.json`, если он есть. */
+export function claimTokenFor(cfg: CliConfig, projectId: string | undefined): string | undefined {
+  if (!projectId) return undefined;
+  return cfg.claim_tokens?.[projectId];
+}
+
+function claimUrlFor(cfg: CliConfig, code: string): string {
+  return `${dashboardOrigin(cfg.apiUrl)}/claim?code=${encodeURIComponent(code)}`;
+}
+
+async function resolveCode(cwd: string, explicit?: string): Promise<{ code: string; claim_url: string | null }> {
+  if (explicit) return { code: explicit.trim(), claim_url: null };
+  const linked = await loadProjectConfig(cwd);
+  if (linked?.claim?.code) return { code: linked.claim.code, claim_url: linked.claim.claim_url };
+  throw new LayeroError(
+    "claim_unknown",
+    "в этой папке нет claimable-проекта",
+    "передайте код: `layero claim status <code>` — или создайте проект без аккаунта: `layero deploy --claim`",
+  );
+}
+
+/** `layero claim status [code]` — что с заявкой: жива, забрана, истекла. */
+export async function claimStatusCmd(code: string | undefined, opts: { json?: boolean }): Promise<void> {
+  const cwd = process.cwd();
+  const cfg = await loadConfig();
+  const ref = await resolveCode(cwd, code);
+  // Без токена намеренно: статус заявки — публичный по коду, как и сама ссылка.
+  const api = new ApiClient({ apiUrl: cfg.apiUrl });
+  let status;
+  try {
+    status = await api.getClaimStatus(ref.code);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      throw new LayeroError(
+        "claim_unknown",
+        `заявки с кодом ${ref.code} нет — истекла или код неверный`,
+        "новый проект без аккаунта: `layero deploy --claim`",
+      );
+    }
+    throw err;
+  }
+  emit({
+    event: "claim_status",
+    code: ref.code,
+    status: status.status,
+    claimed: status.claimed ?? status.status === "claimed",
+    expires_at: status.expires_at ?? null,
+    url: status.url ?? null,
+    claim_url: status.claim_url ?? ref.claim_url ?? claimUrlFor(cfg, ref.code),
+  });
+}
+
+/**
+ * `layero claim accept <code>` — открыть страницу заявки в панели. Принять
+ * можно только человеком, залогиненным в панели: CLI ссылку открывает
+ * (в терминале) или печатает (агенту), и на этом его роль кончается.
+ */
+export async function claimAcceptCmd(code: string | undefined, opts: { json?: boolean; noBrowser?: boolean }): Promise<void> {
+  const cwd = process.cwd();
+  const cfg = await loadConfig();
+  const ref = await resolveCode(cwd, code);
+  const claimUrl = ref.claim_url ?? claimUrlFor(cfg, ref.code);
+  const mode = detectMode();
+  let opened = false;
+  if (mode.interactive && !opts.noBrowser) {
+    try {
+      await open(claimUrl);
+      opened = true;
+    } catch {
+      opened = false;
+    }
+  }
+  emit({ event: "claim_accept", code: ref.code, claim_url: claimUrl, opened });
+}

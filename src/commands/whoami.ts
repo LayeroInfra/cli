@@ -1,20 +1,23 @@
-import chalk from "chalk";
 import { ApiClient } from "../api.js";
 import { loadConfig } from "../config.js";
+import { LayeroError, emit } from "../agent.js";
 
 export async function whoamiCmd(): Promise<void> {
   const cfg = await loadConfig();
   if (!cfg.token) {
-    console.error(chalk.yellow("not logged in. run `layero login` first."));
-    process.exitCode = 1;
-    return;
+    throw new LayeroError(
+      "auth_required",
+      "вход не выполнен",
+      "выполните `layero login` или задайте LAYERO_TOKEN",
+    );
   }
   const api = new ApiClient(cfg);
   const me = await api.me();
-  console.log(`id:     ${me.id}`);
-  console.log(`username: ${me.username ?? chalk.yellow("(not set)")}`);
-  console.log(`email:  ${me.email ?? "(none)"}`);
-  if (me.github_login) {
-    console.log(`github: ${me.github_login}`);
-  }
+  emit({
+    event: "me",
+    id: me.id,
+    username: me.username ?? null,
+    email: me.email ?? null,
+    github_login: me.github_login ?? null,
+  });
 }

@@ -100,6 +100,42 @@ export type DomainInstructionsOut = Schemas["DomainInstructionsOut"];
 export type PerfCheckOut = Schemas["PerfCheckOut"];
 export type MetrikaIntegrationOut = Schemas["MetrikaIntegrationOut"];
 export type EnvVarOut = Schemas["EnvVarOut"];
+export type BranchOut = Schemas["BranchOut"];
+export type SourceProviderOut = Schemas["SourceProviderOut"];
+export type SourceConnectionOut = Schemas["SourceConnectionOut"];
+export type SourceRepoOut = Schemas["SourceRepoOut"];
+export type ImportAccountOut = Schemas["ImportAccountOut"];
+export type ImportRepoOut = Schemas["ImportRepoOut"];
+export type ConnectSourceOut = Schemas["ConnectSourceOut"];
+export type ProjectDeleteOut = Schemas["ProjectDeleteOut"];
+
+/**
+ * Claimable-проект (этап 13 AX-аудита): сайт без аккаунта, человек забирает
+ * потом. Контракт согласован с бэкендом (`/claimable/*`); в схеме его ещё
+ * нет, поэтому форма описана здесь и ПРОВЕРЯЕТСЯ живым прогоном при выкатке.
+ */
+export interface ClaimableProjectOut {
+  project_id: string;
+  slug: string;
+  organization: string;
+  claim_url: string;
+  token: string;
+  expires_at: string;
+  /** Код заявки; если сервер его не прислал — берётся из `claim_url`. */
+  claim_code?: string;
+  /** Адрес сайта; если не прислан — `https://<slug>.layero.app` не выдумываем, ждём `ready`. */
+  url?: string;
+}
+
+export interface ClaimStatusOut {
+  status: string;
+  claimed?: boolean;
+  expires_at?: string | null;
+  url?: string | null;
+  claim_url?: string | null;
+  slug?: string | null;
+}
+
 
 /**
  * Ответ пробы метода через шлюз (T-20260911-1). У ручки нет модели ответа в
@@ -860,6 +896,96 @@ export class ApiClient {
    */
   probeDataApi(org: string, dbId: string, input: Schemas["ProbeHttpIn"]): Promise<DataApiProbe> {
     return this.request("POST", `/organizations/${org}/databases/${dbId}/api/probe-http`, input);
+  }
+
+  // --- Источники кода: провайдеры, подключения, репозитории (этап 6). ------
+
+  listSourceProviders(org: string): Promise<SourceProviderOut[]> {
+    return this.request<SourceProviderOut[]>("GET", `/organizations/${org}/source-providers`);
+  }
+
+  listSourceConnections(org: string): Promise<SourceConnectionOut[]> {
+    return this.request<SourceConnectionOut[]>("GET", `/organizations/${org}/source-connections`);
+  }
+
+  /** Токен уходит на сервер и НЕ возвращается: ответ — подключение без него. */
+  createSourceConnection(
+    org: string,
+    input: { provider_id: string; token: string; display_name?: string | null; base_url?: string | null },
+  ): Promise<SourceConnectionOut> {
+    return this.request<SourceConnectionOut>("POST", `/organizations/${org}/source-connections`, input);
+  }
+
+  listSourceRepos(org: string, connectionId: string): Promise<SourceRepoOut[]> {
+    return this.request<SourceRepoOut[]>(
+      "GET",
+      `/organizations/${org}/source-connections/${connectionId}/repos`,
+    );
+  }
+
+  /** Аккаунты, из которых организация может импортировать: GitHub App и токеновые подключения. */
+  listImportAccounts(org: string): Promise<ImportAccountOut[]> {
+    return this.request<ImportAccountOut[]>("GET", `/organizations/${org}/import/accounts`);
+  }
+
+  listImportRepos(org: string, accountKey: string): Promise<ImportRepoOut[]> {
+    return this.request<ImportRepoOut[]>(
+      "GET",
+      `/organizations/${org}/import/repos?account=${encodeURIComponent(accountKey)}`,
+    );
+  }
+
+  /**
+   * Проект из репозитория GitHub через ключ аккаунта (`github:<installation>`):
+   * сервер сам заводит проект и вебхук — у GitHub App иного режима нет.
+   */
+  createProjectFromAccount(input: {
+    name: string;
+    organization_slug?: string;
+    source_account_key: string;
+    repo_path: string;
+    default_branch?: string;
+  }): Promise<ProjectSummary> {
+    return this.request<ProjectSummary>("POST", "/projects", {
+      name: input.name,
+      source_type: "github",
+      organization_slug: input.organization_slug,
+      source_account_key: input.source_account_key,
+      repo_path: input.repo_path,
+      default_branch: input.default_branch ?? "main",
+    });
+  }
+
+  /**
+   * Привязать репозиторий внешнего провайдера к существующему проекту.
+   * Возвращает и итог вебхука: у GitVerse/GitLab/GitFlic его может не дать
+   * токен, у SourceCraft вебхуков нет вовсе — привязка при этом остаётся.
+   */
+  connectSource(
+    projectId: string,
+    input: { connection_id: string; repo_path: string; branch?: string | null },
+  ): Promise<ConnectSourceOut> {
+    return this.request<ConnectSourceOut>("POST", `/projects/${projectId}/connect-source`, input);
+  }
+
+  /** Окружения проекта: ветки с адресами. Архивные и снятые с раздачи не входят. */
+  listBranches(projectId: string): Promise<BranchOut[]> {
+    return this.request<BranchOut[]>("GET", `/projects/${projectId}/branches`);
+  }
+
+  /** Требует scope `admin` у токена: удаление необратимо. */
+  deleteProject(projectId: string): Promise<ProjectDeleteOut> {
+    return this.request<ProjectDeleteOut>("DELETE", `/projects/${projectId}`);
+  }
+
+  // --- Claimable (этап 13). Без токена: заявку создаёт кто угодно. ----------
+
+  createClaimableProject(input: { name?: string; framework_hint?: string }): Promise<ClaimableProjectOut> {
+    return this.request<ClaimableProjectOut>("POST", "/claimable/projects", input);
+  }
+
+  getClaimStatus(code: string): Promise<ClaimStatusOut> {
+    return this.request<ClaimStatusOut>("GET", `/claimable/status?code=${encodeURIComponent(code)}`);
   }
 }
 

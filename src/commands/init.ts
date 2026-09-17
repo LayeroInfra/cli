@@ -1,8 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import chalk from "chalk";
 import { detectProject } from "../detect.js";
-import { emit, detectMode } from "../agent.js";
+import { emit } from "../agent.js";
 
 interface InitOptions {
   // When set, write/overwrite files without asking. Default in
@@ -16,91 +15,69 @@ const AGENT_BLOCK_MARKER_START = "<!-- layero:start -->";
 const AGENT_BLOCK_MARKER_END = "<!-- layero:end -->";
 
 function agentDocBlock(framework: string): string {
+  // Компактный индекс, а не ссылка на навык: по evals Vercel блок в
+  // AGENTS.md агент выполняет надёжнее (100 % против 79 % у навыка).
+  // Полная версия — навык `layero` в LayeroInfra/layero-agents; здесь —
+  // то, без чего первый деплой не случится. Коды ошибок сверяет
+  // `check-error-codes.py`: не перечислять здесь то, чего CLI не выдаёт.
   return `${AGENT_BLOCK_MARKER_START}
-## Deploying with Layero
+## Layero
 
-This project deploys to Layero (https://layero.ru). To ship local changes:
+This project deploys to Layero (https://layero.ru) — hosting with build servers
+in Russia. Full agent skill: https://github.com/LayeroInfra/layero-agents
+(\`npx skills add LayeroInfra/layero-agents\`, Claude Code:
+\`claude plugin marketplace add LayeroInfra/layero-agents && claude plugin install layero@layero\`).
+Docs for agents: https://docs.layero.ru/agents/
 
-\`\`\`bash
-npx layero@latest deploy
-\`\`\`
+### Three paths — pick by situation
 
-Detected framework: **${framework}**. No git repository or GitHub connection
-is required — Layero packs and uploads the local directory directly.
+1. **Repository connected** (GitHub, GitVerse, GitLab, GitFlic, SourceCraft) —
+   push to a branch = preview, push to \`main\` = production. Connect one with
+   \`npx layero@latest projects create --repo <provider>:<owner/repo>\`.
+2. **A directory with code** (this project, framework: **${framework}**) —
+   \`npx layero@latest deploy --json\`. The CLI packs the directory, the
+   platform builds it. No git repository is needed for this path.
+3. **A site already on Layero** — \`npx layero@latest diagnose\`, \`logs\`,
+   \`rollback\`, \`domains\`, \`env\`, \`envs list\`, or the MCP server
+   \`https://mcp.layero.ru/mcp\`.
 
-### First-time auth (one-click device flow)
-
-If you're not logged in yet, \`npx layero@latest deploy\` (or \`… login\`)
-starts the browser device-flow automatically and emits a JSON line:
-
-\`\`\`json
-{"event":"auth_required","url":"https://app.layero.ru/cli?code=ABCD-1234","user_code":"ABCD-1234"}
-\`\`\`
-
-Render the \`url\` as a clickable link in chat. The user opens it, signs in
-(by an emailed code or with Yandex ID — Layero creates the account on first sign-in),
-clicks "Разрешить доступ", and the CLI's poll loop picks up the token within
-2 seconds. No localhost server is involved — the browser can be on a
-different machine than the CLI.
-
-### JSON-lines events
-
-When run inside an agent (\`CURSOR_AGENT\`, \`CLAUDECODE\`, or any non-TTY
-stdout), the CLI auto-switches to JSON-lines. Key events to watch:
-
-| event | meaning |
-|---|---|
-| \`auth_required\` | render \`url\` as a link, keep waiting |
-| \`detected\` | framework auto-detection result |
-| \`project_created\` / \`project_linked\` | project bound for this directory |
-| \`build_log\` | forward only if it contains errors |
-| \`ready\` | \`url\` = live public site (show to user, stop). \`dashboard_url\` = management page. |
-| \`error\` | follow \`next_action\` field verbatim |
-
-Common error codes and remediation:
-
-- \`auth_required\` → run \`npx layero@latest login\`, or set \`LAYERO_TOKEN\`
-- \`auth_expired\` / \`auth_timeout\` → user did not approve in time, re-run login
-- \`project_unknown\` → run from the project directory, or pass \`--project\`
-- \`invalid_type\` → drop \`--type\`, rely on auto-detect
-- \`cli_deploys_disabled\` → user must enable CLI deploys in project settings
-- \`deploy_failed\` → check the dashboard URL in the message
-- \`internal\` → unexpected CLI error; re-run with \`--debug\`
-
-There is no \`not_logged_in\`, \`deploy_error\` or \`deploy_timed_out\` — do not
-branch on codes that are not listed here.
-
-### Re-deploys and production
-
-A plain \`npx layero deploy\` of a CLI project **publishes to the apex**
-\`https://<project>.layero.app\` — direct uploads auto-promote, so you do
-**not** need \`--prod\` or a separate \`promote\` step. Safe to run repeatedly;
-each run replaces what the apex serves.
-
-There is no separate per-deploy preview address: user sites live in the
-\`layero.app\` zone, which has no preview sub-zone and no CDN in front, so the
-apex is reachable the moment the deploy is ready.
-
-Hand the user \`ready.url\` and stop — that address is live.
-
-There is no way to publish without replacing the live site from the CLI:
-\`--branch\` is accepted and **silently ignored** — archive uploads are always
-filed under the reserved \`cli\` environment. If the user asks for a version
-"just to look at" that leaves the live address alone, tell them it needs a
-connected repository and a push to a branch. (\`--prod\` exists for
-git-connected projects; for direct CLI uploads it's redundant.)
-
-### Already built? Skip the server build
-
-If the site is already built locally (e.g. a Next.js static export in \`out/\`,
-or a \`dist/\`), ship the artifact directly and skip the server-side
-\`npm install\` + build:
+### Deploy from this directory
 
 \`\`\`bash
-npx layero@latest deploy --prebuilt out
+npx layero@latest deploy --json
 \`\`\`
 
-Full reference: https://docs.layero.ru/en/cli/agents
+Not logged in? The command starts the browser device flow itself and prints
+\`{"event":"auth_required","url":"…","user_code":"…"}\` — show \`url\` as a
+clickable link and keep waiting; the CLI polls every 2 s. No localhost
+callback: the browser may be on another machine. In CI use
+\`LAYERO_TOKEN=… npx layero@latest deploy --project <slug> --json --yes\`.
+No account at all? \`npx layero@latest deploy --claim\` publishes to a
+temporary project for 72 hours and prints a \`claim_url\` for a human to
+take it over.
+
+Key JSON events: \`detected\` (framework), \`project_created\` /
+\`project_linked\`, \`build_log\` (forward only lines with errors),
+\`claimable\` (\`claim_url\`, \`expires_at\`), \`ready\` — \`url\` is the live
+site: show it as-is and stop; \`dashboard_url\` is the panel, not the site.
+\`error\` — follow \`next_action\` verbatim.
+
+Exit codes: 0 ok · 2 auth (\`auth_required\`, \`auth_expired\`, \`auth_timeout\`) ·
+3 not found (\`project_unknown\`, \`project_not_found\`) · 4 invalid input
+(\`invalid_type\`, \`prebuilt_no_dir\`, \`branch_unsupported\`) · 5 remote
+(\`deploy_failed\`, \`internal\`). Codes \`not_logged_in\`, \`deploy_error\`,
+\`deploy_timed_out\` do not exist — do not branch on them.
+
+### Rules
+
+- Re-running \`deploy\` is safe and reuses the project; no commit needed.
+- A plain \`deploy\` of a CLI project **replaces the live site** at
+  \`ready.url\`: direct uploads auto-promote. \`--branch\` is refused
+  (\`branch_unsupported\`) — isolated previews come from pushing a branch of
+  a connected repository, nothing else.
+- Already built locally? \`npx layero@latest deploy --prebuilt <dir>\`.
+- Never \`git init\` just to deploy, never \`npm install -g layero\`, never
+  build the site address from a template — only \`ready.url\`.
 ${AGENT_BLOCK_MARKER_END}
 `;
 }
@@ -189,7 +166,6 @@ async function ensureGitignore(cwd: string): Promise<void> {
 
 export async function initCmd(opts: InitOptions): Promise<void> {
   const cwd = process.cwd();
-  const mode = detectMode();
   const detected = await detectProject(cwd);
 
   emit({
@@ -201,6 +177,7 @@ export async function initCmd(opts: InitOptions): Promise<void> {
   });
 
   const block = agentDocBlock(detected.framework_hint);
+  const agentDocs: Array<{ file: string; result: "created" | "updated" | "unchanged" }> = [];
 
   if (!opts.skipAgentDocs) {
     // Touch every agent-doc convention we know about. If one already
@@ -220,9 +197,7 @@ export async function initCmd(opts: InitOptions): Promise<void> {
     const targets = existing.length > 0 ? existing : ["AGENTS.md"];
     for (const f of targets) {
       const result = await upsertAgentDoc(cwd, f, block);
-      if (mode.interactive) {
-        console.log(chalk.green(`  ${result === "created" ? "✓ created" : result === "updated" ? "✓ updated" : "= unchanged"} ${f}`));
-      }
+      agentDocs.push({ file: f, result });
     }
   }
 
@@ -232,20 +207,12 @@ export async function initCmd(opts: InitOptions): Promise<void> {
     detected.build_cmd,
     detected.output_dir,
   );
-  if (mode.interactive) {
-    console.log(
-      chalk.green(
-        `  ${pjResult === "created" ? "✓ created" : "= unchanged"} .layero/project.json`,
-      ),
-    );
-  }
-
   await ensureGitignore(cwd);
 
-  if (mode.interactive) {
-    console.log("");
-    console.log(chalk.bold("Next:"));
-    console.log("  $ npx layero login    # one-time, in your browser");
-    console.log("  $ npx layero deploy   # ship the current directory");
-  }
+  emit({
+    event: "init_done",
+    framework: detected.framework_hint,
+    agent_docs: agentDocs,
+    project_json: pjResult,
+  });
 }

@@ -3,7 +3,11 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { whoamiCmd } from "../commands/whoami.js";
 import { logoutCmd } from "../commands/logout.js";
-import { projectsListCmd } from "../commands/projects.js";
+import { projectsCreateCmd, projectsDeleteCmd, projectsListCmd } from "../commands/projects.js";
+import { sourcesConnectCmd, sourcesListCmd, sourcesReposCmd } from "../commands/sources.js";
+import { envsListCmd } from "../commands/envs.js";
+import { claimAcceptCmd, claimStatusCmd } from "../commands/claim.js";
+import { exitCodeFor } from "../exit-codes.js";
 import { linkCmd } from "../commands/link.js";
 import { tokenCreateCmd, tokenListCmd, tokenRevokeCmd, tokenSetCmd } from "../commands/token.js";
 import { deployCmd } from "../commands/deploy.js";
@@ -122,18 +126,102 @@ async function main(): Promise<void> {
 
   const projects = program
     .command("projects")
-    .description("Inspect projects on your account.");
+    .description("Проекты аккаунта: список, создание из репозитория, удаление.");
   projects
     .command("list")
-    .description("List your projects.")
+    .description("Список ваших проектов.")
     .action(projectsListCmd);
+  projects
+    .command("create")
+    .description(
+      "Создать проект из репозитория подключённого провайдера — путь (a): push в ветку = превью, push в main = прод. " +
+        "GitHub — через установленное App, остальные — через `layero sources connect`.",
+    )
+    .requiredOption("--repo <provider:owner/repo>", "репозиторий: github:acme/site, gitverse:acme/site, gitlab:group/sub/project")
+    .option("--branch <name>", "основная ветка (по умолчанию — ветка репозитория по умолчанию)")
+    .option("--name <name>", "имя проекта (по умолчанию — имя репозитория)")
+    .option("--org <slug>", "организация (по умолчанию единственная)")
+    .addHelpText(
+      "after",
+      "\nПримеры:\n" +
+        "  $ layero projects create --repo github:acme/site\n" +
+        "  $ layero projects create --repo gitverse:acme/site --branch develop --json\n" +
+        "\nСобытия в --json: project_created, source_connected, webhook_installed | webhook_unavailable.\n" +
+        "Без вебхука push не собирается — заведите его вручную по адресу из webhook_unavailable.",
+    )
+    .action(async (opts) => projectsCreateCmd({ ...opts, json: program.opts().json }));
+  projects
+    .command("delete <id_or_slug>")
+    .description("Удалить проект. НЕОБРАТИМО; требует токена со scope admin (`layero token create <имя> --scope admin`).")
+    .option("-y, --yes", "не спрашивать подтверждение (вне терминала — обязателен)")
+    .action(async (ref: string, opts) => projectsDeleteCmd(ref, { ...opts, json: program.opts().json }));
+
+  const sources = program
+    .command("sources")
+    .description("Git-провайдеры организации: какие есть, подключить по токену, посмотреть репозитории.");
+  sources
+    .command("list")
+    .description("Провайдеры платформы и подключения организации.")
+    .option("--org <slug>", "организация (по умолчанию единственная)")
+    .action(async (opts) => sourcesListCmd({ ...opts, json: program.opts().json }));
+  sources
+    .command("connect <provider>")
+    .description(
+      "Подключить провайдера по персональному токену (PAT). Токен проверяется до записи и наружу не возвращается.",
+    )
+    .option("--token <pat>", "токен провайдера (остаётся в истории shell — предпочтительнее --token-stdin)")
+    .option("--token-stdin", "прочитать токен из stdin: echo \"$PAT\" | layero sources connect gitverse --token-stdin")
+    .option("--base-url <url>", "адрес собственного инстанса (GitLab, GitFlic)")
+    .option("--name <label>", "подпись подключения")
+    .option("--org <slug>", "организация (по умолчанию единственная)")
+    .addHelpText(
+      "after",
+      "\nПримеры:\n" +
+        "  $ echo \"$GITVERSE_TOKEN\" | layero sources connect gitverse --token-stdin\n" +
+        "  $ layero sources connect gitlab --token-stdin --base-url https://git.example.com < token.txt\n" +
+        "\nПровайдеры — `layero sources list`. GitHub подключается установкой App в панели.",
+    )
+    .action(async (provider: string, opts) =>
+      sourcesConnectCmd(provider, { ...opts, json: program.opts().json }),
+    );
+  sources
+    .command("repos <connection_id>")
+    .description("Репозитории, видимые токену подключения.")
+    .option("--org <slug>", "организация (по умолчанию единственная)")
+    .action(async (id: string, opts) => sourcesReposCmd(id, { ...opts, json: program.opts().json }));
+
+  const envs = program
+    .command("envs")
+    .description("Окружения проекта: ветки и их адреса.");
+  envs
+    .command("list")
+    .description("Окружения проекта с адресами. У CLI-проекта одно — `cli`; у проекта с репозиторием — по ветке.")
+    .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)")
+    .action(async (opts) => envsListCmd({ ...opts, json: program.opts().json }));
+
+  const claim = program
+    .command("claim")
+    .description("Проект без аккаунта (`layero deploy --claim`): статус заявки и ссылка, чтобы забрать сайт.");
+  claim
+    .command("status [code]")
+    .description("Состояние заявки: жива, забрана, истекла. Без кода — из .layero/project.json.")
+    .action(async (code: string | undefined) => claimStatusCmd(code, { json: program.opts().json }));
+  claim
+    .command("accept [code]")
+    .description(
+      "Открыть страницу заявки в панели. Принять её может только человек, вошедший в панель, — CLI лишь открывает или печатает ссылку.",
+    )
+    .option("--no-browser", "не открывать браузер — только напечатать ссылку")
+    .action(async (code: string | undefined, opts) =>
+      claimAcceptCmd(code, { ...opts, json: program.opts().json }),
+    );
 
   const orgs = program
     .command("orgs")
-    .description("Layero organizations on your account (personal + teams).");
+    .description("Организации аккаунта: личная и команды.");
   orgs
     .command("list")
-    .description("Show every Layero organization you belong to.")
+    .description("Все организации, в которых вы состоите.")
     .action(orgsListCmd);
 
   const deploys = program
@@ -159,12 +247,7 @@ async function main(): Promise<void> {
     .description("List deploy hooks for the linked project.")
     .option("--project <id>", "target project id (default: linked .layero/project.json)")
     .action(async (opts) => {
-      try {
-        await hooksListCmd(opts);
-      } catch (err) {
-        console.error(String((err as Error)?.message ?? err));
-        process.exitCode = 1;
-      }
+      await hooksListCmd(opts);
     });
   hooks
     .command("create <name>")
@@ -186,24 +269,14 @@ async function main(): Promise<void> {
         + "  $ layero hooks create staging --branch=dev  # any branch, preview environment",
     )
     .action(async (name: string, opts) => {
-      try {
-        await hooksCreateCmd(name, opts);
-      } catch (err) {
-        console.error(String((err as Error)?.message ?? err));
-        process.exitCode = 1;
-      }
+      await hooksCreateCmd(name, opts);
     });
   hooks
     .command("delete <id>")
     .description("Revoke a deploy hook. The URL stops working immediately.")
     .option("--project <id>", "target project id (default: linked .layero/project.json)")
     .action(async (id: string, opts) => {
-      try {
-        await hooksDeleteCmd(id, opts);
-      } catch (err) {
-        console.error(String((err as Error)?.message ?? err));
-        process.exitCode = 1;
-      }
+      await hooksDeleteCmd(id, opts);
     });
 
   program
@@ -542,10 +615,14 @@ async function main(): Promise<void> {
     )
     .option(
       "--branch <name>",
-      "ACCEPTED BUT IGNORED for direct uploads: the backend files every " +
-        "archive deploy under the reserved `cli` environment. Branch " +
-        "environments come from pushes to a connected repository, not from " +
-        "this flag. Kept for backwards compatibility.",
+      "REFUSED (branch_unsupported, exit 4): archive uploads always land in the " +
+        "reserved `cli` environment, so this flag cannot give you a preview. " +
+        "Branch previews come from pushing to a connected repository.",
+    )
+    .option(
+      "--claim",
+      "deploy without an account: a temporary project for 72 hours plus a claim_url for a human to take it over. " +
+        "Turns on by itself when there is no token, the run is non-interactive (agent, not CI) and --yes is passed.",
     )
     .option(
       "--org <slug>",
@@ -566,7 +643,7 @@ async function main(): Promise<void> {
         "  $ layero deploy --prod               # production deploy (interactive confirm)\n" +
         "  $ layero deploy --prod --yes         # production deploy, no prompt (CI)\n" +
         "  $ layero deploy --promote            # preview deploy + pin apex (one-shot publish)\n" +
-        "  $ layero deploy --branch=staging     # preview on a specific branch\n" +
+        "  $ layero deploy --claim              # no account: temporary site + claim link\n" +
         "  $ layero deploy --type vite          # force a framework preset\n" +
         "  $ layero deploy --type express       # Node backend: platform RUNS it, not serves files\n" +
         "  $ layero deploy --json               # machine-readable output for agents",
@@ -699,7 +776,11 @@ main().catch((err) => {
   if (debug && err instanceof Error && err.stack) {
     console.error(chalk.dim(err.stack));
   }
+  // Класс выхода — по коду ошибки (`exit-codes.ts`): 2 вход, 3 не найдено,
+  // 4 неверный ввод, 5 удалённая ошибка, 1 прочее.
+  let exitCode = 1;
   if (err instanceof LayeroError) {
+    exitCode = exitCodeFor(err.code);
     emit({
       event: "error",
       code: err.code,
@@ -707,6 +788,7 @@ main().catch((err) => {
       message: err.message,
     });
   } else {
+    exitCode = exitCodeFor("internal");
     // Anything else (network error, unexpected exception) — still emit
     // a structured error so agents have a consistent format to parse.
     const message = err?.message ?? String(err);
@@ -726,5 +808,5 @@ main().catch((err) => {
       }
     }
   }
-  process.exit(1);
+  process.exit(exitCode);
 });

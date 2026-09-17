@@ -24,6 +24,7 @@ import { detectProject } from "../detect.js";
 import { runDeviceLogin } from "../auth.js";
 import { LayeroError, detectMode, emit, isCiEnv } from "../agent.js";
 import { ensureUsername } from "../username.js";
+import { claimTokenFor, createClaimable } from "./claim.js";
 
 interface DeployOptions {
   // Legacy alias of "auto-detect framework + use .layero/project.json
@@ -56,6 +57,11 @@ interface DeployOptions {
   // the project's `root_directory`. Saved on the project row so a later
   // GitHub-push trigger or hook trigger uses the same subdir.
   root?: string;
+  // --claim: деплой без аккаунта (этап 13). Платформа заводит временный
+  // проект на 72 часа и выдаёт токен на него; человек забирает сайт по
+  // ссылке из события `claimable`. Включается и сам — когда токена нет,
+  // среда агентская (не терминал и не CI) и передан `--yes`.
+  claim?: boolean;
 }
 
 const VALID_TYPES = new Set([
@@ -498,25 +504,85 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     );
   }
 
+  const cwd = process.cwd();
+  let existing = await loadProjectConfig(cwd);
+
   let cliCfg = await loadConfig();
+  // Claimable-проект этого запуска (этап 13): событие `claimable` уходит
+  // перед `ready`, когда адрес сайта уже известен.
+  let claimable: { claim_url: string; expires_at: string; project_id: string; slug: string } | null = null;
   if (!cliCfg.token) {
-    // In CI nobody can open a browser, so the device flow can only end one
-    // way: fifteen minutes of a hung job and then `auth_expired`. Fail
-    // immediately instead, and say what to do — burning a quarter of an hour
-    // of someone's runner to reach a foregone conclusion is not acceptable.
-    if (isCiEnv()) {
+    // Папка уже привязана к claimable-проекту — деплоим его же токеном,
+    // пока заявка жива. Заявка забрана или истекла — платформа ответит 401,
+    // и это станет `auth_expired`: честнее, чем молча завести ещё один.
+    const reuse = claimTokenFor(cliCfg, existing?.project_id);
+    if (reuse) {
+      cliCfg = { ...cliCfg, token: reuse };
+    } else if (opts.claim || (!mode.interactive && !isCiEnv() && opts.yes)) {
+      // 🚨 CI СЮДА НЕ ПОПАДАЕТ НАМЕРЕННО. Раннер без LAYERO_TOKEN — это
+      // забытый секрет, и правильный ответ ему — отказ, а не сайт на
+      // временном адресе, который через 72 часа исчезнет вместе с
+      // «зелёным» прогоном. Явный `--claim` в CI работает.
+      const r = await createClaimable(cliCfg, cwd, {
+        name: opts.name ?? path.basename(cwd),
+      });
+      cliCfg = r.cfg;
+      claimable = {
+        claim_url: r.created.claim_url,
+        expires_at: r.created.expires_at,
+        project_id: r.created.project_id,
+        slug: r.created.slug,
+      };
+      existing = await loadProjectConfig(cwd);
+    } else if (isCiEnv()) {
+      // In CI nobody can open a browser, so the device flow can only end one
+      // way: fifteen minutes of a hung job and then `auth_expired`. Fail
+      // immediately instead, and say what to do — burning a quarter of an hour
+      // of someone's runner to reach a foregone conclusion is not acceptable.
       throw new LayeroError(
         "auth_required",
         "No credentials in CI. Create a token at https://app.layero.ru/settings/cli " +
           "and pass it as the LAYERO_TOKEN environment variable.",
         "set_layero_token",
       );
+    } else {
+      cliCfg = await runDeviceLogin(cliCfg);
     }
-    cliCfg = await runDeviceLogin(cliCfg);
+  } else if (opts.claim) {
+    throw new LayeroError(
+      "bad_format",
+      "--claim — деплой без аккаунта, а вход уже выполнен",
+      "уберите --claim: проект создастся в вашем аккаунте; либо `layero logout` перед `--claim`",
+    );
   }
   const api = new ApiClient(cliCfg);
-  const cwd = process.cwd();
-  const existing = await loadProjectConfig(cwd);
+
+  // 🚨 `--branch` У АРХИВНОЙ ЗАГРУЗКИ НЕ РАБОТАЕТ, И МОЛЧАТЬ ОБ ЭТОМ НЕЛЬЗЯ.
+  // Платформа кладёт каждый архив в зарезервированное окружение `cli`, что
+  // бы ни передали (`projects.py`, «Branch targeting»). До 0.10.0 флаг
+  // принимался и игнорировался: агент читал в справке «deploy to a specific
+  // branch's environment», делал `--branch=probe` и заменял живой сайт,
+  // считая, что выложил превью. Теперь — отказ до упаковки, с разной
+  // подсказкой для проекта без репозитория и с ним.
+  if (opts.branch) {
+    let linked: ProjectSummary | null = null;
+    try {
+      if (opts.project) linked = await api.resolveProject(opts.project);
+      else if (existing?.project_id) linked = await api.getProject(existing.project_id);
+    } catch {
+      linked = null;
+    }
+    const repo = linked?.repo_full_name && linked.repo_status !== "disconnected" ? linked.repo_full_name : null;
+    throw new LayeroError(
+      "branch_unsupported",
+      repo
+        ? `--branch ${opts.branch}: архивная загрузка не попадает в ветку — платформа кладёт её в окружение «cli»`
+        : `--branch ${opts.branch}: у проекта нет подключённого репозитория, а превью-ветки есть только у проектов с репозиторием`,
+      repo
+        ? `изолированное превью — push в ветку «${opts.branch}» репозитория ${repo}; \`layero deploy\` без --branch обновит окружение «cli»`
+        : "превью-ветки есть только у проектов с репозиторием: подключите его — `layero projects create --repo <provider>:<owner/repo>` — и пушьте в ветку; папку без репозитория выкладывает `layero deploy` без --branch",
+    );
+  }
 
   // --- Всё, что требует файловой системы, делаем сами. Остальное — сервер.
 
@@ -867,6 +933,19 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     const evicted = deployRow.preview_evicted ?? [];
     if (evicted.length > 0) {
       emit({ event: "preview_evicted", evicted });
+    }
+
+    // Claimable: ссылка «забрать» — ДО `ready`, потому что после `ready`
+    // агент не читает, а без этой ссылки сайт исчезнет через 72 часа.
+    if (claimable) {
+      emit({
+        event: "claimable",
+        project_id: claimable.project_id,
+        slug: claimable.slug,
+        url: liveUrl,
+        claim_url: claimable.claim_url,
+        expires_at: claimable.expires_at,
+      });
     }
 
     emit({
