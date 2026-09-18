@@ -2,6 +2,7 @@ import readline from "node:readline/promises";
 import chalk from "chalk";
 import { ApiClient, ApiError, DeployOut } from "../api.js";
 import { loadConfig } from "../config.js";
+import { configForFolder } from "./claim.js";
 import { loadProjectConfig } from "../project-config.js";
 import { detectMode, LayeroError } from "../agent.js";
 
@@ -74,8 +75,10 @@ function fmtSource(d: DeployOut): string {
 }
 
 export async function deploysListCmd(opts: ListOptions): Promise<void> {
-  const cliCfg = await loadConfig();
-  if (!cliCfg.token) throw new Error("not logged in. run `layero login` first.");
+  // Токеном песочницы тоже: совет при отменённой выкатке ведёт сюда, и агент
+  // без аккаунта получал «not logged in» там, где `logs` и `diagnose` уже
+  // работали (прогон evals 19.09).
+  const cliCfg = await configForFolder(opts, process.cwd());
   const api = new ApiClient(cliCfg);
   const projectId = await resolveProjectId(api, process.cwd(), opts.project);
   const deploys = await api.listProjectDeploys(projectId, opts.branch);

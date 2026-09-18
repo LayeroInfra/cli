@@ -129,7 +129,7 @@ export type Event =
       build_cmd: string | null;
       output_dir: string | null;
       confident: boolean;
-      sources?: { framework: string; build_cmd: string; output_dir: string };
+      sources?: { framework: string; build_cmd: string; output_dir: string; runtime_kind?: string };
       runtime_kind?: "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web";
       hint?: string;
       next_action?: string;
@@ -146,7 +146,7 @@ export type Event =
       runtime_kind: string | null;
       root: string | null;
       confident: boolean;
-      sources: { framework: string; build_cmd: string; output_dir: string };
+      sources: { framework: string; build_cmd: string; output_dir: string; runtime_kind?: string };
       project: { id: string; slug: string; project_type: string; repo: string | null } | null;
       project_settings: "read" | "not linked" | string;
       creates_project: boolean;

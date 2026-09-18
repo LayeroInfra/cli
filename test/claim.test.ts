@@ -175,6 +175,15 @@ describe("deploy --claim", () => {
     M.loadConfig.mockResolvedValue({ apiUrl: "x", token: "user-jwt" });
     await expect(deployCmd({ claim: true, json: true })).rejects.toMatchObject({ code: "bad_format" });
   });
+
+  it("совет при --claim с входом не предлагает logout", async () => {
+    // Агенты исполняют next_action дословно; `logout` стирает чужой вход, а
+    // войти заново может только человек (прогон evals 19.09).
+    M.loadConfig.mockResolvedValue({ apiUrl: "x", token: "user-jwt" });
+    const err: any = await deployCmd({ claim: true, json: true }).catch((e) => e);
+    expect(err.next_action).toMatch(/without --claim/);
+    expect(err.next_action).toMatch(/Do not run `layero logout`/);
+  });
 });
 
 describe("deploy --branch — честный отказ", () => {

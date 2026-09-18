@@ -303,3 +303,19 @@ describe("Python-приложение не в корне", () => {
     );
   });
 });
+
+describe("источник значений у приложения в контейнере", () => {
+  it("runtime из layero.json — не повод приписывать файлу имя фреймворка", async () => {
+    // Прогон evals 19.09 (b3): файл с одними runtime и startCommand давал
+    // `sources.framework: "layero.json"`, хотя `fastapi` детект взял из
+    // requirements.txt.
+    const d = await detectProject(tree("py-pkg-file", {
+      "requirements.txt": "fastapi==0.115.0\nuvicorn==0.30.6\n",
+      "service/web.py": "from fastapi import FastAPI\napi = FastAPI()\n",
+      "layero.json": { runtime: "python_web", startCommand: "uvicorn service.web:api --host 0.0.0.0 --port $PORT" },
+    }));
+    expect(d.runtime_kind).toBe("python_web");
+    expect(d.sources.framework).toBe("detected");
+    expect(d.sources.runtime_kind).toBe("layero.json");
+  });
+});

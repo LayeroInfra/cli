@@ -87,6 +87,34 @@ export function claimTokenFor(cfg: CliConfig, projectId: string | undefined): st
   return cfg.claim_tokens?.[projectId];
 }
 
+/**
+ * Конфиг с токеном, которым можно ЧИТАТЬ проект этой папки.
+ *
+ * 🚨 Песочница (`deploy --claim`) — тоже вход. Её токен лежит в
+ * `~/.layero/config.json` по id проекта, и прав на чтение хватает; без этой
+ * ветки агент без аккаунта получал на упавшей сборке совет «выполни
+ * `layero login`» и не мог узнать причину отказа ничем, кроме панели, которая
+ * ему недоступна (T-20260918-8). Для `diagnose`, `logs`, `deploys list` — то,
+ * что читает; действия, меняющие сайт, этим путём не ходят.
+ */
+export async function configForFolder(
+  opts: { project?: string },
+  cwd: string,
+): Promise<CliConfig> {
+  const cfg = await loadConfig();
+  if (cfg.token) return cfg;
+  const linked = await loadProjectConfig(cwd);
+  const sameProject =
+    !opts.project || opts.project === linked?.project_id || opts.project === linked?.slug;
+  const claim = sameProject ? claimTokenFor(cfg, linked?.project_id) : undefined;
+  if (claim) return { ...cfg, token: claim };
+  throw new LayeroError(
+    "auth_required",
+    "нужен вход",
+    "выполни `layero login` или задай LAYERO_TOKEN",
+  );
+}
+
 function claimUrlFor(cfg: CliConfig, code: string): string {
   return `${dashboardOrigin(cfg.apiUrl)}/claim?code=${encodeURIComponent(code)}`;
 }

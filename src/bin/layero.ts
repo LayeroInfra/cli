@@ -116,7 +116,7 @@ async function main(): Promise<void> {
   program
     .command("init")
     .description(
-      "Scaffold .layero/project.json from the auto-detected framework, and write a Layero deployment block into your agent-instructions file so future chat sessions know how to deploy. Updates whichever of AGENTS.md / CLAUDE.md / .cursorrules already exist; if none do, creates AGENTS.md.",
+      "Optional. Write a Layero deployment block into your agent-instructions file so future chat sessions know how to deploy (updates whichever of AGENTS.md / CLAUDE.md / .cursorrules already exist; if none do, creates AGENTS.md), and create .layero/project.json — this folder's link to its Layero project, filled in by the first deploy. No detected settings are recorded: build settings live in layero.json (committed with the code) or in the project settings. `deploy` links the folder by itself, so init is never required.",
     )
     .option("-y, --yes", "non-interactive: accept all defaults")
     .option("--skip-agent-docs", "do not touch AGENTS.md / CLAUDE.md / .cursorrules")
@@ -598,7 +598,7 @@ async function main(): Promise<void> {
     )
     .option(
       "-t, --type <preset>",
-      "type override — static preset (vite | vitepress | next | astro | cra | sveltekit | nuxt | gatsby | docusaurus | storybook | eleventy | hugo | static) " +
+      "type override — static preset (vite | vitepress | next | astro | cra | sveltekit | nuxt | gatsby | docusaurus | storybook | eleventy | hugo | static | generic) " +
         "or runtime kind for apps the platform RUNS (node_web | python_web | flask | streamlit | gradio | ssr_next; aliases: express, fastapi, django, node, python). " +
         "`static` serves the files as they are and never runs a build; `generic` runs your own build command " +
         "(layero.json buildCommand or the package.json build script) and serves the folder with index.html",

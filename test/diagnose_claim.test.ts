@@ -11,6 +11,7 @@ const M = vi.hoisted(() => ({
   loadProjectConfig: vi.fn(),
   getDeployDiagnosis: vi.fn(),
   pollLogs: vi.fn(),
+  listProjectDeploys: vi.fn(),
 }));
 
 vi.mock("../src/api.js", () => {
@@ -21,6 +22,7 @@ vi.mock("../src/api.js", () => {
     constructor(cfg: { token?: string }) { M.seenTokens.push(cfg.token); }
     getDeployDiagnosis = M.getDeployDiagnosis;
     pollLogs = M.pollLogs;
+    listProjectDeploys = M.listProjectDeploys;
   }
   return { ApiClient, ApiError };
 });
@@ -29,6 +31,7 @@ vi.mock("../src/project-config.js", () => ({ loadProjectConfig: M.loadProjectCon
 vi.mock("open", () => ({ default: vi.fn() }));
 
 import { diagnoseCmd, logsCmd } from "../src/commands/diagnose.js";
+import { deploysListCmd } from "../src/commands/deploys.js";
 import { setMode } from "../src/agent.js";
 
 beforeEach(() => {
@@ -51,6 +54,13 @@ describe("песочница без аккаунта", () => {
   it("logs — тоже", async () => {
     await logsCmd({ deploy: "d1", json: true });
     expect(M.seenTokens).toEqual(["claim-token"]);
+  });
+
+  it("deploys list — тоже: на него ведёт совет при отменённой выкатке", async () => {
+    M.listProjectDeploys.mockResolvedValue([]);
+    await deploysListCmd({});
+    expect(M.seenTokens).toEqual(["claim-token"]);
+    expect(M.listProjectDeploys).toHaveBeenCalledWith("p-claim", undefined);
   });
 
   it("чужой --project токеном песочницы не читается: нужен вход", async () => {

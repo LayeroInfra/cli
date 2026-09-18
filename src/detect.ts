@@ -42,7 +42,7 @@ export interface Detected {
   // Pre-flight warning for repos the platform won't host as-is (Nuxt without a
   // static signal, SvelteKit with a server adapter).
   ssr_warning?: string;
-  sources: { framework: ValueSource; build_cmd: ValueSource; output_dir: ValueSource };
+  sources: { framework: ValueSource; build_cmd: ValueSource; output_dir: ValueSource; runtime_kind?: ValueSource };
   // What the CLI saw that the plan alone does not say, in plain words.
   hint?: string;
   // One concrete next step, when there is one.
@@ -642,11 +642,19 @@ export async function detectProject(cwd: string, opts: DetectOptions = {}): Prom
       : "detected";
 
   if (plan.runtimeKind !== null) {
-    const fromFile = layero !== null && (str(layero.runtime) !== null || plan.projectKind === "fullstack");
+    // Файл объявил, КАК запускать (`runtime`, фуллстек-блоки), — это не то же
+    // самое, что назвать фреймворк: имя (`fastapi`, `express`) детект берёт из
+    // зависимостей. Без этого различия `sources.framework` приписывал файлу
+    // ключ, которого в нём нет (прогон evals 19.09, кейс b3).
+    const kindFromFile = layero !== null && (str(layero.runtime) !== null || plan.projectKind === "fullstack");
+    const nameFromFile =
+      fileFramework !== null ||
+      (plan.projectKind === "fullstack" && str((layero?.backend as Record<string, unknown> | undefined)?.framework) !== null);
     const sources = {
-      framework: (fromFile ? "layero.json" : frameworkSource) as ValueSource,
+      framework: (nameFromFile ? "layero.json" : frameworkSource) as ValueSource,
       build_cmd: "none" as ValueSource,
       output_dir: "none" as ValueSource,
+      runtime_kind: (kindFromFile ? "layero.json" : "detected") as ValueSource,
     };
     if (plan.projectType === "ssr_next") {
       // SSR Next builds in the runtime-builder; surface the framework + the

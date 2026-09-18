@@ -1,9 +1,8 @@
 import chalk from "chalk";
 import { ApiClient, ApiError } from "../api.js";
-import { CliConfig, loadConfig } from "../config.js";
 import { loadProjectConfig } from "../project-config.js";
 import { LayeroError, detectMode, emit } from "../agent.js";
-import { claimTokenFor } from "./claim.js";
+import { configForFolder } from "./claim.js";
 
 /**
  * `layero diagnose` и `layero logs` (AGENT-08).
@@ -80,30 +79,6 @@ async function resolveDeployId(
   // Разобрать конкретную старую сборку по-прежнему можно: --deploy <id>.
   const target = deploys[0]!;
   return { deployId: target.id, projectId: project.id };
-}
-
-/**
- * Конфиг с токеном, которым можно читать деплои этой папки.
- *
- * 🚨 Песочница (`deploy --claim`) — тоже вход. Её токен лежит в
- * `~/.layero/config.json` по id проекта и прав на чтение хватает; без этой
- * ветки агент без аккаунта получал на упавшей сборке совет «выполни
- * `layero login`» — то есть не мог узнать причину отказа ничем, кроме панели,
- * которая ему недоступна (T-20260918-8).
- */
-async function configForFolder(opts: DiagnoseOptions, cwd: string): Promise<CliConfig> {
-  const cfg = await loadConfig();
-  if (cfg.token) return cfg;
-  const linked = await loadProjectConfig(cwd);
-  const sameProject =
-    !opts.project || opts.project === linked?.project_id || opts.project === linked?.slug;
-  const claim = sameProject ? claimTokenFor(cfg, linked?.project_id) : undefined;
-  if (claim) return { ...cfg, token: claim };
-  throw new LayeroError(
-    "auth_required",
-    "нужен вход",
-    "выполни `layero login` или задай LAYERO_TOKEN",
-  );
 }
 
 export async function diagnoseCmd(opts: DiagnoseOptions): Promise<void> {

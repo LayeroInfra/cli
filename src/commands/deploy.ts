@@ -577,7 +577,7 @@ async function dryRun(
   const d = setup.detected;
   let buildCmd = d.build_cmd;
   let outputDir = d.output_dir;
-  const sources: { framework: string; build_cmd: string; output_dir: string } = { ...d.sources };
+  const sources: { framework: string; build_cmd: string; output_dir: string; runtime_kind?: string } = { ...d.sources };
   let runtimeKind: string | null = setup.runtime_kind ?? null;
   // Настройки проекта исполняются дословно — поверх детекта, но под файлом.
   // Статика не собирается, что бы ни лежало в поле команды.
@@ -755,10 +755,16 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       cliCfg = await runDeviceLogin(cliCfg);
     }
   } else if (opts.claim) {
+    // 🚨 Совет НЕ предлагает `logout`. Агенты исполняют `next_action`
+    // дословно, а `logout` стирает сохранённый вход и токены песочниц — войти
+    // заново может только человек. Прогон evals 19.09: агент с чужим входом на
+    // машине сделал ровно это и оставил владельца без CLI.
     throw new LayeroError(
       "bad_format",
-      "--claim — деплой без аккаунта, а вход уже выполнен",
-      "уберите --claim: проект создастся в вашем аккаунте; либо `layero logout` перед `--claim`",
+      "--claim — деплой без аккаунта, а на этой машине уже выполнен вход",
+      "run the same command without --claim: the project is created in the signed-in account " +
+        "(`npx layero@latest whoami` shows which). Do not run `layero logout` for someone else — " +
+        "it deletes the saved login, and only a person can sign in again",
     );
   }
   const api = new ApiClient(cliCfg);
