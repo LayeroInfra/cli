@@ -444,9 +444,11 @@ async function shapeOf(cwd: string, snap: dc.Snapshot, plan: dc.BuildPlan): Prom
       hint:
         `package.json has a build script (\`${build}\`), but no known framework was recognised and there is no index.html at the root. ` +
         "As it stands the platform serves these files as they are and does NOT run the build (framework \"static\").",
-      next_action:
-        "if the site must be built, create layero.json: " +
-        '{"framework":"generic","buildCommand":"npm run build","outputDirectory":"<folder that holds index.html after the build>"}',
+      next_action: snap.layeroJson
+        ? 'if the site must be built, add "framework": "generic" to layero.json ' +
+          "(buildCommand runs your script; outputDirectory is the folder that holds index.html after the build)"
+        : "if the site must be built, create layero.json: " +
+          '{"framework":"generic","buildCommand":"npm run build","outputDirectory":"<folder that holds index.html after the build>"}',
     };
   }
   if (build) {

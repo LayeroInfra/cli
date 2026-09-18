@@ -136,32 +136,25 @@ function projectUrl(apiUrl: string, projectId: string): string {
 }
 
 /**
- * After a deploy reaches `ready`, ask the backend where it's actually
- * reachable. The builder marks status=ready *before* calling /activate
- * (which runs auto-promote + schedules CDN warmup), so a probe fired the
- * instant we see `ready` can race ahead of the apex pointer being set.
+ * After a deploy reaches `ready`, ask the backend for the canonical address
+ * of its environment (apex for the production env, the env host otherwise).
  *
- * Poll the probe briefly (bounded) and return as soon as the env is
- * reachable (`available` — the preview host is up) or we learn the CDN
- * edge is already warm. Best-effort: any error returns null and the caller
- * falls back to apex/dashboard URLs.
+ * One request, not a poll. The probe used to be polled for up to 15 s until
+ * its `available` flag turned true, and that flag also fed `edge_ready` — but
+ * it is the API's own view of the host, and the simulation of 18.09.2026 saw
+ * it stay false for 15 s on a static site that answered 200 at once. Whether
+ * the address serves the site is now measured directly (`waitUntilServing`).
+ * Best-effort: any error returns null and the caller falls back to the apex.
  */
 async function resolveReachability(
   api: ApiClient,
   environmentId: string,
 ): Promise<ProbeOut | null> {
-  const deadline = Date.now() + 15_000;
-  let last: ProbeOut | null = null;
-  while (Date.now() < deadline) {
-    try {
-      last = await api.probeEnvironment(environmentId);
-    } catch {
-      return last; // permission/network — caller falls back
-    }
-    if (last.available || last.cdn_ready) return last;
-    await new Promise((r) => setTimeout(r, 1500));
+  try {
+    return await api.probeEnvironment(environmentId);
+  } catch {
+    return null; // permission/network — caller falls back
   }
-  return last;
 }
 
 async function prompt(question: string, fallback: string): Promise<string> {

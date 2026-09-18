@@ -248,3 +248,14 @@ describe("событие detected", () => {
     expect(e.confident).toBe(true);
   });
 });
+
+describe("совет учитывает существующий layero.json", () => {
+  it("файл есть — дописать framework, а не создавать заново", async () => {
+    const d = await detectProject(tree("custom-with-file", {
+      "package.json": { name: "c", scripts: { build: "node build.js" } },
+      "src/index.html": "<h1>x</h1>",
+      "layero.json": { buildCommand: "npm run build", outputDirectory: "public_html" },
+    }));
+    expect(d.next_action).toMatch(/^if the site must be built, add "framework": "generic" to layero.json/);
+  });
+});
