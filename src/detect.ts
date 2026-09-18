@@ -462,19 +462,37 @@ async function shapeOf(cwd: string, snap: dc.Snapshot, plan: dc.BuildPlan): Prom
   const start = scriptOf(pkg, "start");
   const serverEntry = await findServerEntry(cwd, pkg);
   if (start || serverEntry) {
-    const cmd = start ? "npm start" : `node ${serverEntry}`;
+    // Без скрипта `start` сборщик приложений перебирает свой список точек
+    // входа (server.js, index.js, …) и `server.mjs` не находит — одного
+    // `-t node_web` мало, команду запуска надо назвать (кейс a3).
     return {
       hint:
         `This looks like a Node server (${start ? `start script \`${start}\`` : `${serverEntry} calls listen()`}), ` +
         "but no known server framework was recognised. A server has to be run in a container, not served as files.",
-      next_action: `npx layero@latest deploy -t node_web  (or layero.json: {"runtime":"node_web","startCommand":"${cmd}"})`,
+      next_action: start
+        ? `npx layero@latest deploy -t node_web  (the start script runs the server)`
+        : `create layero.json: {"runtime":"node_web","startCommand":"node ${serverEntry}"}`,
     };
   }
   if (snap.requirementsTxt !== null || snap.files.has("pyproject.toml")) {
+    const app = await findPythonApp(cwd);
+    if (app) {
+      // Детект платформы ищет точку входа только в корне (main.py, app.py…);
+      // приложение в пакете (`service/web.py`) он не видит. Кейс b3.
+      const cmd = app.kind === "wsgi"
+        ? `gunicorn ${app.target} --bind 0.0.0.0:$PORT`
+        : `uvicorn ${app.target} --host 0.0.0.0 --port $PORT`;
+      return {
+        hint:
+          `A Python web app (${app.framework}) whose entry is not at the root: \`${app.target}\`. ` +
+          "The platform looks for main.py / app.py at the root, so name the app and how to start it.",
+        next_action: `create layero.json: {"runtime":"python_web","startCommand":"${cmd}"}`,
+      };
+    }
     return {
       hint: "A Python project, but no known web framework or entry file was recognised.",
       next_action:
-        'npx layero@latest deploy -t python_web  (or layero.json: {"runtime":"python_web","startCommand":"uvicorn main:app --host 0.0.0.0 --port $PORT"})',
+        'npx layero@latest deploy -t python_web  (or layero.json: {"runtime":"python_web","startCommand":"uvicorn <module>:<app> --host 0.0.0.0 --port $PORT"})',
     };
   }
   return {
@@ -485,7 +503,62 @@ async function shapeOf(cwd: string, snap: dc.Snapshot, plan: dc.BuildPlan): Prom
   };
 }
 
+/**
+ * Каталог результата, заданный ФЛАГОМ в скрипте сборки (`vite build --outDir
+ * public_html`). Детект читает конфиги, а не флаги, — сборщик без
+ * `outputDirectory` ищет в умолчании фреймворка и может отдать исходный
+ * `index.html` из корня вместо собранного. Кейс «слепого» агента b1.
+ */
+const OUTDIR_FLAG_RE = /(?:^|\s)--(?:outDir|out-dir|outdir|output-dir|dist-dir)(?:=|\s+)(["']?)([^\s"'&|;]+)\1/;
+
+function outDirFlag(pkg: PackageJson | null): string | null {
+  const m = OUTDIR_FLAG_RE.exec(scriptOf(pkg, "build") ?? "");
+  return m ? m[2]!.replace(/^\.\//, "").replace(/\/+$/, "") || null : null;
+}
+
 const SERVER_ENTRY_CANDIDATES = ["server.js", "index.js", "app.js", "main.js", "server.mjs", "index.mjs"];
+
+// `api = FastAPI(`, `app = Flask(__name__)` — объект приложения на верхнем
+// уровне модуля. ASGI запускает uvicorn, WSGI — gunicorn.
+const PY_APP_RE = /^(\w+)\s*=\s*(FastAPI|Starlette|Flask|Quart|Litestar)\s*\(/m;
+const PY_ASGI = new Set(["FastAPI", "Starlette", "Quart", "Litestar"]);
+const PY_SKIP = new Set([".venv", "venv", "env", "node_modules", ".git", "__pycache__", "site-packages", "tests", "test"]);
+
+async function findPythonApp(
+  cwd: string,
+  maxDepth = 3,
+): Promise<{ target: string; framework: string; kind: "asgi" | "wsgi" } | null> {
+  const found: Array<{ rel: string; name: string; framework: string }> = [];
+  async function walk(rel: string, depth: number): Promise<void> {
+    if (depth > maxDepth || found.length > 3) return;
+    let entries: import("node:fs").Dirent[];
+    try {
+      entries = await fs.readdir(path.join(cwd, rel), { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const child = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isFile() && e.name.endsWith(".py")) {
+        const text = await readText(path.join(cwd, child));
+        const m = text ? PY_APP_RE.exec(text.slice(0, 64 * 1024)) : null;
+        if (m) found.push({ rel: child, name: m[1]!, framework: m[2]! });
+      } else if (e.isDirectory() && !PY_SKIP.has(e.name) && !e.name.startsWith(".")) {
+        await walk(child, depth + 1);
+      }
+    }
+  }
+  await walk("", 0);
+  // Одно приложение — называем; несколько — гадать, какое главное, не берёмся.
+  if (found.length !== 1) return null;
+  const f = found[0]!;
+  const module = f.rel.replace(/\.py$/, "").replace(/\//g, ".").replace(/\.__init__$/, "");
+  return {
+    target: `${module}:${f.name}`,
+    framework: f.framework,
+    kind: PY_ASGI.has(f.framework) ? "asgi" : "wsgi",
+  };
+}
 const LISTEN_RE = /\.listen\s*\(|createServer\s*\(/;
 
 async function findServerEntry(cwd: string, pkg: PackageJson | null): Promise<string | null> {
@@ -616,6 +689,7 @@ export async function detectProject(cwd: string, opts: DetectOptions = {}): Prom
   let confident = declared || plan.confident;
   let shape: Shape | null = null;
   const notes: string[] = [];
+  let flagNextAction: string | undefined;
 
   if (framework === "static") {
     // Статика не собирается НИКОГДА: команда сборки у неё не «true», а
@@ -667,6 +741,18 @@ export async function detectProject(cwd: string, opts: DetectOptions = {}): Prom
       confident = false;
       shape = await shapeOf(cwd, snap, plan);
     }
+    const flagDir = fileOutput ? null : outDirFlag(snap.packageJson as PackageJson | null);
+    if (flagDir && flagDir !== outputDir) {
+      // План платформы положит результат не туда: она не читает флаги скрипта.
+      confident = false;
+      notes.push(
+        `The build script sets the output folder with a flag (\`${flagDir}\`), which detection does not read: ` +
+          `without outputDirectory the platform looks in "${outputDir ?? "dist"}" and may serve the source index.html instead of the build.`,
+      );
+      flagNextAction = snap.layeroJson
+        ? `add "outputDirectory": "${flagDir}" to layero.json`
+        : `create layero.json: {"outputDirectory":"${flagDir}"}`;
+    }
     if (framework === "generic" && buildCmd === null) {
       // Собирать нечем — и каталог результата у такой папки не «dist по
       // умолчанию», а неизвестен: умолчание фреймворка «Other» здесь вымысел.
@@ -688,7 +774,7 @@ export async function detectProject(cwd: string, opts: DetectOptions = {}): Prom
     confident,
     sources: { framework: frameworkSource, build_cmd: buildSource, output_dir: outputSource },
     ...(hint ? { hint } : {}),
-    ...(shape?.next_action ? { next_action: shape.next_action } : {}),
+    ...(shape?.next_action ?? flagNextAction ? { next_action: shape?.next_action ?? flagNextAction } : {}),
     ...(shape?.candidates?.length ? { candidates: shape.candidates } : {}),
     ...(warning ? { ssr_warning: warning } : {}),
   };

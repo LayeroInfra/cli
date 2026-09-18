@@ -149,7 +149,8 @@ describe("свой скрипт сборки", () => {
     expect(d.build_cmd).toBeNull();
     expect(d.output_dir).toBeNull();
     expect(d.confident).toBe(false);
-    expect(d.next_action).toContain("-t node_web");
+    // Без `start` одного `-t node_web` мало: точку входа надо назвать.
+    expect(d.next_action).toBe('create layero.json: {"runtime":"node_web","startCommand":"node server.js"}');
   });
 });
 
@@ -257,5 +258,48 @@ describe("совет учитывает существующий layero.json", (
       "layero.json": { buildCommand: "npm run build", outputDirectory: "public_html" },
     }));
     expect(d.next_action).toMatch(/^if the site must be built, add "framework": "generic" to layero.json/);
+  });
+});
+
+describe("каталог результата задан флагом скрипта", () => {
+  it("vite build --outDir public_html: подсказка outputDirectory", async () => {
+    // Детект читает конфиги, а не флаги: без outputDirectory сборщик ищет в
+    // dist и может отдать исходный index.html из корня (кейс b1).
+    const d = await detectProject(tree("outdir-flag", {
+      ...VITE_APP,
+      "package.json": { name: "w", scripts: { build: "vite build --outDir public_html" }, devDependencies: { vite: "^5" } },
+    }));
+    expect(d.framework_hint).toBe("vite");
+    expect(d.confident).toBe(false);
+    expect(d.hint).toMatch(/`public_html`/);
+    expect(d.next_action).toBe('create layero.json: {"outputDirectory":"public_html"}');
+  });
+
+  it("outputDirectory в layero.json снимает подсказку", async () => {
+    const d = await detectProject(tree("outdir-flag-fixed", {
+      ...VITE_APP,
+      "package.json": { name: "w", scripts: { build: "vite build --outDir=public_html" }, devDependencies: { vite: "^5" } },
+      "layero.json": { outputDirectory: "public_html" },
+    }));
+    expect(d.confident).toBe(true);
+    expect(d.output_dir).toBe("public_html");
+    expect(d.next_action).toBeUndefined();
+  });
+});
+
+describe("Python-приложение не в корне", () => {
+  it("находит объект FastAPI в пакете и называет команду запуска", async () => {
+    // Детект платформы ищет main.py / app.py в корне; `service/web.py:api` он
+    // не видит (кейс b3).
+    const d = await detectProject(tree("py-pkg", {
+      "requirements.txt": "fastapi==0.115.0\nuvicorn==0.30.6\n",
+      "service/__init__.py": "",
+      "service/web.py": "from fastapi import FastAPI\napi = FastAPI()\n",
+    }));
+    expect(d.confident).toBe(false);
+    expect(d.hint).toMatch(/service\.web:api/);
+    expect(d.next_action).toBe(
+      'create layero.json: {"runtime":"python_web","startCommand":"uvicorn service.web:api --host 0.0.0.0 --port $PORT"}',
+    );
   });
 });
