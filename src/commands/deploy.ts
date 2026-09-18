@@ -511,14 +511,45 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
   // Claimable-проект этого запуска (этап 13): событие `claimable` уходит
   // перед `ready`, когда адрес сайта уже известен.
   let claimable: { claim_url: string; expires_at: string; project_id: string; slug: string } | null = null;
+  // 🚨 ПЕСОЧНИЦА — ТОЛЬКО ДЛЯ НОВОГО ПРОЕКТА. `--project` или папка,
+  // привязанная к проекту аккаунта, значат «выкатить в существующий», а у
+  // токена песочницы прав на него нет: до 0.10.5 авто-режим всё равно
+  // включался, и платформа отвечала `username_required` про держателя
+  // песочницы — человек читал совет выбрать имя аккаунта, которого у него
+  // нет. Теперь существующий проект без токена — это вход (`auth_required`).
+  if (opts.claim && opts.project) {
+    throw new LayeroError(
+      "claim_with_project",
+      `--claim вместе с --project ${opts.project}: песочница создаёт новый проект, в существующий она не выкатывает`,
+      "песочница создаёт новый проект; для существующего войдите: `layero login` — и повторите без --claim",
+    );
+  }
+  // Папка привязана к claimable-проекту, и `--project` (если задан) называет
+  // его же. Любой другой `--project` — проект аккаунта, и токен песочницы
+  // из конфига к нему не подходит.
+  const projectIsLinkedOne =
+    !opts.project ||
+    (existing?.project_id !== undefined &&
+      (opts.project === existing.project_id || opts.project === existing.slug));
+  const linkedIsClaimable = Boolean(existing?.project_id && existing.claim);
+  const boundToAccountProject = opts.project
+    ? !(projectIsLinkedOne && linkedIsClaimable)
+    : Boolean(existing?.project_id) && !linkedIsClaimable;
   if (!cliCfg.token) {
     // Папка уже привязана к claimable-проекту — деплоим его же токеном,
     // пока заявка жива. Заявка забрана или истекла — платформа ответит 401,
     // и это станет `auth_expired`: честнее, чем молча завести ещё один.
-    const reuse = claimTokenFor(cliCfg, existing?.project_id);
+    const reuse = projectIsLinkedOne
+      ? claimTokenFor(cliCfg, existing?.project_id)
+      : undefined;
     if (reuse) {
       cliCfg = { ...cliCfg, token: reuse };
-    } else if (opts.claim || (!mode.interactive && !isCiEnv() && opts.yes)) {
+    } else if (
+      // Явный `--claim` — всегда новая песочница (с `--project` он отклонён
+      // выше). Сам режим включается только для нового проекта.
+      opts.claim ||
+      (!boundToAccountProject && !mode.interactive && !isCiEnv() && opts.yes)
+    ) {
       // 🚨 CI СЮДА НЕ ПОПАДАЕТ НАМЕРЕННО. Раннер без LAYERO_TOKEN — это
       // забытый секрет, и правильный ответ ему — отказ, а не сайт на
       // временном адресе, который через 72 часа исчезнет вместе с

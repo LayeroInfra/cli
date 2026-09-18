@@ -111,8 +111,11 @@ Run `layero <cmd> --help` for full options.
 - `--branch <name>` — **refused** (`branch_unsupported`, exit 4), see above.
 - `--claim` — deploy without an account: a temporary project for 72 hours
   plus a `claim_url` for a human to take it over. Turns on by itself when
-  there is no token, the run is non-interactive (an agent, not CI) and
-  `--yes` is passed. In CI a missing `LAYERO_TOKEN` stays an error.
+  there is no token, the run is non-interactive (an agent, not CI), `--yes`
+  is passed and the project is new: no `--project`, and the folder is not
+  linked to an account project. An existing project without a token means
+  signing in (`auth_required`). With `--project` it is refused
+  (`claim_with_project`, exit 4). In CI a missing `LAYERO_TOKEN` stays an error.
 - `--org <slug>` — organization for first-time project creation.
 - `--yes` / `-y` — non-interactive mode.
 - `--json` — JSON-lines events on stdout (for agents and CI).

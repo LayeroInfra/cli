@@ -51,6 +51,7 @@ const INVALID_INPUT = new Set([
   "rollback_noop",
   "sql_missing",
   "branch_unsupported",
+  "claim_with_project",
   "provider_unknown",
   "repo_format",
   "token_missing",

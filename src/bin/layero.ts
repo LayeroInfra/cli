@@ -626,7 +626,9 @@ async function main(): Promise<void> {
     .option(
       "--claim",
       "deploy without an account: a temporary project for 72 hours plus a claim_url for a human to take it over. " +
-        "Turns on by itself when there is no token, the run is non-interactive (agent, not CI) and --yes is passed.",
+        "Turns on by itself when there is no token, the run is non-interactive (agent, not CI), --yes is passed " +
+        "and the project is new (no --project, folder not linked to an account project). " +
+        "Refused together with --project (claim_with_project, exit 4).",
     )
     .option(
       "--org <slug>",
