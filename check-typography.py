@@ -132,13 +132,21 @@ STRICT = (
     # семидесяти трёх длинных тире, хотя докстрока файла заводила тексты
     # константами ровно ради них. Заводим сразу после вычитки, а не «когда
     # дойдут руки»: вычищенный и неохраняемый файл разъезжается за одну правку.
-    "frontend/control-plane/src/pages/Database/Files/index.tsx",
-    "frontend/control-plane/src/pages/Database/Files/Explorer.tsx",
-    "frontend/control-plane/src/pages/Database/Files/BucketRail.tsx",
-    "frontend/control-plane/src/pages/Database/Files/Details.tsx",
-    "frontend/control-plane/src/pages/Database/Files/Policies.tsx",
-    "frontend/control-plane/src/pages/Database/Files/Examples.tsx",
-    "frontend/control-plane/src/pages/Database/Files/texts.ts",
+    # 🚨 18.09.2026: все СЕМЬ путей этого блока указывали в никуда
+    # (T-20260917-37). 15.09 раздел переехал из `pages/Database/Files/` в
+    # `pages/Files/` с другим составом файлов, и прежний экран удалён. Сторож
+    # в `main` сделал проверку красной, но останавливался на путях и тем
+    # самым закрывал собой 112 настоящих находок: 79 в преемниках и 33 в
+    # четырёх экранах раздела «Базы», разошедшихся уже под охраной.
+    # Ниже — преемники, вычищены в тот же день.
+    "frontend/control-plane/src/pages/Files/Section.tsx",
+    "frontend/control-plane/src/pages/Files/Buckets.tsx",
+    "frontend/control-plane/src/pages/Files/Explorer.tsx",
+    "frontend/control-plane/src/pages/Files/Links.tsx",
+    "frontend/control-plane/src/pages/Files/Policies.tsx",
+    "frontend/control-plane/src/pages/Files/Settings.tsx",
+    "frontend/control-plane/src/pages/Files/common.tsx",
+    "frontend/control-plane/src/pages/Files/zip.ts",
 )
 
 # Что проверяем по умолчанию, если пути не заданы явно.
