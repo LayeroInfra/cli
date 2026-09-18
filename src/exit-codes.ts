@@ -48,6 +48,7 @@ const INVALID_INPUT = new Set([
   "prebuilt_no_index",
   "bad_format",
   "nothing_to_set",
+  "rollback_noop",
   "sql_missing",
   "branch_unsupported",
   "provider_unknown",

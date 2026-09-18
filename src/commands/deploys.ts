@@ -205,6 +205,16 @@ export async function rollbackCmd(opts: RollbackOptions): Promise<void> {
             "пересобери нужный коммит через `layero deploy`",
         );
       }
+      // 400 «target deploy is already the active one» — тоже штатный отказ:
+      // цель отката уже раздаётся (типичный случай — второй `rollback`
+      // подряд). Это неверный ввод, а не сбой платформы: выход 4, не 5.
+      if (err.status === 400 && err.body.includes("already the active one")) {
+        throw new LayeroError(
+          "rollback_noop",
+          "откатывать нечего: эта сборка уже на живом адресе",
+          "точечно — `layero promote <sha>`; список — `layero deploys list`",
+        );
+      }
       throw new Error(`rollback failed (${err.status}): ${err.body.slice(0, 200)}`);
     }
     throw err;
