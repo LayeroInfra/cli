@@ -361,10 +361,13 @@ export class ApiClient {
     branch?: string;
     promote?: boolean;
     prebuilt?: boolean;
-    framework_hint?: string;
-    build_cmd?: string;
-    output_dir?: string;
+    // null — «не задано»: решит сборщик по архиву (см. deploy.ts).
+    framework_hint?: string | null;
+    build_cmd?: string | null;
+    output_dir?: string | null;
     runtime_kind?: string;
+    // Кто назвал тип: `user` (флаг) или `detected` (догадка CLI).
+    runtime_kind_origin?: "user" | "detected";
     root_directory?: string | null;
     env_vars?: Record<string, string>;
     commit_message?: string;

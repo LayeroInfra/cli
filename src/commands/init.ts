@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { detectProject } from "../detect.js";
+import { Detected, detectProject, detectedEvent } from "../detect.js";
 import { emit } from "../agent.js";
 
 interface InitOptions {
@@ -14,7 +14,23 @@ interface InitOptions {
 const AGENT_BLOCK_MARKER_START = "<!-- layero:start -->";
 const AGENT_BLOCK_MARKER_END = "<!-- layero:end -->";
 
-function agentDocBlock(framework: string): string {
+/**
+ * Строка про эту папку в блоке для агентов.
+ *
+ * 🚨 Только то, в чём детект уверен. До 18.09.2026 сюда писалось имя
+ * фреймворка всегда — и `static` для монорепо, собственного скрипта сборки
+ * или фронта с бэкендом ложился в AGENTS.md как факт о проекте: следующая
+ * сессия агента читала его раньше, чем смотрела на папку (T-20260918-7).
+ */
+function folderLine(d: Detected): string {
+  if (d.confident) {
+    const what = d.runtime_kind ? `${d.framework_hint}, runs as ${d.runtime_kind}` : d.framework_hint;
+    return `this project, detected by \`init\` as **${what}**`;
+  }
+  return "this project; `init` could not recognise the app here — run `npx layero@latest deploy --dry-run --json` and read `hint`";
+}
+
+function agentDocBlock(d: Detected): string {
   // Компактный индекс, а не ссылка на навык: по evals Vercel блок в
   // AGENTS.md агент выполняет надёжнее (100 % против 79 % у навыка).
   // Полная версия — навык `layero` в LayeroInfra/layero-agents; здесь —
@@ -34,7 +50,7 @@ Docs for agents: https://docs.layero.ru/agents/
 1. **Repository connected** (GitHub, GitVerse, GitLab, GitFlic, SourceCraft) —
    push to a branch = preview, push to \`main\` = production. Connect one with
    \`npx layero@latest projects create --repo <provider>:<owner/repo>\`.
-2. **A directory with code** (this project, framework: **${framework}**) —
+2. **A directory with code** (${folderLine(d)}) —
    \`npx layero@latest deploy --json\`. The CLI packs the directory, the
    platform builds it. No git repository is needed for this path.
 3. **A site already on Layero** — \`npx layero@latest diagnose\`, \`logs\`,
@@ -44,8 +60,14 @@ Docs for agents: https://docs.layero.ru/agents/
 ### Deploy from this directory
 
 \`\`\`bash
+npx layero@latest deploy --dry-run --json   # how the platform will build it; uploads nothing
 npx layero@latest deploy --json
 \`\`\`
+
+\`--dry-run\` needs no login. If its \`confident\` is \`false\`, follow its
+\`hint\` / \`next_action\` (app in a subfolder → \`--root <dir>\`, frontend +
+backend → \`layero.json\` with both halves, custom build → \`"framework":
+"generic"\`) before the first deploy.
 
 Not logged in? The command starts the browser device flow itself and prints
 \`{"event":"auth_required","url":"…","user_code":"…"}\` — show \`url\` as a
@@ -56,11 +78,12 @@ No account at all? \`npx layero@latest deploy --claim\` publishes to a
 temporary project for 72 hours and prints a \`claim_url\` for a human to
 take it over.
 
-Key JSON events: \`detected\` (framework), \`project_created\` /
+Key JSON events: \`detected\` (framework, \`confident\`, \`hint\`), \`project_created\` /
 \`project_linked\`, \`build_log\` (forward only lines with errors),
 \`claimable\` (\`claim_url\`, \`expires_at\`), \`ready\` — \`url\` is the live
-site: show it as-is and stop; \`dashboard_url\` is the panel, not the site.
-\`error\` — follow \`next_action\` verbatim.
+site, already answering (\`edge_ready: true\`): show it as-is and stop;
+\`dashboard_url\` is the panel, not the site. \`error\` — follow
+\`next_action\` verbatim.
 
 Exit codes: 0 ok · 2 auth (\`auth_required\`, \`auth_expired\`, \`auth_timeout\`) ·
 3 not found (\`project_unknown\`, \`project_not_found\`) · 4 invalid input
@@ -127,7 +150,7 @@ async function upsertAgentDoc(
   return "updated";
 }
 
-async function ensureProjectJson(cwd: string, framework: string, build_cmd: string, output_dir: string): Promise<"created" | "unchanged"> {
+async function ensureProjectJson(cwd: string): Promise<"created" | "unchanged"> {
   const dir = path.join(cwd, ".layero");
   const file = path.join(dir, "project.json");
   try {
@@ -137,10 +160,12 @@ async function ensureProjectJson(cwd: string, framework: string, build_cmd: stri
     // missing → create
   }
   await fs.mkdir(dir, { recursive: true });
+  // 🚨 Без framework_hint / build_cmd / output_dir. Поля в этом файле CLI
+  // читает как ВЫБОР ЧЕЛОВЕКА и отправляет в проект; положи сюда догадку
+  // детекта — и она станет «настройкой», которую никто не выбирал, а сборщик
+  // перестанет решать сам (T-20260918-7). Человек дописывает их руками, если
+  // хочет закрепить.
   const scaffold = {
-    framework_hint: framework,
-    build_cmd,
-    output_dir,
     analytics_enabled: false,
     env_vars: {},
   };
@@ -168,15 +193,9 @@ export async function initCmd(opts: InitOptions): Promise<void> {
   const cwd = process.cwd();
   const detected = await detectProject(cwd);
 
-  emit({
-    event: "detected",
-    framework: detected.framework_hint,
-    build_cmd: detected.build_cmd,
-    output_dir: detected.output_dir,
-    confident: detected.confident,
-  });
+  emit(detectedEvent(detected));
 
-  const block = agentDocBlock(detected.framework_hint);
+  const block = agentDocBlock(detected);
   const agentDocs: Array<{ file: string; result: "created" | "updated" | "unchanged" }> = [];
 
   if (!opts.skipAgentDocs) {
@@ -201,17 +220,13 @@ export async function initCmd(opts: InitOptions): Promise<void> {
     }
   }
 
-  const pjResult = await ensureProjectJson(
-    cwd,
-    detected.framework_hint,
-    detected.build_cmd,
-    detected.output_dir,
-  );
+  const pjResult = await ensureProjectJson(cwd);
   await ensureGitignore(cwd);
 
   emit({
     event: "init_done",
     framework: detected.framework_hint,
+    confident: detected.confident,
     agent_docs: agentDocs,
     project_json: pjResult,
   });

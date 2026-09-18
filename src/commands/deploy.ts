@@ -11,7 +11,7 @@ import {
 } from "../api.js";
 import { looksLikeId } from "../project-ref.js";
 import { dashboardOrigin } from "../urls.js";
-import { loadConfig } from "../config.js";
+import { CliConfig, loadConfig } from "../config.js";
 import {
   ProjectConfig,
   loadProjectConfig,
@@ -20,7 +20,7 @@ import {
 } from "../project-config.js";
 import { packCwd, packDirectory } from "../pack.js";
 import { streamDeployLogs } from "../logs.js";
-import { detectProject } from "../detect.js";
+import { Detected, detectProject, detectedEvent } from "../detect.js";
 import { runDeviceLogin } from "../auth.js";
 import { LayeroError, detectMode, emit, isCiEnv } from "../agent.js";
 import { ensureUsername } from "../username.js";
@@ -62,6 +62,9 @@ interface DeployOptions {
   // ссылке из события `claimable`. Включается и сам — когда токена нет,
   // среда агентская (не терминал и не CI) и передан `--yes`.
   claim?: boolean;
+  // --dry-run: показать, как платформа соберёт папку, и ничего не выгружать.
+  // Входа не требует: читает только диск (и настройки проекта, если вход есть).
+  dryRun?: boolean;
 }
 
 const VALID_TYPES = new Set([
@@ -260,74 +263,87 @@ async function resolvePrebuiltDir(
   return dir;
 }
 
-// Resolve the framework / build / output config to send to completeSetup.
-// Precedence: explicit CLI args > .layero/project.json > auto-detect.
+/**
+ * Настройки проекта, которые деплой отправляет платформе, и то, что показал
+ * детект.
+ *
+ * 🚨 В ПРОЕКТ УХОДИТ ТОЛЬКО НАЗВАННОЕ ЧЕЛОВЕКОМ: `--type`, поля
+ * `.layero/project.json`, которые он написал сам. Догадка детекта не уходит.
+ *
+ * До 18.09.2026 первая выкатка сохраняла в проект всё, что угадал CLI, —
+ * фреймворк, команду и каталог. Сборщик исполняет настройки проекта дословно
+ * (`BUILD-CONFIG.md`: «значение есть — исполняем»), поэтому догадка
+ * становилась решением на все следующие сборки: в логе она выглядела как
+ * `(from hint)` и `(from dashboard)` у проекта, который никто не настраивал, а
+ * `static`, угаданный для монорепо или своего скрипта сборки, глушил сборку
+ * навсегда. Пусто — значит «решит сборщик по архиву»: он видит тот же код и
+ * на первой сборке применяет правила, которых в CLI нет (T-20260918-7).
+ */
+interface SetupConfig {
+  detected: Detected;
+  framework_hint: string | null;
+  build_cmd: string | null;
+  output_dir: string | null;
+  runtime_kind?: RuntimeKindHint;
+  // Кто назвал тип приложения: `user` — флаг `--type`, `detected` — детект.
+  // Платформа пишет его в источник типа: выбор человека сборщик не оспаривает,
+  // а догадку уточняет по архиву. Без поля догадка CLI становилась «выбором
+  // владельца» и запирала проект.
+  runtime_kind_origin?: "user" | "detected";
+}
+
+/**
+ * Заготовка `layero init` до 0.11: `static` / `true` / `.` без project_id.
+ * Эту тройку писал CLI, а не человек, — и она та самая догадка, от которой
+ * эта версия отказалась. Читать её как выбор значит тащить старую ошибку в
+ * новый проект.
+ */
+function isLegacyInitGuess(cfg: ProjectConfig | null): boolean {
+  return Boolean(
+    cfg &&
+      !cfg.project_id &&
+      cfg.framework_hint === "static" &&
+      cfg.build_cmd === "true" &&
+      cfg.output_dir === ".",
+  );
+}
+
 async function resolveSetupConfig(
   cwd: string,
   opts: DeployOptions,
   existing: ProjectConfig | null,
-): Promise<{
-  framework_hint: string;
-  build_cmd: string;
-  output_dir: string;
-  source: "config" | "detected" | "hybrid";
-  // Auto-detected runtime kind (currently only `ssr_next`). When set,
-  // deploy.ts flips the project's project_type before triggering the
-  // first build so the platform routes it through runtime-builder
-  // instead of crashing in detect with "looks like ssr_next but
-  // configured as spa". Honoured only on first setup; on already-active
-  // projects the existing project_type wins.
-  runtime_kind?:
-    "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web";
-}> {
+  projectFramework?: string | null,
+): Promise<SetupConfig> {
   // Honour --root when auto-detecting: the framework signals live in the
-  // monorepo subdir, not the repo root. Without this the detector sees
-  // a bare workspace package.json and falls through to "static".
+  // monorepo subdir, not the repo root.
   const detectCwd = opts.root ? path.join(cwd, opts.root) : cwd;
-  const detected = await detectProject(detectCwd);
-  emit({
-    event: "detected",
-    framework: detected.framework_hint,
-    build_cmd: detected.build_cmd,
-    output_dir: detected.output_dir,
-    confident: detected.confident,
-    ...(detected.runtime_kind ? { runtime_kind: detected.runtime_kind } : {}),
-    ...(detected.ssr_warning ? { ssr_warning: detected.ssr_warning } : {}),
-  });
 
   // ⚠️ Runtime-тип в `framework_hint` не уходит: это разные вопросы. Хинт
   // отвечает «чем собирать» (vite, next, …), а runtime-kind — «запускать или
   // раздавать файлами». Положи мы сюда `node_web`, сборщик получил бы имя
   // фреймворка, которого не существует.
   const asRuntime = runtimeTypeOf(opts.type);
-  const framework_hint =
-    (asRuntime ? undefined : opts.type) ??
-    existing?.framework_hint ??
-    detected.framework_hint;
-  const build_cmd = existing?.build_cmd ?? detected.build_cmd;
-  const output_dir = existing?.output_dir ?? detected.output_dir;
-
-  let source: "config" | "detected" | "hybrid";
-  if (existing?.build_cmd || existing?.output_dir || existing?.framework_hint) {
-    source =
-      existing?.build_cmd && existing?.output_dir && existing?.framework_hint
-        ? "config"
-        : "hybrid";
-  } else {
-    source = "detected";
-  }
+  const typeHint = asRuntime ? null : (opts.type ?? null);
+  const own = isLegacyInitGuess(existing) ? null : existing;
+  const fileHint = own?.framework_hint ?? null;
+  const hint = typeHint ?? fileHint ?? projectFramework ?? null;
+  const detected = await detectProject(detectCwd, {
+    frameworkHint: hint,
+    hintSource: typeHint ? "--type" : fileHint ? ".layero/project.json" : "project settings",
+  });
+  emit(detectedEvent(detected));
 
   return {
-    framework_hint,
-    build_cmd,
-    output_dir,
-    source,
+    detected,
+    framework_hint: typeHint ?? fileHint,
+    build_cmd: own?.build_cmd ?? null,
+    output_dir: own?.output_dir ?? null,
     // Явный `--type` сильнее детекта: человек уже видел, как детект ошибся,
     // иначе бы не писал флаг.
     ...(asRuntime
-      ? { runtime_kind: asRuntime as RuntimeKindHint }
+      ? { runtime_kind: asRuntime as RuntimeKindHint, runtime_kind_origin: "user" as const }
       : detected.runtime_kind
-        ? { runtime_kind: detected.runtime_kind }
+        ? { runtime_kind: detected.runtime_kind, runtime_kind_origin: "detected" as const }
         : {}),
   };
 }
@@ -485,6 +501,164 @@ async function startWithRepeatedFailureGuard(
   }
 }
 
+const RUNTIME_PROJECT_TYPES = new Set(["ssr_next", "streamlit", "gradio", "flask", "python_web", "node_web"]);
+
+/** У проекта подключён репозиторий: выкатка архива без `--prod` ляжет в
+ * окружение `cli`, а не на живой адрес. */
+function hasRepo(p: ProjectSummary | null): boolean {
+  return Boolean(p?.repo_full_name && p.repo_status !== "disconnected");
+}
+
+/**
+ * `deploy --dry-run`: как платформа соберёт эту папку, если выкатить сейчас.
+ * Ничего не пакуется, не выгружается и не создаётся.
+ *
+ * 🚨 До 0.11 сухого прогона не было: единственным доказательством того, что
+ * платформа поняла папку, был лог настоящей сборки. Агент проверял форму
+ * приложения выкатками — а у проекта без репозитория каждая из них заменяет
+ * живой сайт (симуляция 18.09.2026, T-20260918-7).
+ *
+ * Порядок тот же, что у сборщика: `layero.json` > настройки проекта > детект.
+ * Настройки читаются, только если папка привязана к проекту и вход есть; без
+ * них план показывает то, что говорят файлы, и говорит об этом полем.
+ */
+async function dryRun(
+  cwd: string,
+  opts: DeployOptions,
+  existing: ProjectConfig | null,
+  cliCfg: CliConfig,
+): Promise<void> {
+  const ref = opts.project ?? (existing?.project_id || undefined);
+  let project: ProjectSummary | null = null;
+  let settings = "not linked";
+  if (ref) {
+    const token = cliCfg.token ?? claimTokenFor(cliCfg, existing?.project_id);
+    if (!token) {
+      settings = "not read: not logged in";
+    } else {
+      try {
+        const api = new ApiClient({ ...cliCfg, token });
+        project = opts.project ? await api.resolveProject(opts.project) : await api.getProject(ref);
+        settings = "read";
+      } catch (err) {
+        settings = `not read: ${err instanceof ApiError ? `API ${err.status}` : "network error"}`;
+      }
+    }
+  }
+  const root = opts.root ?? project?.root_directory ?? null;
+  const replacesLive = !project || !hasRepo(project) || Boolean(opts.prod || opts.promote);
+  const branchNote = opts.branch
+    ? `A real deploy refuses --branch (branch_unsupported): an upload always lands in the "cli" environment.`
+    : "";
+  const projectInfo = project
+    ? { id: project.id, slug: project.slug, project_type: project.project_type, repo: project.repo_full_name ?? null }
+    : null;
+
+  const prebuiltDir = await resolvePrebuiltDir(cwd, opts.prebuilt);
+  if (prebuiltDir) {
+    emit({
+      event: "plan",
+      framework: "static",
+      build_cmd: null,
+      output_dir: prebuiltDir,
+      runtime_kind: null,
+      root: null,
+      confident: true,
+      sources: { framework: "--prebuilt", build_cmd: "none", output_dir: "--prebuilt" },
+      project: projectInfo,
+      project_settings: settings,
+      creates_project: !ref,
+      replaces_live_site: replacesLive,
+      prebuilt_dir: prebuiltDir,
+      ...(branchNote ? { hint: branchNote } : {}),
+    });
+    return;
+  }
+
+  const setup = await resolveSetupConfig(
+    cwd,
+    { ...opts, root: root ?? undefined },
+    existing,
+    project?.framework_hint ?? null,
+  );
+  const d = setup.detected;
+  let buildCmd = d.build_cmd;
+  let outputDir = d.output_dir;
+  const sources: { framework: string; build_cmd: string; output_dir: string } = { ...d.sources };
+  let runtimeKind: string | null = setup.runtime_kind ?? null;
+  // Настройки проекта исполняются дословно — поверх детекта, но под файлом.
+  // Статика не собирается, что бы ни лежало в поле команды.
+  if (project && !d.runtime_kind) {
+    if (project.build_cmd && d.framework_hint !== "static" && sources.build_cmd !== "layero.json") {
+      buildCmd = project.build_cmd;
+      sources.build_cmd = "project settings";
+    }
+    if (project.output_dir && sources.output_dir !== "layero.json") {
+      outputDir = project.output_dir;
+      sources.output_dir = "project settings";
+    }
+    if (RUNTIME_PROJECT_TYPES.has(project.project_type)) runtimeKind = project.project_type;
+  }
+  const hint = [d.hint, branchNote].filter(Boolean).join(" ");
+  emit({
+    event: "plan",
+    framework: d.framework_hint,
+    build_cmd: runtimeKind ? null : buildCmd,
+    output_dir: runtimeKind ? null : outputDir,
+    runtime_kind: runtimeKind,
+    root,
+    confident: d.confident,
+    sources,
+    project: projectInfo,
+    project_settings: settings,
+    creates_project: !ref,
+    replaces_live_site: replacesLive,
+    ...(hint ? { hint } : {}),
+    ...(d.next_action ? { next_action: d.next_action } : {}),
+    ...(d.candidates?.length ? { candidates: d.candidates } : {}),
+  });
+}
+
+// Сколько ждём, пока живой адрес начнёт отвечать приложением. Статика
+// отвечает с первого запроса; контейнеру нужно до ~20 с на запуск, и
+// симуляция 18.09.2026 видела 404-заглушку платформы уже после `ready`.
+const SERVE_WAIT_MS = 90_000;
+const SERVE_POLL_MS = 2_000;
+
+/**
+ * Дождаться, пока адрес перестанет отдавать экран платформы.
+ *
+ * Признак — заголовок `X-Layero-Screen`: его ставят ТОЛЬКО наши экраны
+ * («запускается», «здесь пока ничего нет», …), ответ сайта его не несёт.
+ * Тот же признак ждёт проба отклика платформы (`deploy_probe._await_edge`);
+ * время само по себе ничего не доказывает. До 0.11 CLI отдавал `ready`, как
+ * только сборка закончилась, и агенту приходилось опрашивать адрес самому —
+ * он узнавал это только из навыка (T-20260918-8).
+ */
+export async function waitUntilServing(
+  url: string,
+  budgetMs = SERVE_WAIT_MS,
+): Promise<{ serving: boolean; screen?: string }> {
+  const deadline = Date.now() + budgetMs;
+  let screen: string | undefined;
+  for (;;) {
+    try {
+      const res = await fetch(url, {
+        headers: { "cache-control": "no-cache" },
+        redirect: "follow",
+        signal: AbortSignal.timeout(10_000),
+      });
+      screen = res.headers.get("x-layero-screen") ?? undefined;
+      await res.body?.cancel().catch(() => undefined);
+      if (!screen) return { serving: true };
+    } catch {
+      screen = "no response";
+    }
+    if (Date.now() + SERVE_POLL_MS > deadline) return { serving: false, screen };
+    await new Promise((r) => setTimeout(r, SERVE_POLL_MS));
+  }
+}
+
 export async function deployCmd(opts: DeployOptions): Promise<void> {
   const mode = detectMode();
 
@@ -508,9 +682,14 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
   let existing = await loadProjectConfig(cwd);
 
   let cliCfg = await loadConfig();
+  if (opts.dryRun) {
+    await dryRun(cwd, opts, existing, cliCfg);
+    return;
+  }
   // Claimable-проект этого запуска (этап 13): событие `claimable` уходит
   // перед `ready`, когда адрес сайта уже известен.
   let claimable: { claim_url: string; expires_at: string; project_id: string; slug: string } | null = null;
+  let reusedClaim: ProjectConfig["claim"] | null = null;
   // 🚨 ПЕСОЧНИЦА — ТОЛЬКО ДЛЯ НОВОГО ПРОЕКТА. `--project` или папка,
   // привязанная к проекту аккаунта, значат «выкатить в существующий», а у
   // токена песочницы прав на него нет: до 0.10.5 авто-режим всё равно
@@ -544,6 +723,9 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       : undefined;
     if (reuse) {
       cliCfg = { ...cliCfg, token: reuse };
+      // Повторная выкатка песочницы: ссылка «забрать» нужна агенту и здесь —
+      // без неё он искал её в `.layero/project.json` (симуляция 18.09.2026).
+      if (existing?.claim) reusedClaim = existing.claim;
     } else if (
       // Явный `--claim` — всегда новая песочница (с `--project` он отклонён
       // выше). Сам режим включается только для нового проекта.
@@ -619,20 +801,11 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
 
   const prebuiltDir = await resolvePrebuiltDir(cwd, opts.prebuilt);
 
-  const setup: {
-    framework_hint: string;
-    build_cmd: string;
-    output_dir: string;
-    source: "config" | "detected" | "hybrid" | "prebuilt";
-    runtime_kind?:
-      "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web";
-  } = prebuiltDir
-    ? {
-        framework_hint: "static",
-        build_cmd: "true",
-        output_dir: ".",
-        source: "prebuilt",
-      }
+  // Готовая сборка настроек проекту не пишет: сборщик у такой выкатки не
+  // запускается, а записанная `static` пережила бы её и заглушила следующую
+  // выкатку из исходников.
+  const setup: Omit<SetupConfig, "detected"> = prebuiltDir
+    ? { framework_hint: null, build_cmd: null, output_dir: null }
     : await resolveSetupConfig(cwd, opts, existing);
 
   if (prebuiltDir) {
@@ -708,6 +881,7 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     build_cmd: setup.build_cmd,
     output_dir: setup.output_dir,
     runtime_kind: setup.runtime_kind,
+    runtime_kind_origin: setup.runtime_kind_origin,
     root_directory: opts.root ?? null,
     env_vars: existing?.env_vars ?? {},
     commit_message: prebuiltDir
@@ -813,18 +987,25 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       }
     }
     emit({ event: "runtime_type_applied", project_type: wantType as RuntimeKindHint });
+  } else if (
+    setup.runtime_kind &&
+    project.project_type === setup.runtime_kind &&
+    (session.created_project || claimable !== null)
+  ) {
+    // Новый проект получил тип в самой сессии, флипать нечего — но событие
+    // обещано документацией, и без него агент не узнаёт, что приложение будут
+    // ЗАПУСКАТЬ, а не раздавать файлами (симуляция 18.09.2026, `--type node_web`).
+    emit({ event: "runtime_type_applied", project_type: setup.runtime_kind });
   }
 
-  await persistProjectLinking(
-    cwd,
-    {
-      project_id: project.id,
-      slug: project.slug,
-      organization_slug: project.organization.slug,
-      apex_hostname: project.apex_hostname,
-    },
-    setup.framework_hint,
-  );
+  // Только связка папки с проектом. Фреймворк сюда больше не пишется: поле
+  // этого файла CLI читает как выбор человека (см. `resolveSetupConfig`).
+  await persistProjectLinking(cwd, {
+    project_id: project.id,
+    slug: project.slug,
+    organization_slug: project.organization.slug,
+    apex_hostname: project.apex_hostname,
+  });
 
   // Подтверждение спрашиваем ЗДЕСЬ, а не раньше: адрес апекса известен
   // только от сервера, а сборка ещё не запущена — отказ ничего не стоит.
@@ -894,7 +1075,7 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
         `deploy session ended as "${started.status}"${
           started.error ? `: ${started.error}` : ""
         }`,
-        "re-run `layero deploy`; if it repeats, check the project in the dashboard",
+        "re-run `npx layero@latest deploy`; if it repeats, `npx layero@latest diagnose` shows the last deploy",
       );
     }
     emit({ event: "deploy_started", deploy_id: started.deploy_id });
@@ -909,16 +1090,21 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       throw new LayeroError(
         "deploy_cancelled",
         `deploy cancelled${final.error_message ? `: ${final.error_message}` : ""}`,
-        "a newer deploy superseded this one — check the latest deploy in the dashboard",
+        "a newer deploy superseded this one — `npx layero@latest deploys list` shows it",
       );
     }
     if (final.status !== "ready") {
+      // 🚨 Совет — КОМАНДА, а не ссылка на панель. Агенту без аккаунта
+      // (песочница `--claim`) панель недоступна вовсе, а `diagnose` работает
+      // и с токеном песочницы: причина словами плюс окрестность ошибки в логе
+      // (T-20260918-8).
       throw new LayeroError(
         `deploy_${final.status}`,
         `deploy failed (${final.status})${
           final.error_message ? `: ${final.error_message}` : ""
         }`,
-        `inspect logs at ${projectUrl(cliCfg.apiUrl, project.id)}`,
+        `read the cause: \`npx layero@latest diagnose --deploy ${started.deploy_id}\` ` +
+          `(full build log: \`npx layero@latest logs --deploy ${started.deploy_id}\`)`,
       );
     }
 
@@ -977,15 +1163,32 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
         claim_url: claimable.claim_url,
         expires_at: claimable.expires_at,
       });
+    } else if (reusedClaim) {
+      emit({
+        event: "claimable",
+        project_id: project.id,
+        slug: project.slug,
+        url: liveUrl,
+        claim_url: reusedClaim.claim_url,
+        expires_at: reusedClaim.expires_at,
+      });
     }
 
+    // `ready` — когда адрес уже отвечает сайтом, а не когда кончилась сборка.
+    // Выкатка в окружение `cli` проекта с репозиторием живой адрес не меняет —
+    // ждать там нечего.
+    const serving: { serving: boolean; screen?: string } =
+      promoted || !hasRepo(project) || opts.prod
+        ? await waitUntilServing(liveUrl)
+        : { serving: probe ? probe.available : true };
     emit({
       event: "ready",
       url: liveUrl,
       deploy_id: started.deploy_id,
       preview_url: probe?.preview_url ?? undefined,
       dashboard_url: dashboardUrl,
-      edge_ready: probe ? probe.available : undefined,
+      edge_ready: serving.serving,
+      ...(serving.serving ? {} : { screen: serving.screen }),
     });
   } finally {
     if (archivePath) {

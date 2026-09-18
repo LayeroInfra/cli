@@ -93,12 +93,14 @@ vi.mock("../src/logs.js", () => ({
   streamDeployLogs: vi.fn(async () => ({ status: "ready" })),
 }));
 
-vi.mock("../src/detect.js", () => ({
+vi.mock("../src/detect.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/detect.js")>()),
   detectProject: vi.fn(async () => ({
     framework_hint: "static",
-    build_cmd: "true",
+    build_cmd: null,
     output_dir: ".",
     confident: true,
+    sources: { framework: "detected", build_cmd: "none", output_dir: "detected" },
   })),
 }));
 
@@ -127,6 +129,8 @@ const PROJECT = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // `ready` ждёт, пока адрес ответит сайтом: без сети — ответ без экрана платформы.
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("ok", { status: 200 })));
   // Force non-interactive JSON mode so no prompt is attempted.
   setMode({ agent: true, json: true, interactive: false, reason: "test" });
   me.mockResolvedValue({ id: "u1", username: "valya", email: "v@x", github_login: "v", avatar_url: null });
@@ -474,5 +478,245 @@ describe("runtime --type", () => {
     await expect(deployCmd({ yes: true, type: "wat" } as any)).rejects.toThrow(
       /unknown --type/,
     );
+  });
+});
+
+// ── T-20260918-7/8: в проект уходит только названное человеком ─────────────
+//
+// До 0.11 первая выкатка сохраняла в проект всё, что угадал CLI, и сборщик
+// исполнял догадку на каждой следующей сборке: `static`, угаданный для
+// монорепо или своего скрипта сборки, глушил сборку навсегда, а в логе это
+// выглядело как `(from hint)` / `(from dashboard)` у проекта, который никто
+// не настраивал.
+
+import { detectProject } from "../src/detect.js";
+import { packCwd } from "../src/pack.js";
+import { streamDeployLogs } from "../src/logs.js";
+import { persistProjectLinking } from "../src/project-config.js";
+
+function eventsOf(lines: string[]): any[] {
+  return lines
+    .map((l) => {
+      try {
+        return JSON.parse(l);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+async function captured(run: () => Promise<unknown>): Promise<any[]> {
+  const lines: string[] = [];
+  const spy = vi.spyOn(process.stdout, "write").mockImplementation((s: any) => {
+    lines.push(String(s));
+    return true;
+  });
+  try {
+    await run();
+  } finally {
+    spy.mockRestore();
+  }
+  return eventsOf(lines);
+}
+
+describe("T-20260918-7: догадка детекта не уходит в проект", () => {
+  it("без --type и без своих полей: фреймворк, команда и каталог — null", async () => {
+    loadProjectConfig.mockResolvedValue(null);
+    await deployCmd({ name: "smoke", json: true, yes: true });
+    const arg = createDeploySession.mock.calls[0]![0] as any;
+    expect(arg.framework_hint).toBeNull();
+    expect(arg.build_cmd).toBeNull();
+    expect(arg.output_dir).toBeNull();
+  });
+
+  it("--type vite уходит как выбор человека", async () => {
+    loadProjectConfig.mockResolvedValue(null);
+    await deployCmd({ name: "smoke", json: true, yes: true, type: "vite" });
+    const arg = createDeploySession.mock.calls[0]![0] as any;
+    expect(arg.framework_hint).toBe("vite");
+    expect(arg.build_cmd).toBeNull();
+  });
+
+  it("поля, написанные человеком в .layero/project.json, уходят как есть", async () => {
+    loadProjectConfig.mockResolvedValue({ framework_hint: "generic", build_cmd: "make site", output_dir: "public_html" });
+    await deployCmd({ name: "smoke", json: true, yes: true });
+    const arg = createDeploySession.mock.calls[0]![0] as any;
+    expect(arg.framework_hint).toBe("generic");
+    expect(arg.build_cmd).toBe("make site");
+    expect(arg.output_dir).toBe("public_html");
+  });
+
+  it("заготовка старого init (static/true/.) — не выбор человека", async () => {
+    loadProjectConfig.mockResolvedValue({
+      framework_hint: "static",
+      build_cmd: "true",
+      output_dir: ".",
+      analytics_enabled: false,
+      env_vars: {},
+    });
+    await deployCmd({ name: "smoke", json: true, yes: true });
+    const arg = createDeploySession.mock.calls[0]![0] as any;
+    expect(arg.framework_hint).toBeNull();
+    expect(arg.build_cmd).toBeNull();
+    expect(arg.output_dir).toBeNull();
+  });
+
+  it("фреймворк не дописывается в .layero/project.json", async () => {
+    loadProjectConfig.mockResolvedValue(null);
+    await deployCmd({ name: "smoke", json: true, yes: true });
+    const call = vi.mocked(persistProjectLinking).mock.calls[0]!;
+    expect(call.length).toBe(2);
+  });
+
+  it("тип от детекта уходит с пометкой detected, от --type — user", async () => {
+    loadProjectConfig.mockResolvedValue(null);
+    vi.mocked(detectProject).mockResolvedValueOnce({
+      framework_hint: "express",
+      build_cmd: null,
+      output_dir: null,
+      confident: true,
+      runtime_kind: "node_web",
+      sources: { framework: "detected", build_cmd: "none", output_dir: "none" },
+    });
+    await deployCmd({ name: "smoke", json: true, yes: true });
+    let arg = createDeploySession.mock.calls[0]![0] as any;
+    expect(arg.runtime_kind).toBe("node_web");
+    expect(arg.runtime_kind_origin).toBe("detected");
+
+    createDeploySession.mockClear();
+    await deployCmd({ name: "smoke", json: true, yes: true, type: "express" });
+    arg = createDeploySession.mock.calls[0]![0] as any;
+    expect(arg.runtime_kind).toBe("node_web");
+    expect(arg.runtime_kind_origin).toBe("user");
+  });
+
+  it("detected несёт confident:false, hint и next_action", async () => {
+    loadProjectConfig.mockResolvedValue(null);
+    vi.mocked(detectProject).mockResolvedValueOnce({
+      framework_hint: "generic",
+      build_cmd: null,
+      output_dir: null,
+      confident: false,
+      sources: { framework: "detected", build_cmd: "none", output_dir: "none" },
+      hint: "This folder has no app of its own; the app is apps/web (vite).",
+      next_action: "npx layero@latest deploy --root apps/web",
+      candidates: ["apps/web"],
+    });
+    const events = await captured(() => deployCmd({ name: "smoke", json: true, yes: true }));
+    const det = events.find((e) => e.event === "detected");
+    expect(det.confident).toBe(false);
+    expect(det.next_action).toBe("npx layero@latest deploy --root apps/web");
+    expect(det.candidates).toEqual(["apps/web"]);
+  });
+
+  it("новый проект с типом из сессии получает событие runtime_type_applied", async () => {
+    loadProjectConfig.mockResolvedValue(null);
+    vi.mocked(detectProject).mockResolvedValueOnce({
+      framework_hint: "express",
+      build_cmd: null,
+      output_dir: null,
+      confident: true,
+      runtime_kind: "node_web",
+      sources: { framework: "detected", build_cmd: "none", output_dir: "none" },
+    });
+    createDeploySession.mockResolvedValueOnce({
+      session_id: "sess-1",
+      project: { ...PROJECT, status: "active", project_type: "node_web" },
+      created_project: true,
+      upload_url: "https://s3/x",
+      upload_headers: {},
+      source_archive_key: "k",
+      expires_in: 600,
+    });
+    const events = await captured(() => deployCmd({ name: "smoke", json: true, yes: true }));
+    expect(events.find((e) => e.event === "runtime_type_applied")?.project_type).toBe("node_web");
+    expect(setRuntimeType).not.toHaveBeenCalled();
+  });
+});
+
+describe("--dry-run", () => {
+  it("печатает план и ничего не создаёт и не выгружает", async () => {
+    loadProjectConfig.mockResolvedValue(null);
+    const events = await captured(() => deployCmd({ json: true, dryRun: true }));
+    const plan = events.find((e) => e.event === "plan");
+    expect(plan).toBeTruthy();
+    expect(plan.creates_project).toBe(true);
+    expect(plan.replaces_live_site).toBe(true);
+    expect(plan.project_settings).toBe("not linked");
+    expect(createDeploySession).not.toHaveBeenCalled();
+    expect(vi.mocked(packCwd)).not.toHaveBeenCalled();
+    expect(startDeploySession).not.toHaveBeenCalled();
+  });
+
+  it("у привязанного проекта читает его настройки: они старше детекта", async () => {
+    // Проект, которому старый CLI записал `static`: сухой прогон обязан
+    // показать, что собирать будут именно так, и откуда это взялось.
+    loadProjectConfig.mockResolvedValue({ project_id: "proj-123", slug: "smoke" });
+    getProject.mockResolvedValue({
+      ...PROJECT,
+      status: "active",
+      project_type: "spa",
+      framework_hint: "static",
+      build_cmd: "true",
+      output_dir: ".",
+      repo_full_name: null,
+    });
+    const events = await captured(() => deployCmd({ json: true, dryRun: true }));
+    const plan = events.find((e) => e.event === "plan");
+    expect(vi.mocked(detectProject).mock.calls[0]![1]).toMatchObject({
+      frameworkHint: "static",
+      hintSource: "project settings",
+    });
+    expect(plan.project_settings).toBe("read");
+    expect(plan.sources.output_dir).toBe("project settings");
+    expect(plan.build_cmd).toBeNull(); // статика не собирается, что бы ни лежало в поле
+    expect(plan.creates_project).toBe(false);
+  });
+
+  it("проект с репозиторием: выкатка без --prod живой сайт не меняет", async () => {
+    loadProjectConfig.mockResolvedValue({ project_id: "proj-123", slug: "smoke" });
+    getProject.mockResolvedValue({
+      ...PROJECT,
+      status: "active",
+      project_type: "spa",
+      repo_full_name: "acme/site",
+      repo_status: "connected",
+    });
+    let events = await captured(() => deployCmd({ json: true, dryRun: true }));
+    expect(events.find((e) => e.event === "plan").replaces_live_site).toBe(false);
+    events = await captured(() => deployCmd({ json: true, dryRun: true, prod: true }));
+    expect(events.find((e) => e.event === "plan").replaces_live_site).toBe(true);
+  });
+});
+
+describe("T-20260918-8: отказ и готовность", () => {
+  it("совет при упавшей сборке — команда diagnose, а не панель", async () => {
+    loadProjectConfig.mockResolvedValue(null);
+    vi.mocked(streamDeployLogs).mockResolvedValueOnce({ status: "failed", error_message: "boom" } as any);
+    const err: any = await deployCmd({ name: "smoke", json: true, yes: true }).catch((e) => e);
+    expect(err.code).toBe("deploy_failed");
+    expect(err.next_action).toContain("npx layero@latest diagnose --deploy dep-1");
+    expect(err.next_action).not.toContain("app.layero.ru");
+  });
+
+  it("ready ждёт, пока адрес перестанет отдавать экран платформы", async () => {
+    loadProjectConfig.mockResolvedValue(null);
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("starting", { status: 404, headers: { "x-layero-screen": "starting" } }))
+      .mockResolvedValue(new Response("site", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const pending = captured(() => deployCmd({ name: "smoke", json: true, yes: true }));
+      await vi.advanceTimersByTimeAsync(5_000);
+      const events = await pending;
+      const ready = events.find((e) => e.event === "ready");
+      expect(ready.edge_ready).toBe(true);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

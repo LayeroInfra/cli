@@ -43,8 +43,15 @@ vi.mock("../src/pack.js", () => ({
   packDirectory: vi.fn(async () => ({ archivePath: "/tmp/x.tgz", fileCount: 1, size: 10, sha256: "deadbeef" })),
 }));
 vi.mock("../src/logs.js", () => ({ streamDeployLogs: vi.fn(async () => ({ status: "ready" })) }));
-vi.mock("../src/detect.js", () => ({
-  detectProject: vi.fn(async () => ({ framework_hint: "static", build_cmd: "true", output_dir: ".", confident: true })),
+vi.mock("../src/detect.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/detect.js")>()),
+  detectProject: vi.fn(async () => ({
+    framework_hint: "static",
+    build_cmd: null,
+    output_dir: ".",
+    confident: true,
+    sources: { framework: "detected", build_cmd: "none", output_dir: "detected" },
+  })),
 }));
 vi.mock("open", () => ({ default: vi.fn() }));
 vi.mock("node:fs", async () => {
@@ -82,6 +89,8 @@ async function deployUnapproved(opts: Parameters<typeof deployCmd>[0]) {
 }
 
 beforeEach(() => {
+  // `ready` ждёт, пока адрес ответит сайтом: без сети — ответ без экрана платформы.
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("ok", { status: 200 })));
   vi.clearAllMocks();
   M.tokens.length = 0;
   delete process.env.CI;

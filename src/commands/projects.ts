@@ -264,7 +264,7 @@ async function finishSetup(api: ApiClient, project: ProjectSummary, opts: Create
   emit({
     event: "setup_applied",
     project: project.slug,
-    framework: payload.framework_hint,
+    framework: payload.framework_hint ?? undefined,
     build_cmd: payload.build_cmd ?? null,
     output_dir: payload.output_dir ?? null,
     layero_found: detected.layero_found,

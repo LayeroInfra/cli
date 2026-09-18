@@ -53,7 +53,8 @@ bare `npx layero` call then runs the globally installed copy for years.
 ```bash
 layero login          # device flow: prints a URL + code, sign in once (email code or Yandex ID)
 cd my-site
-layero deploy         # detects the framework, packs, uploads, builds, ships
+layero deploy --dry-run   # how the platform will build this folder; uploads nothing, no login needed
+layero deploy         # packs, uploads, the platform builds and ships
 ```
 
 The first `layero deploy` in a directory creates a project and links it via
@@ -70,9 +71,9 @@ The first `layero deploy` in a directory creates a project and links it via
 
 | Command | Description |
 |---|---|
-| `layero init` | Scaffold `.layero/project.json` and write a Layero block into `AGENTS.md` / `CLAUDE.md` / `.cursorrules` (compact index; full skill in `layero-agents`). |
+| `layero init` | Write a Layero block into `AGENTS.md` / `CLAUDE.md` / `.cursorrules` (compact index; full skill in `layero-agents`) and scaffold `.layero/project.json`. Optional: `deploy` links the folder by itself. It records no guessed settings. |
 | `layero login` / `logout` / `whoami` | Browser device-flow sign-in, sign-out, current account. |
-| `layero deploy` | Pack the current directory, build on the platform, publish. `--claim` — without an account. |
+| `layero deploy` | Pack the current directory, build on the platform, publish. `--dry-run` — show the build plan only. `--claim` — without an account. |
 | `layero projects list` | Projects on your account with addresses. |
 | `layero projects create --repo <provider>:<owner/repo>` | Create a project from a repository of a connected provider, apply the detected settings and start the first build (what the dashboard's "Start deploy" button does); `--no-deploy` leaves it in the wizard. Events: `project_created`, `source_connected`, `webhook_installed` \| `webhook_unavailable`, then `setup_applied` + `deploy_started` \| `setup_pending` \| `setup_failed`. |
 | `layero projects delete <slug> --yes` | Delete a project. Irreversible; needs a token with scope `admin`. |
@@ -93,11 +94,21 @@ Run `layero <cmd> --help` for full options.
 
 ## `layero deploy` flags
 
+- `--dry-run` — print how the platform will build this folder and exit:
+  framework, build command, output folder, where each value comes from
+  (`layero.json`, project settings, `package.json`, a framework default), and
+  a `hint` / `next_action` when the folder is a monorepo, a frontend +
+  backend pair, a custom build script or a server. Uploads nothing, needs no
+  login (with a login it also reads the settings of a linked project).
 - `--type <preset>` — framework override: `vite`, `vitepress`, `next`,
   `astro`, `cra`, `sveltekit`, `nuxt`, `gatsby`, `docusaurus`, `eleventy`
-  (alias `11ty`), `hugo`, `static`; runtime kinds `node_web`, `python_web`,
-  `flask`, `streamlit`, `gradio`, `ssr_next` (aliases `express`, `fastapi`,
-  `django`, …). **Optional** — auto-detected when omitted.
+  (alias `11ty`), `hugo`, `static`, `generic`; runtime kinds `node_web`,
+  `python_web`, `flask`, `streamlit`, `gradio`, `ssr_next` (aliases
+  `express`, `fastapi`, `django`, …). **Optional** — detected by the
+  platform when omitted. `static` serves the files as they are and never runs
+  a build; `generic` runs your own build command (`layero.json`
+  `buildCommand` or the `build` script) and serves the folder with
+  `index.html`.
 - `--prebuilt [dir]` — ship an already-built artifact instead of building
   remotely. Without an argument, picks the first existing of `dist/`,
   `build/`, `public/`, `out/`, `_site/`, `.output/public/`,
@@ -106,8 +117,10 @@ Run `layero <cmd> --help` for full options.
 - `--name <name>` — project name (only on first deploy).
 - `--project <id_or_slug>` — deploy into an existing project, ignoring
   `./.layero/project.json` (use this in CI, not `--name`).
-- `--prod` — target the production environment of a repository-linked
-  project. Redundant for CLI projects: they auto-promote on every deploy.
+- `--prod` — only for a project **with a connected repository**: publish this
+  upload at the live address (without it the upload lands in the project's
+  separate `cli` environment). A project without a repository is always
+  published live.
 - `--branch <name>` — **refused** (`branch_unsupported`, exit 4), see above.
 - `--claim` — deploy without an account: a temporary project for 72 hours
   plus a `claim_url` for a human to take it over. Turns on by itself when
@@ -143,7 +156,15 @@ the page in a browser (in agent mode it prints the link).
 
 ## Framework auto-detection
 
-`layero deploy` (and `layero init`) read your project on disk and pick sane defaults:
+`layero deploy --dry-run` (and `layero init`, and the `detected` event of every
+deploy) read your project on disk with the same rules the platform uses. This
+is **advice, not a decision**: the platform detects again on the uploaded
+files, and nothing the CLI guesses is saved to the project — only what you name
+(`--type`, `--root`, fields you write into `.layero/project.json` or
+`layero.json`). `confident: false` means the folder was not recognised; read
+`hint` and `next_action` (an app in a subfolder → `--root <dir>`, frontend +
+backend → `layero.json` with both halves, a custom build script →
+`"framework": "generic"`).
 
 | Signal | Framework | `build_cmd` | `output_dir` |
 |---|---|---|---|
@@ -159,7 +180,8 @@ the page in a browser (in agent mode it prints the link).
 | `react-scripts` dep | cra | `npm run build` | `build` |
 | `@11ty/eleventy` dep / `.eleventy.js` / `eleventy.config.*` | eleventy | `npm run build` (or `npx @11ty/eleventy`) | `_site` |
 | `hugo.{toml,yaml,json}` or `config.*` with Hugo markers (`baseURL`, `[markup]`, …) | hugo | `hugo --gc --minify` (no install needed) | `public` |
-| any `.html` at root, no `package.json` | static | `true` (no-op) | `.` |
+| `index.html` at the root, no framework | static | none — served as is | `.` |
+| `package.json` with a `build` script, no known framework | generic | `npm run build` | the folder with `index.html` after the build |
 
 ## `layero.json` — pin the settings in the repository
 
@@ -287,7 +309,8 @@ Every command emits events — one JSON object per line on stdout:
 {"event":"sources","org":"…","providers":[…],"connections":[…]}
 {"event":"source_repos","org":"…","connection_id":"…","repos":[…]}
 {"event":"environments","project":"…","environments":[{"branch":"main","url":"https://…","production":true,…}]}
-{"event":"detected","framework":"…","build_cmd":"…","output_dir":"…","confident":true}
+{"event":"detected","framework":"…","build_cmd":"…"|null,"output_dir":"…"|null,"confident":true,"sources":{…},"hint":"…","next_action":"…"}
+{"event":"plan","framework":"…","build_cmd":"…"|null,"output_dir":"…"|null,"sources":{…},"creates_project":true,"replaces_live_site":true,…}   (--dry-run)
 {"event":"packing","files":N,"bytes":N,"sha256":"…"}
 {"event":"uploading"}  {"event":"uploaded","archive_key":"…"}
 {"event":"deploy_started","deploy_id":"…"}
@@ -304,9 +327,11 @@ Every command emits events — one JSON object per line on stdout:
 ```
 
 On `ready`, `url` is the **live public site** — show it as-is and never
-rebuild the hostname from a template. `dashboard_url` is the management page,
-not the site. `preview_url`, `edge_ready` and `edge_eta_seconds` are legacy
-fields; do not wait for them.
+rebuild the hostname from a template. `ready` comes once the address answers
+with the site itself (`edge_ready: true`); `edge_ready: false` with `screen`
+means the platform's own page still answered after the wait — the app did not
+come up, read `layero logs --runtime`. `dashboard_url` is the management page,
+not the site. `preview_url` and `edge_eta_seconds` are legacy fields.
 
 Errors carry a stable `code` (`auth_required`, `auth_expired`, `auth_timeout`,
 `project_unknown`, `project_not_found`, `cli_deploys_disabled`, `invalid_type`,
@@ -341,7 +366,8 @@ the rule files themselves. Maximum archive size is 200 MB.
 - Per-project link: `./.layero/project.json` — `project_id`, `slug`,
   `organization_slug`, `apex_hostname`, `claim` are managed by the CLI;
   `framework_hint`, `build_cmd`, `output_dir`, `analytics_enabled`,
-  `env_vars` are user-editable and override auto-detection.
+  `env_vars` are yours: the CLI never writes guesses there, and what you put
+  there is applied to a new project as your choice.
 
 ## Contributing
 

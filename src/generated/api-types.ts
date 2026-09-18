@@ -7488,6 +7488,8 @@ export interface components {
             root_directory?: string | null;
             /** Runtime Kind */
             runtime_kind?: ("ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web" | "spa") | null;
+            /** Runtime Kind Origin */
+            runtime_kind_origin?: ("user" | "detected") | null;
             /** Target */
             target?: ("preview" | "production") | null;
         };
@@ -9173,7 +9175,7 @@ export interface components {
                 [key: string]: string;
             };
             /** Framework Hint */
-            framework_hint: string;
+            framework_hint?: string | null;
             /** Fullstack Config */
             fullstack_config?: {
                 [key: string]: unknown;

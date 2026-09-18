@@ -587,16 +587,25 @@ async function main(): Promise<void> {
   program
     .command("deploy")
     .description(
-      "Pack the current directory and deploy it. Framework, build command and output directory are auto-detected.",
+      "Pack the current directory and deploy it: the platform builds it and publishes it. " +
+        "A project without a connected repository is published live — every deploy replaces the site at ready.url. " +
+        "Framework, build command and output directory are detected by the platform; --dry-run shows the plan first.",
+    )
+    .option(
+      "--dry-run",
+      "show how the platform will build this folder (framework, build command, output folder, where each came from, " +
+        "hints for monorepos / frontend+backend / custom build scripts) and exit; uploads nothing, needs no login",
     )
     .option(
       "-t, --type <preset>",
       "type override — static preset (vite | vitepress | next | astro | cra | sveltekit | nuxt | gatsby | docusaurus | storybook | eleventy | hugo | static) " +
-        "or runtime kind for apps the platform RUNS (node_web | python_web | flask | streamlit | gradio | ssr_next; aliases: express, fastapi, django, node, python)",
+        "or runtime kind for apps the platform RUNS (node_web | python_web | flask | streamlit | gradio | ssr_next; aliases: express, fastapi, django, node, python). " +
+        "`static` serves the files as they are and never runs a build; `generic` runs your own build command " +
+        "(layero.json buildCommand or the package.json build script) and serves the folder with index.html",
     )
     .option("--name <name>", "project name (only used on first deploy)")
     .option("--project <id_or_slug>", "deploy into an existing project, ignoring local config")
-    .option("-y, --yes", "non-interactive: accept defaults and skip --prod confirmation")
+    .option("-y, --yes", "non-interactive: accept defaults and skip the --prod confirmation")
     .option(
       "--config",
       "(legacy alias of the default behaviour — auto-detect + .layero/project.json values)",
@@ -607,15 +616,18 @@ async function main(): Promise<void> {
     )
     .option(
       "--root <dir>",
-      "monorepo: subdirectory inside the repo that the builder treats as the app root (saved on the project; future GitHub-push and hook triggers use the same value)",
+      "monorepo: the app's subfolder (e.g. apps/web) that the builder treats as the app root; the whole folder is still uploaded. " +
+        "Saved on the project, so later deploys and git pushes use it too",
     )
     .option(
       "--prod",
-      "deploy to production (replaces apex_hostname's active deploy). Without this flag, deploys go to the project's CLI preview pseudo-branch.",
+      "only for a project WITH a connected repository: publish this upload at the live address. Without it such an upload " +
+        "lands in the project's separate `cli` environment. A project without a repository is always published live",
     )
     .option(
       "--promote",
-      "pin the project apex to this deploy after a successful build (V071). Works for any branch — e.g. `--promote` without --prod publishes a CLI preview straight to production.",
+      "after a successful build, point the live address at this deploy (done by the CLI; same result as --prod). " +
+        "Not needed for a project without a repository — it is published live anyway",
     )
     .option(
       "--branch <name>",
@@ -645,14 +657,15 @@ async function main(): Promise<void> {
     .addHelpText(
       "after",
       "\nExamples:\n" +
-        "  $ layero deploy                      # preview deploy (CLI pseudo-branch), auto-detect framework\n" +
-        "  $ layero deploy --prod               # production deploy (interactive confirm)\n" +
-        "  $ layero deploy --prod --yes         # production deploy, no prompt (CI)\n" +
-        "  $ layero deploy --promote            # preview deploy + pin apex (one-shot publish)\n" +
-        "  $ layero deploy --claim              # no account: temporary site + claim link\n" +
-        "  $ layero deploy --type vite          # force a framework preset\n" +
+        "  $ layero deploy --dry-run            # how the platform will build this folder; nothing is uploaded\n" +
+        "  $ layero deploy                      # build and publish (no repository: replaces the live site)\n" +
+        "  $ layero deploy --root apps/web      # monorepo: the app lives in a subfolder\n" +
+        "  $ layero deploy --type generic       # own build script, no known framework: run it, serve the result\n" +
         "  $ layero deploy --type express       # Node backend: platform RUNS it, not serves files\n" +
-        "  $ layero deploy --json               # machine-readable output for agents",
+        "  $ layero deploy --claim              # no account: temporary site + claim link\n" +
+        "  $ layero deploy --prod --yes         # project with a connected repository: publish this upload live (CI)\n" +
+        "  $ layero deploy --json               # machine-readable output for agents\n" +
+        "\nIsolated previews come only from pushing a branch of a connected repository (layero projects create --repo).",
     )
     .action(async (opts) => {
       await deployCmd(opts);

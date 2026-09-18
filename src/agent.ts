@@ -119,7 +119,43 @@ export type Event =
   | ({ event: "username_set"; username: string; organization: string } & EventCommon)
   | ({ event: "project_created"; project_id: string; slug: string; organization: string; url?: string; repo?: string; branch?: string } & EventCommon)
   | ({ event: "project_linked"; project_id: string; slug: string; url?: string; status?: string } & EventCommon)
-  | ({ event: "detected"; framework: string; build_cmd: string; output_dir: string; confident: boolean; runtime_kind?: "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web"; ssr_warning?: string } & EventCommon)
+  // `confident: false` — папку не узнали, и значения ниже — умолчания, а не
+  // знание; `hint` говорит, что CLI увидел вместо этого (T-20260918-7).
+  // `build_cmd: null` — сборки нет или её нечем выполнить; `output_dir: null`
+  // — каталог станет известен только после сборки.
+  | ({
+      event: "detected";
+      framework: string;
+      build_cmd: string | null;
+      output_dir: string | null;
+      confident: boolean;
+      sources?: { framework: string; build_cmd: string; output_dir: string };
+      runtime_kind?: "ssr_next" | "streamlit" | "gradio" | "flask" | "python_web" | "node_web";
+      hint?: string;
+      next_action?: string;
+      candidates?: string[];
+      ssr_warning?: string;
+    } & EventCommon)
+  // `deploy --dry-run`: как платформа соберёт папку, если выкатить сейчас.
+  // Ничего не выгружено и не создано.
+  | ({
+      event: "plan";
+      framework: string;
+      build_cmd: string | null;
+      output_dir: string | null;
+      runtime_kind: string | null;
+      root: string | null;
+      confident: boolean;
+      sources: { framework: string; build_cmd: string; output_dir: string };
+      project: { id: string; slug: string; project_type: string; repo: string | null } | null;
+      project_settings: "read" | "not linked" | string;
+      creates_project: boolean;
+      replaces_live_site: boolean;
+      hint?: string;
+      next_action?: string;
+      candidates?: string[];
+      prebuilt_dir?: string;
+    } & EventCommon)
   | ({ event: "prebuilt"; dir: string } & EventCommon)
   | ({ event: "packing"; files: number; bytes: number; sha256: string; prebuilt_dir?: string } & EventCommon)
   | ({ event: "uploading" } & EventCommon)
@@ -312,9 +348,11 @@ export type Event =
   //                    the VM-edge (NLB) wildcard cert, even while the apex's
   //                    YC-CDN cert/route is still propagating. (B4/B7)
   //   dashboard_url — the control-plane management page for the project.
-  //   edge_ready    — true once the canonical (apex) host serves over CDN;
-  //                    false while CDN propagation is still in flight.
-  //   edge_eta_seconds — rough remaining CDN-warmup seconds when !edge_ready.
+  //   edge_ready    — true: `url` already answers with the site itself (the CLI
+  //                    requested it and got no platform screen). false: after
+  //                    the wait the platform's own screen (`screen`: starting,
+  //                    unavailable, …) still answered — the app did not come up.
+  //   edge_eta_seconds — legacy, no longer sent.
   | ({
       event: "ready";
       url: string;
@@ -322,6 +360,7 @@ export type Event =
       dashboard_url?: string;
       edge_ready?: boolean;
       edge_eta_seconds?: number;
+      screen?: string;
       deploy_id: string;
     } & EventCommon)
   | ({ event: "promoted"; url: string; deploy_id: string } & EventCommon)
@@ -398,6 +437,7 @@ export type Event =
   | ({
       event: "init_done";
       framework: string;
+      confident?: boolean;
       agent_docs: Array<{ file: string; result: "created" | "updated" | "unchanged" }>;
       project_json: "created" | "unchanged";
     } & EventCommon)
@@ -520,12 +560,35 @@ function renderHuman(event: Event): void {
       }
       break;
     case "detected":
-      process.stdout.write(
-        event.runtime_kind
-          ? `→ Detected ${event.runtime_kind} runtime app — will deploy as a scale-to-zero container\n`
-          : `→ Detected ${event.framework} (build: ${event.build_cmd}, output: ${event.output_dir})\n`,
-      );
+      if (event.runtime_kind) {
+        process.stdout.write(`→ Detected ${event.runtime_kind} runtime app — will deploy as a scale-to-zero container\n`);
+      } else if (event.confident) {
+        process.stdout.write(
+          `→ Detected ${event.framework} (build: ${event.build_cmd ?? "none"}, output: ${event.output_dir ?? "found after the build"})\n`,
+        );
+      } else {
+        process.stdout.write(`! Не удалось уверенно определить приложение в этой папке\n`);
+      }
+      if (event.hint) process.stdout.write(`  ${event.hint}\n`);
+      if (event.next_action) process.stdout.write(`  → ${event.next_action}\n`);
       break;
+    case "plan": {
+      const src = event.sources;
+      process.stdout.write(`План сборки (ничего не выгружено):\n`);
+      process.stdout.write(`  фреймворк: ${event.framework}  (${src.framework})\n`);
+      if (event.runtime_kind) process.stdout.write(`  запуск:    контейнер ${event.runtime_kind}\n`);
+      process.stdout.write(`  сборка:    ${event.build_cmd ?? "не запускается"}  (${src.build_cmd})\n`);
+      process.stdout.write(`  результат: ${event.output_dir ?? "определится после сборки"}  (${src.output_dir})\n`);
+      if (event.root) process.stdout.write(`  папка:     ${event.root}\n`);
+      process.stdout.write(
+        event.replaces_live_site
+          ? `  выкатка заменит живой сайт\n`
+          : `  выкатка ляжет в окружение «cli», живой сайт не изменится\n`,
+      );
+      if (event.hint) process.stdout.write(`  ${event.hint}\n`);
+      if (event.next_action) process.stdout.write(`  → ${event.next_action}\n`);
+      break;
+    }
     case "prebuilt":
       process.stdout.write(`→ Prebuilt mode: shipping ${event.dir}\n`);
       break;
@@ -591,17 +654,12 @@ function renderHuman(event: Event): void {
       break;
     case "ready":
       if (event.edge_ready === false) {
-        // Built & published, but the CDN edge for the apex is still
-        // propagating (first deploy of a new hostname can take a few
-        // minutes on YC CDN). The preview host is reachable immediately.
-        const eta =
-          typeof event.edge_eta_seconds === "number" && event.edge_eta_seconds > 0
-            ? ` (edge propagating, ~${event.edge_eta_seconds}s)`
-            : " (edge propagating)";
-        process.stdout.write(`✓ Built. Live at ${event.url}${eta}\n`);
-        if (event.preview_url) {
-          process.stdout.write(`  Reachable now: ${event.preview_url}\n`);
-        }
+        // Сборка готова, но по адресу всё ещё отвечает экран платформы, а не
+        // приложение: оно не поднялось за время ожидания.
+        process.stdout.write(
+          `✓ Built. ${event.url} still shows the platform screen` +
+            `${event.screen ? ` (${event.screen})` : ""} — check \`layero logs --runtime\`\n`,
+        );
       } else {
         process.stdout.write(`✓ Live at ${event.url}\n`);
       }
