@@ -65,8 +65,8 @@ SURFACES = (
     "frontend/landing/llms.txt",
     "frontend/landing/llms-full.txt",
     "frontend/landing/cursorrules",
-    "core/cli/README.md",
-    "core/cli/src/commands/init.ts",
+    "cli/README.md",
+    "cli/src/commands/init.ts",
 )
 
 
@@ -83,13 +83,13 @@ def real_codes(cli_src: Path) -> set[str]:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--root", default=str(Path(__file__).resolve().parents[2]))
+    ap.add_argument("--root", default=str(Path(__file__).resolve().parents[1]))
     args = ap.parse_args()
     root = Path(args.root)
 
     cli_src = Path(__file__).resolve().parent / "src"
     if not cli_src.is_dir():
-        print(f"не найден {cli_src} — запускать из core/cli", file=sys.stderr)
+        print(f"не найден {cli_src} — запускать из репозитория cli", file=sys.stderr)
         return 2
 
     codes = real_codes(cli_src)

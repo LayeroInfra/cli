@@ -6169,7 +6169,7 @@ export interface paths {
          *     интерфейс было невозможно (`T-20260827-4`).
          *
          *     Прямое чтение источника из ручки к тому же держит храповик
-         *     `cli/check-source-coverage.py`: каждое такое чтение — ещё одно место, где
+         *     `checks/check-source-coverage.py`: каждое такое чтение — ещё одно место, где
          *     решение принимается мимо единственного хозяина.
          */
         get: operations["project_repo_tree_projects__project_id__tree_get"];

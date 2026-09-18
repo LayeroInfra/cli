@@ -1,0 +1,53 @@
+name: Mirror to GitVerse
+
+# Зеркало репозитория в организации https://gitverse.ru/layero. Единый список
+# внешних адресов Layero — README в LayeroInfra/layero-agents, раздел
+# «Где Layero представлен». Секреты организации GitHub: GITVERSE_LOGIN (логин
+# аккаунта-владельца организации на GitVerse) и GITVERSE_TOKEN (его токен с
+# правом создавать репозитории и пушить). Без них шаг пропускается с
+# заметкой — сборка не краснеет, но зеркало отстаёт.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: mirror-gitverse
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITVERSE_LOGIN: ${{ secrets.GITVERSE_LOGIN }}
+      GITVERSE_TOKEN: ${{ secrets.GITVERSE_TOKEN }}
+      GITVERSE_ORG: layero
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Push main and tags to GitVerse
+        run: |
+          if [ -z "$GITVERSE_TOKEN" ] || [ -z "$GITVERSE_LOGIN" ]; then
+            echo "::notice::GITVERSE_LOGIN/GITVERSE_TOKEN не заданы — зеркало gitverse.ru/$GITVERSE_ORG/${{ github.event.repository.name }} не обновлено"
+            exit 0
+          fi
+          repo="${{ github.event.repository.name }}"
+          # Репозиторий на GitVerse создаётся при первом прогоне; повторный
+          # вызов отвечает 4xx «уже есть» — это не ошибка.
+          curl -sS -o /tmp/create.out -w '%{http_code}' -X POST \
+            "https://api.gitverse.ru/orgs/$GITVERSE_ORG/repos" \
+            -H "Authorization: Bearer $GITVERSE_TOKEN" \
+            -H "Accept: application/vnd.gitverse.object+json;version=1" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"$repo\",\"private\":false,\"description\":\"Зеркало github.com/${{ github.repository }}\"}" \
+            | tee /tmp/create.code; echo
+          case "$(cat /tmp/create.code)" in 2*|409|422) ;; *) echo "::warning::создание репозитория ответило $(cat /tmp/create.code): $(cut -c1-300 /tmp/create.out)";; esac
+          # actions/checkout кладёт свой токен в extraheader для github.com;
+          # к gitverse.ru он не относится, но обнуляем на всякий случай.
+          git -c "http.https://github.com/.extraheader=" push --force \
+            "https://${GITVERSE_LOGIN}:${GITVERSE_TOKEN}@gitverse.ru/${GITVERSE_ORG}/${repo}.git" \
+            "HEAD:refs/heads/main" --tags
+          echo "зеркало обновлено: https://gitverse.ru/$GITVERSE_ORG/$repo"

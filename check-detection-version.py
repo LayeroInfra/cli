@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Потребители `layero-detection` не отстают от опубликованной спеки.
+"""CLI не отстаёт от опубликованной спеки детекта (`layero-detection`).
 
 ═══ ЗАЧЕМ ═══
 
-Ядро детекта одно, а зависимость на него — СВОЯ У КАЖДОГО потребителя, и до
-22.08.2026 за их синхронностью не следило ничто. В тот день это стоило двух
-неверных выводов подряд:
+Ядро детекта одно (`core/detection`, npm-пакет `layero-detection`), а
+зависимость на него — СВОЯ У КАЖДОГО потребителя, и до 22.08.2026 за их
+синхронностью не следило ничто. В тот день это стоило двух неверных выводов
+подряд:
 
   * выкатил исправление на бэкенд и счёл дело сделанным — а панель детектила
     СВОИМ пакетом версии 0.1.2 и продолжала показывать старый вердикт;
@@ -16,29 +17,35 @@
 Дефект такого рода не виден нигде: каждый репозиторий у себя зелёный, тесты
 проходят, прод отвечает. Расходятся ПРАВИЛА, и узнаётся это у пользователя.
 
-Гейт покрывает потребителей ВНУТРИ core (сейчас `cli/`). Панель живёт в чужом
-репозитории, и тянуть её сюда нельзя — состояние core не должно зависеть от
-соседа. Для неё та же проверка стоит в `frontend`, цель `check-crossrepo`.
+═══ ГДЕ ИСТОЧНИК ═══
 
-Запуск:  python3 cli/check-detection-version.py
+Версия спеки — `detection/package.json` в соседнем чекауте `../core`
+(репозиторий `LayeroInfra/core`, приватный). Без него берётся то, что
+опубликовано в npm (`npm view layero-detection version`) — это и есть версия,
+которую потребители могут поставить. Нет ни того, ни другого — пропуск
+С ПОМЕТКОЙ, не молчаливый зелёный.
+
+Панель — та же проверка со своей стороны:
+`frontend/control-plane/check-detection-version.py`.
+
+Запуск:  python3 check-detection-version.py
 """
 from __future__ import annotations
 
 import json
 import os
 import re
+import subprocess
 import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_CORE = os.path.dirname(_HERE)
+_CORE_SPEC = os.path.join(os.path.dirname(_HERE), "core", "detection", "package.json")
 
-# Потребители внутри core: путь к package.json → как называется зависимость.
-CONSUMERS = [("cli/package.json", "layero-detection")]
-SPEC_PKG = "detection/package.json"
+DEP = "layero-detection"
 
 
-def _read(rel: str) -> dict:
-    with open(os.path.join(_CORE, rel), encoding="utf-8") as fh:
+def _read(path: str) -> dict:
+    with open(path, encoding="utf-8") as fh:
         return json.load(fh)
 
 
@@ -55,46 +62,63 @@ def _base(spec_range: str) -> str:
     return re.sub(r"^[\^~>=<\s]*", "", spec_range).strip()
 
 
+def _spec_version() -> tuple[str, str] | None:
+    if os.path.exists(_CORE_SPEC):
+        return _read(_CORE_SPEC)["version"], "../core/detection/package.json"
+    try:
+        res = subprocess.run(
+            ["npm", "view", DEP, "version"],
+            capture_output=True, text=True, timeout=30, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    got = res.stdout.strip()
+    if res.returncode != 0 or not got:
+        return None
+    return got, f"npm view {DEP} version"
+
+
 def main() -> int:
-    spec_version = _read(SPEC_PKG)["version"]
+    src = _spec_version()
+    if src is None:
+        print("  — ни соседнего чекаута ../core, ни ответа npm: версия спеки не сверена")
+        return 0
+    spec_version, origin = src
     fails: list[str] = []
 
-    for rel, dep in CONSUMERS:
-        pkg = _read(rel)
-        rng = _dep_range(pkg, dep)
-        if rng is None:
-            fails.append(f"{rel}: нет зависимости {dep} — потребитель отвалился от спеки")
-            continue
+    pkg = _read(os.path.join(_HERE, "package.json"))
+    rng = _dep_range(pkg, DEP)
+    if rng is None:
+        fails.append(f"package.json: нет зависимости {DEP} — CLI отвалился от спеки")
+    else:
         want = _base(rng)
         if want != spec_version:
             fails.append(
-                f"{rel}: {dep}@{rng} против спеки {spec_version} — "
-                f"этот потребитель детектит СТАРЫМИ правилами"
+                f"package.json: {DEP}@{rng} против спеки {spec_version} — "
+                f"CLI детектит СТАРЫМИ правилами"
             )
-        # Лок обязан совпадать: диапазон `^` разрешает больше, а ставится то,
-        # что записано в локе, — именно так CLI и остался на 0.1.0.
-        lock_rel = rel.replace("package.json", "package-lock.json")
-        lock_path = os.path.join(_CORE, lock_rel)
-        if os.path.exists(lock_path):
-            with open(lock_path, encoding="utf-8") as fh:
-                lock = json.load(fh)
-            got = None
-            for key, node in (lock.get("packages") or {}).items():
-                if key.endswith("node_modules/" + dep):
-                    got = node.get("version")
-                    break
-            if got and got != spec_version:
-                fails.append(
-                    f"{lock_rel}: в локе {dep}@{got}, а спека {spec_version} — "
-                    f"диапазон разрешает новое, но ставится закреплённое старое"
-                )
+    # Лок обязан совпадать: диапазон `^` разрешает больше, а ставится то,
+    # что записано в локе, — именно так CLI и остался на 0.1.0.
+    lock_path = os.path.join(_HERE, "package-lock.json")
+    if os.path.exists(lock_path):
+        lock = _read(lock_path)
+        got = None
+        for key, node in (lock.get("packages") or {}).items():
+            if key.endswith("node_modules/" + DEP):
+                got = node.get("version")
+                break
+        if got and got != spec_version:
+            fails.append(
+                f"package-lock.json: в локе {DEP}@{got}, а спека {spec_version} — "
+                f"диапазон разрешает новое, но ставится закреплённое старое"
+            )
 
     for f in fails:
         print("  ✗", f)
-    print(f"\n{'✅' if not fails else '❌'} спека {spec_version}, "
-          f"потребителей {len(CONSUMERS)}, расхождений {len(fails)}")
+    print(f"\n{'✅' if not fails else '❌'} спека {spec_version} ({origin}), "
+          f"расхождений {len(fails)}")
     if fails:
-        print("  Починка: npm install layero-detection@<версия> --save в каталоге потребителя")
+        print(f"  Починка: npm install {DEP}@{spec_version} --save")
     return 1 if fails else 0
 
 

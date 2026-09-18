@@ -1,0 +1,65 @@
+name: CI
+
+# Гейт репозитория: сборка, полный сьют vitest, версия спеки детекта, аудит
+# зависимостей. Гоняется на GitHub-hosted раннере — репозиторий публичный, и
+# минуты для него бесплатны; свой раннер флота сюда НЕ подключать (на публичном
+# репозитории он исполнял бы код из чужих PR).
+#
+# Чего здесь НЕТ и почему: check-texts (нужны соседние layero-docs/frontend/mcp)
+# и gen-check (нужен приватный core). Первое гоняется локально перед релизом,
+# второе сторожит `contract.yml` в core на каждой правке ручки.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 — нижняя граница `engines`, 24 — то, на чём публикуется.
+        node: ['20', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: tsc
+        run: npx tsc -p tsconfig.json
+      # Весь сьют, не выбранные файлы: выбранный список — это то, как
+      # test/deploy.test.ts простоял красным с 26.07.2026 незамеченным.
+      - name: vitest
+        run: npx vitest run
+      # Нижняя граница зависимости на layero-detection и версия в локе обязаны
+      # совпадать с опубликованной спекой: диапазон `^` разрешает новое, а
+      # ставится закреплённое старое — так CLI и остался на 0.1.0 (22.08.2026).
+      - name: layero-detection не отстаёт от спеки
+        run: python3 check-detection-version.py
+
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # `--package-lock-only` читает только лок: без node_modules и чужих
+      # postinstall. Пока копим факты — предупреждение, не отказ.
+      - name: npm audit
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm audit --package-lock-only --audit-level=high 2>&1 | tail -40 \
+            || echo "::warning::npm audit нашёл уязвимости уровня high — см. вывод выше"

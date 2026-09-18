@@ -1,0 +1,9 @@
+{
+  "name": "sveltekit-ssr-fixture",
+  "private": true,
+  "dependencies": {
+    "@sveltejs/kit": "^2.5.0",
+    "@sveltejs/adapter-node": "^5.2.0"
+  },
+  "scripts": { "build": "vite build" }
+}

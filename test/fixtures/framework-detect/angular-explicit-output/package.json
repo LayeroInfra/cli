@@ -1,0 +1,16 @@
+{
+  "name": "angular-explicit-output-fixture",
+  "private": true,
+  "dependencies": {
+    "@angular/core": "^15.2.0",
+    "@angular/platform-browser": "^15.2.0"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^15.2.0",
+    "@angular/cli": "^15.2.0"
+  },
+  "scripts": {
+    "build": "ng build",
+    "start": "ng serve"
+  }
+}

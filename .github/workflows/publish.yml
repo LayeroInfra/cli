@@ -1,0 +1,114 @@
+name: Publish
+
+# Публикация npm-пакета `layero` по тегу `vX.Y.Z` (или кнопкой). Сборка идёт
+# хуком `prepublishOnly` (tsc). Защита от повтора: если версия из package.json
+# уже в npm — шаг публикации пропускается, прогон зелёный.
+#
+# ═══ АУТЕНТИФИКАЦИЯ ═══
+#
+# Основной путь — npm Trusted Publishing (OIDC): без токена и без 2FA на каждый
+# релиз. 🚨 ТРЕБУЕТ ОДНОРАЗОВОЙ НАСТРОЙКИ ЧЕЛОВЕКОМ: до 18.09.2026 CLI жил в
+# `LayeroInfra/core` и trusted publisher пакета привязан к repo `core`,
+# workflow `publish-cli.yml`. Перепривязать: npmjs.com → пакет `layero` →
+# Settings → Trusted Publisher → GitHub Actions: org `LayeroInfra`, repo `cli`,
+# workflow `publish.yml`. До этого OIDC-публикация из этого репозитория
+# получит 404/403 от реестра.
+#
+# Запасной путь — секрет `NPM_TOKEN` (granular access token с правом publish на
+# `layero`, с обходом 2FA). Если он задан в секретах репозитория, шаг ниже
+# положит его в ~/.npmrc и npm пойдёт по токену, а не по OIDC. Trusted
+# Publishing предпочтительнее: токен живёт долго и утекает, OIDC — нет.
+#
+# Релиз: поднять `version` в package.json на main, затем
+#   git tag vX.Y.Z && git push origin vX.Y.Z
+# После публикации проверять ЖИВЫМ, из чистого окружения:
+#   npx layero@latest --version
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write   # OIDC: npm проверяет личность этого workflow (Trusted Publishing)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Node 24, а НЕ 20: `npm@latest` — npm 12, ему нужен node ^22.22 ||
+          # ^24.15 || >=26; на node 20 установка падает с EBADENGINE и до
+          # публикации не доходит (26.07.2026). Опубликованный пакет это не
+          # ограничивает — у него engines: node >=20.
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+
+      # Trusted Publishing (OIDC) нужен npm >= 11.5.1; setup-node несёт старее.
+      - run: npm install -g npm@latest
+
+      - name: Тег совпадает с package.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$LOCAL" != "$TAG" ]; then
+            echo "::error::тег v$TAG, а в package.json $LOCAL — поднимите версию на main и перетегируйте" >&2
+            exit 1
+          fi
+
+      - name: Version guard (skip if already published)
+        id: guard
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view layero version 2>/dev/null || echo none)
+          echo "local=$LOCAL remote=$REMOTE"
+          if [ "$LOCAL" = "$REMOTE" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::layero@$LOCAL already on npm — nothing to publish."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install + publish
+        if: steps.guard.outputs.publish == 'true'
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm ci --no-audit --no-fund
+          if [ -n "${NPM_TOKEN:-}" ]; then
+            echo "::notice::NPM_TOKEN задан — публикация по токену (запасной путь), не по OIDC"
+            npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+          fi
+          npm publish   # без токена — OIDC (Trusted Publishing); prepublishOnly = tsc
+
+      # 🚨 СПРАШИВАЕМ ПРО ЭТУ ВЕРСИЮ, А НЕ ПРО `latest`, И ЖДЁМ ДОЛЬШЕ.
+      # 06.09.2026 публикация 0.9.4 ПРОШЛА, а шаг проверки объявил её провалом:
+      # `npm view layero version` отдаёт дист-тег `latest`, и индекс реестра
+      # обновляет его позже самой публикации. `npm view layero@<версия>`
+      # спрашивает конкретную версию — она появляется раньше дист-тега.
+      - name: Verify on npm
+        if: steps.guard.outputs.publish == 'true'
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          for i in $(seq 1 30); do
+            if [ "$(npm view "layero@$LOCAL" version 2>/dev/null)" = "$LOCAL" ]; then
+              echo "published layero@$LOCAL"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "npm не показал $LOCAL за пять минут." >&2
+          echo "Это НЕ обязательно означает, что публикация не прошла:" >&2
+          echo "проверьте https://www.npmjs.com/package/layero?activeTab=versions" >&2
+          echo "и не выпускайте новый номер, не убедившись." >&2
+          exit 1

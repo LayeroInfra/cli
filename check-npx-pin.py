@@ -21,7 +21,7 @@
 в блоках локальной установки, где `npx layero` берёт версию из node_modules
 намеренно.
 
-Запуск: python3 core/cli/check-npx-pin.py
+Запуск: python3 check-npx-pin.py
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 
 # Каталоги ОПУБЛИКОВАННЫХ поверхностей. Список выверенный: пропавший каталог —
 # отказ, а не тихий пропуск (грабля 28.07, см. check-error-codes.py).
@@ -37,7 +37,7 @@ SURFACES = (
     "layero-docs/docs",
     "layero-docs/i18n",
     "frontend/landing",
-    "core/cli/README.md",
+    "cli/README.md",
     "mcp/server/prompts",
     "mcp/README.md",
     "mcp/docs",
@@ -60,7 +60,7 @@ STRICT = (
     "layero-docs/docs",
     "layero-docs/i18n",
     "frontend/landing",
-    "core/cli/README.md",
+    "cli/README.md",
     "mcp/server/prompts",
     "mcp/README.md",
     "mcp/docs",

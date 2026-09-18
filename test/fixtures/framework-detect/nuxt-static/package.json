@@ -1,0 +1,6 @@
+{
+  "name": "nuxt-static-fixture",
+  "private": true,
+  "dependencies": { "nuxt": "^3.13.0" },
+  "scripts": { "build": "nuxt build", "generate": "nuxt generate" }
+}

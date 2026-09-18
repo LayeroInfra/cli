@@ -5,7 +5,7 @@ Deploy a directory or connect a repository with one command; every command
 speaks JSON for AI agents and CI.
 
 Source: [github.com/LayeroInfra/cli](https://github.com/LayeroInfra/cli)
-(public mirror of the `cli/` directory of the platform monorepo).
+(the CLI's home; mirrored to [gitverse.ru/layero/cli](https://gitverse.ru/layero/cli)).
 Docs: [docs.layero.ru/cli](https://docs.layero.ru/cli/).
 
 ## For AI agents (Cursor, Claude Code, Codex, Aider…)
@@ -342,11 +342,13 @@ the rule files themselves. Maximum archive size is 200 MB.
 
 ## Contributing
 
-The package is developed in the `cli/` directory of the platform monorepo and
-mirrored to [LayeroInfra/cli](https://github.com/LayeroInfra/cli) on every
-release (`git subtree push --prefix=cli https://github.com/LayeroInfra/cli main`,
-`make cli-mirror`). Issues and pull requests are welcome on the mirror.
-`npm test` runs the unit tests; `npm run build` compiles with `tsc`.
+This repository is the CLI's home (since 2026-09-18; before that it was the
+`cli/` directory of the platform monorepo and this repo was a read-only
+mirror). Issues and pull requests are welcome here. `make check` runs the
+build, the unit tests and the consistency gates; `npm test` alone runs the
+tests, `npm run build` compiles with `tsc`. Releases are published to npm by
+`.github/workflows/publish.yml` on a `vX.Y.Z` tag. Contributor rules for
+humans and agents: `AGENTS.md`; how the package is put together: `ARCH.md`.
 
 ## Links
 

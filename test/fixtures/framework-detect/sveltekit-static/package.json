@@ -1,0 +1,9 @@
+{
+  "name": "sveltekit-static-fixture",
+  "private": true,
+  "dependencies": {
+    "@sveltejs/kit": "^2.5.0",
+    "@sveltejs/adapter-static": "^3.0.0"
+  },
+  "scripts": { "build": "vite build" }
+}

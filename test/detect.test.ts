@@ -3,8 +3,11 @@
  *
  * Shared regression set with the builder
  * (`core/builder/tests/test_runtime_detect_parity.py`). Both detectors
- * read the same fixtures under `core/tests/fixtures/framework-detect/`
- * and must agree on every case.
+ * read the same fixtures and must agree on every case. The canonical set
+ * lives in `core/tests/fixtures/framework-detect/`; this repository carries
+ * a byte-identical copy under `test/fixtures/framework-detect/` so that
+ * `npm test` works on a fresh public clone. `make check` diffs the copy
+ * against `../core` whenever that checkout is present (check-fixtures).
  *
  * Drift between the two = the 2026-05-26 cyby.ai incident:
  * builder v72 correctly flagged SSR; CLI hardcoded
@@ -16,7 +19,7 @@ import { describe, expect, it } from "vitest";
 
 import { detectProject } from "../src/detect.js";
 
-const FIXTURES = path.resolve(__dirname, "../../tests/fixtures/framework-detect");
+const FIXTURES = path.resolve(__dirname, "fixtures/framework-detect");
 
 describe("Next.js detect parity (CLI side)", () => {
   it("flags SSR when next.config.js has no `output: 'export'`", async () => {

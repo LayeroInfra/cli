@@ -1,0 +1,10 @@
+{
+  "name": "nextjs-no-config-fixture",
+  "private": true,
+  "dependencies": {
+    "next": "^13.0.0"
+  },
+  "scripts": {
+    "build": "next build"
+  }
+}

@@ -29,9 +29,9 @@
 по этому файлу.
 
 Запуск:
-    python3 core/cli/check-typography.py                # весь набор поверхностей
-    python3 core/cli/check-typography.py ПУТЬ [ПУТЬ…]   # только эти файлы
-    python3 core/cli/check-typography.py --strict ПУТЬ  # валить на любой находке
+    python3 check-typography.py                # весь набор поверхностей
+    python3 check-typography.py ПУТЬ [ПУТЬ…]   # только эти файлы
+    python3 check-typography.py --strict ПУТЬ  # валить на любой находке
 """
 from __future__ import annotations
 
@@ -164,7 +164,7 @@ SURFACES = (
     "core/backend/app/services/log_humanize.py",
     "core/backend/app/services/email",
     "core/backend/app/billing",
-    "core/cli/src",
+    "cli/src",
     # Подписи панели: кнопки, пустые состояния, ошибки.
     "frontend/control-plane/src",
 )
@@ -446,7 +446,7 @@ def _expand(p: Path) -> list[Path]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("paths", nargs="*")
-    ap.add_argument("--root", default=str(Path(__file__).resolve().parents[2]))
+    ap.add_argument("--root", default=str(Path(__file__).resolve().parents[1]))
     ap.add_argument("--strict", action="store_true", help="валить на любой находке")
     args = ap.parse_args()
 
