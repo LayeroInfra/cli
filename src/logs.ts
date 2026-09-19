@@ -1,8 +1,33 @@
 import chalk from "chalk";
-import { ApiClient, LogsPollOut } from "./api.js";
-import { detectMode, emit } from "./agent.js";
+import { ApiClient, ApiError, LogsPollOut } from "./api.js";
+import { detectMode, emit, LayeroError } from "./agent.js";
 
 const POLL_INTERVAL_MS = 1500;
+
+// 🚨 ОДИН СБОЙ ОПРОСА — НЕ КОНЕЦ НАБЛЮДЕНИЯ. До 0.11.3 `fetch` шёл без
+// таймаута, а цикл не переживал ни одной сетевой ошибки: 18.09.2026 деплой с
+// токеном дважды подряд молчал 3 и 15 минут и падал с `internal: fetch failed`,
+// хотя обе сборки на платформе дошли до ready (T-20260918-16). Для агента это
+// худший исход: он считает деплой проваленным и запускает его заново.
+// Теперь: таймаут на запрос (api.ts), до MAX_POLL_FAILURES сбоев ПОДРЯД с
+// растущей паузой, и свой код ошибки с подсказкой, где смотреть итог.
+const MAX_POLL_FAILURES = 8;
+const RETRY_BASE_MS = 1500;
+const RETRY_CAP_MS = 10_000;
+
+/** Сбой, который повторять бессмысленно: сервер ответил отказом по существу. */
+/** Тестам не нужно ждать настоящие паузы. */
+let delayScale = 1;
+export function setRetryDelayScaleForTests(scale: number): void {
+  delayScale = scale;
+}
+function retryDelayScale(): number {
+  return delayScale;
+}
+
+function isFatal(err: unknown): boolean {
+  return err instanceof ApiError && err.status >= 400 && err.status < 500 && err.status !== 408 && err.status !== 429;
+}
 
 function colorForStream(stream: string): (s: string) => string {
   switch (stream) {
@@ -37,6 +62,9 @@ export async function streamDeployLogs(
   let afterId = 0;
   let lastStage: string | null = null;
   let hiddenNoted = false;
+  let failures = 0;
+  const sleep = (ms: number): Promise<void> =>
+    new Promise((res) => setTimeout(res, retryDelayScale() * ms));
   const announce = (name: string): void => {
     if (name === lastStage) return;
     lastStage = name;
@@ -49,7 +77,23 @@ export async function streamDeployLogs(
   // Loop until terminal — the server's per-stage timeouts bound duration.
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const poll = await api.pollLogs(deployId, afterId);
+    let poll: LogsPollOut;
+    try {
+      poll = await api.pollLogs(deployId, afterId);
+      failures = 0;
+    } catch (err) {
+      if (isFatal(err)) throw err;
+      failures += 1;
+      if (failures >= MAX_POLL_FAILURES) {
+        throw new LayeroError(
+          "deploy_watch_lost",
+          `lost connection to the build log after ${failures} attempts (${(err as Error).message}); the build itself keeps running on the platform`,
+          `do NOT deploy again — check the result: \`npx layero@latest deploys list --json\`, then \`npx layero@latest logs --deploy ${deployId}\``,
+        );
+      }
+      await sleep(Math.min(RETRY_BASE_MS * 2 ** (failures - 1), RETRY_CAP_MS));
+      continue;
+    }
     // 🚨 Этап объявляем по СТРОКЕ, а не по текущему этапу деплоя. Опрос
     // приносит пачку строк, где хвост прошлого этапа идёт вперемешку с
     // началом нового, а `current_stage` — это уже новый: объявленный до

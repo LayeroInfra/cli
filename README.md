@@ -351,7 +351,7 @@ Full reference: <https://docs.layero.ru/cli/json-events>
 | 2 | sign-in needed | `auth_required`, `auth_expired`, `auth_timeout` |
 | 3 | not found | `project_unknown`, `project_not_found`, `org_unknown`, `hook_not_found`, `connection_not_found`, `claim_unknown`, … |
 | 4 | invalid input | `invalid_type`, `prebuilt_no_dir`, `prebuilt_no_index`, `branch_unsupported`, `repo_format`, `token_missing`, `bad_format`, … |
-| 5 | remote failure | `deploy_failed`, `deploy_cancelled`, `deploy_not_started`, `internal`, 5xx from the platform |
+| 5 | remote failure | `deploy_failed`, `deploy_cancelled`, `deploy_not_started`, `deploy_watch_lost`, `internal`, 5xx from the platform |
 
 ## Ignore rules
 

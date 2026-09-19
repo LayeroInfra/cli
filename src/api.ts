@@ -164,6 +164,10 @@ export interface DataApiProbe {
   rollback_expected: boolean;
 }
 
+// Один опрос логов отвечает за доли секунды. 30 с — заведомо «запрос завис»,
+// а не «сборка идёт долго»: длительность сборки на ответ этой ручки не влияет.
+export const POLL_TIMEOUT_MS = 30_000;
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -247,10 +251,15 @@ export class ApiClient {
     method: string,
     path: string,
     body?: unknown,
+    // Потолок ожидания ответа. По умолчанию его нет: загрузка архива и
+    // длинные ручки живут дольше любого разумного числа. Задаётся там, где
+    // запрос короткий и повторяемый (опрос логов сборки).
+    timeoutMs?: number,
   ): Promise<T> {
     const url = `${this.cfg.apiUrl.replace(/\/+$/, "")}${path}`;
     const init: RequestInit = {
       method,
+      ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
       headers: this.headers(
         body !== undefined ? { "Content-Type": "application/json" } : undefined,
       ),
@@ -791,6 +800,8 @@ export class ApiClient {
     return this.request<LogsPollOut>(
       "GET",
       `/deploys/${deployId}/logs?after_id=${afterId}`,
+      undefined,
+      POLL_TIMEOUT_MS,
     );
   }
 

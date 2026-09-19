@@ -78,6 +78,7 @@ const REMOTE = new Set([
   "deploy_failed",
   "deploy_cancelled",
   "deploy_not_started",
+  "deploy_watch_lost",
   "internal",
   "oauth_unavailable",
   "claimable_unavailable",

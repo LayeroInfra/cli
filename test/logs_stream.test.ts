@@ -72,3 +72,55 @@ describe("streamDeployLogs", () => {
     expect(lines[1]).toBe("npm error ERESOLVE");
   });
 });
+
+// T-20260918-16: опрос логов без таймаута и повтора вешал deploy на 15 минут
+// и ронял его с `internal: fetch failed` при успешной сборке.
+import { setRetryDelayScaleForTests } from "../src/logs.js";
+import { ApiError } from "../src/api.js";
+
+describe("streamDeployLogs: сбои опроса", () => {
+  beforeEach(() => setRetryDelayScaleForTests(0));
+
+  it("переживает сетевые сбои и доходит до конца сборки", async () => {
+    const api = {
+      pollLogs: vi
+        .fn()
+        .mockRejectedValueOnce(new TypeError("fetch failed"))
+        .mockRejectedValueOnce(new DOMException("timeout", "TimeoutError"))
+        .mockResolvedValueOnce({ current_stage: "activate", terminal: true, status: "ready", lines: [] }),
+    };
+    const { restore } = capture();
+    try {
+      const final = await streamDeployLogs(api as any, "dep-1");
+      expect(final.status).toBe("ready");
+    } finally {
+      restore();
+    }
+    expect(api.pollLogs).toHaveBeenCalledTimes(3);
+  });
+
+  it("после серии сбоев отдаёт deploy_watch_lost с подсказкой, а не internal", async () => {
+    const api = { pollLogs: vi.fn().mockRejectedValue(new TypeError("fetch failed")) };
+    const { restore } = capture();
+    try {
+      await expect(streamDeployLogs(api as any, "dep-9")).rejects.toMatchObject({
+        code: "deploy_watch_lost",
+        next_action: expect.stringContaining("logs --deploy dep-9"),
+      });
+    } finally {
+      restore();
+    }
+    expect(api.pollLogs).toHaveBeenCalledTimes(8);
+  });
+
+  it("отказ по существу (404) не повторяет", async () => {
+    const api = { pollLogs: vi.fn().mockRejectedValue(new ApiError("nope", 404, "")) };
+    const { restore } = capture();
+    try {
+      await expect(streamDeployLogs(api as any, "dep-1")).rejects.toBeInstanceOf(ApiError);
+    } finally {
+      restore();
+    }
+    expect(api.pollLogs).toHaveBeenCalledTimes(1);
+  });
+});
