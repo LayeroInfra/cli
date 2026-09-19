@@ -357,7 +357,7 @@ Full reference: <https://docs.layero.ru/cli/json-events>
 
 `layero deploy` honours `.gitignore` and `.layeroignore`. Always excluded:
 `node_modules`, `.git`, `dist`, `build`, `.next`, `.env*`, `.DS_Store`, and
-the rule files themselves. Maximum archive size is 200 MB.
+the rule files themselves. Maximum archive size is 500 MB.
 
 ## Config
 

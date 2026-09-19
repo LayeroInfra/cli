@@ -5,7 +5,7 @@ import path from "node:path";
 import { create as tarCreate } from "tar";
 import ignore, { Ignore } from "ignore";
 
-const MAX_BYTES = 200 * 1024 * 1024;
+const MAX_BYTES = 500 * 1024 * 1024;
 
 const DEFAULT_IGNORE = [
   "node_modules",
@@ -198,7 +198,7 @@ export async function packDirectory(
   if (fst.size > MAX_BYTES) {
     await fs.unlink(archivePath).catch(() => undefined);
     throw new Error(
-      `archive is ${(fst.size / (1024 * 1024)).toFixed(1)}MB — over the 200MB limit. ` +
+      `archive is ${(fst.size / (1024 * 1024)).toFixed(1)}MB — over the ${MAX_BYTES / (1024 * 1024)}MB limit. ` +
         "Trim the build output or skip large files (`.layeroignore`).",
     );
   }
@@ -242,7 +242,7 @@ export async function packCwd(
   if (stat.size > MAX_BYTES) {
     await fs.unlink(archivePath).catch(() => undefined);
     throw new Error(
-      `archive is ${(stat.size / (1024 * 1024)).toFixed(1)}MB — over the 200MB limit. ` +
+      `archive is ${(stat.size / (1024 * 1024)).toFixed(1)}MB — over the ${MAX_BYTES / (1024 * 1024)}MB limit. ` +
         "Add large directories to .layeroignore.",
     );
   }
