@@ -49,6 +49,8 @@ export interface Detected {
   next_action?: string;
   // App folders found below the folder (monorepo, frontend/ + backend/).
   candidates?: string[];
+  // Keys of layero.json the platform will NOT apply, with the right name.
+  layero_warnings?: string[];
 }
 
 export interface DetectOptions {
@@ -631,6 +633,35 @@ const OUTPUT_SOURCE: Record<string, ValueSource> = {
  */
 export async function detectProject(cwd: string, opts: DetectOptions = {}): Promise<Detected> {
   const snap = await snapshotFromDir(cwd);
+  const warnings = layeroKeyWarnings(snap.layeroJson);
+  const d = await detectFromSnapshot(cwd, snap, opts);
+  return warnings.length ? { ...d, layero_warnings: warnings } : d;
+}
+
+// Значения ключа `runtime` — зеркало `layero_keys.RUNTIME_VALUES` в core.
+const RUNTIME_VALUES = new Set(["ssr_next", "node_web", "python_web", "streamlit", "gradio", "flask"]);
+
+/**
+ * Ключи layero.json, которые платформа НЕ применит, — с верным именем.
+ *
+ * 🚨 `"type": "vite"` пишут по аналогии с флагом `--type` (прогон evals 19.09,
+ * T-20260918-21). Сборщик ключ молча пропускал, и узнать об этом можно было
+ * только из строки в логе сборки. Синонимом не принимаем: `type` двусмыслен —
+ * `--type` принимает и фреймворк, и рантайм, — поэтому имя подсказываем по
+ * значению, как `layero_keys.suggest_key` у сборщика и панели.
+ */
+export function layeroKeyWarnings(layero: Record<string, unknown> | null | undefined): string[] {
+  if (!layero || typeof layero !== "object" || !("type" in layero)) return [];
+  const value = layero.type;
+  const v = typeof value === "string" ? value.trim().toLowerCase() : "";
+  const key = RUNTIME_VALUES.has(v) ? "runtime" : "framework";
+  return [
+    `layero.json: key "type" is not applied — did you mean "${key}"? ` +
+      `Write {"${key}": ${JSON.stringify(value ?? "")}} instead.`,
+  ];
+}
+
+async function detectFromSnapshot(cwd: string, snap: dc.Snapshot, opts: DetectOptions): Promise<Detected> {
   const layero = snap.layeroJson;
   const fileFramework = str(layero?.framework);
   const outsideHint = fileFramework ? null : str(opts.frameworkHint);
@@ -802,5 +833,6 @@ export function detectedEvent(d: Detected): Extract<Event, { event: "detected" }
     ...(d.next_action ? { next_action: d.next_action } : {}),
     ...(d.candidates?.length ? { candidates: d.candidates } : {}),
     ...(d.ssr_warning ? { ssr_warning: d.ssr_warning } : {}),
+    ...(d.layero_warnings?.length ? { layero_warnings: d.layero_warnings } : {}),
   };
 }

@@ -135,6 +135,7 @@ export type Event =
       next_action?: string;
       candidates?: string[];
       ssr_warning?: string;
+      layero_warnings?: string[];
     } & EventCommon)
   // `deploy --dry-run`: как платформа соберёт папку, если выкатить сейчас.
   // Ничего не выгружено и не создано.
@@ -155,6 +156,7 @@ export type Event =
       next_action?: string;
       candidates?: string[];
       prebuilt_dir?: string;
+      layero_warnings?: string[];
     } & EventCommon)
   | ({ event: "prebuilt"; dir: string } & EventCommon)
   | ({ event: "packing"; files: number; bytes: number; sha256: string; prebuilt_dir?: string } & EventCommon)
@@ -571,6 +573,7 @@ function renderHuman(event: Event): void {
       }
       if (event.hint) process.stdout.write(`  ${event.hint}\n`);
       if (event.next_action) process.stdout.write(`  → ${event.next_action}\n`);
+      for (const w of event.layero_warnings ?? []) process.stdout.write(`! ${w}\n`);
       break;
     case "plan": {
       const src = event.sources;
@@ -587,6 +590,7 @@ function renderHuman(event: Event): void {
       );
       if (event.hint) process.stdout.write(`  ${event.hint}\n`);
       if (event.next_action) process.stdout.write(`  → ${event.next_action}\n`);
+      for (const w of event.layero_warnings ?? []) process.stdout.write(`! ${w}\n`);
       break;
     }
     case "prebuilt":

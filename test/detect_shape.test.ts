@@ -319,3 +319,26 @@ describe("источник значений у приложения в конт�
     expect(d.sources.runtime_kind).toBe("layero.json");
   });
 });
+
+describe("T-20260918-21: `type` в layero.json", () => {
+  it("не применяется, а подсказка называет framework или runtime по значению", async () => {
+    const { layeroKeyWarnings } = await import("../src/detect.js");
+    expect(layeroKeyWarnings({ type: "vite" })[0]).toContain('did you mean "framework"');
+    expect(layeroKeyWarnings({ type: "node_web" })[0]).toContain('did you mean "runtime"');
+    expect(layeroKeyWarnings({ framework: "vite" })).toEqual([]);
+    expect(layeroKeyWarnings(null)).toEqual([]);
+  });
+
+  it("detectProject отдаёт предупреждение в detected и не берёт `type` фреймворком", async () => {
+    const { detectProject, detectedEvent } = await import("../src/detect.js");
+    const fs = await import("node:fs/promises");
+    const os = await import("node:os");
+    const path = await import("node:path");
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "layero-type-"));
+    await fs.writeFile(path.join(dir, "layero.json"), JSON.stringify({ type: "vite" }));
+    await fs.writeFile(path.join(dir, "index.html"), "<html></html>");
+    const d = await detectProject(dir);
+    expect(d.sources.framework).not.toBe("layero.json");
+    expect(detectedEvent(d).layero_warnings?.[0]).toContain('key "type" is not applied');
+  });
+});

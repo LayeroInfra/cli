@@ -609,6 +609,7 @@ async function dryRun(
     ...(hint ? { hint } : {}),
     ...(d.next_action ? { next_action: d.next_action } : {}),
     ...(d.candidates?.length ? { candidates: d.candidates } : {}),
+    ...(d.layero_warnings?.length ? { layero_warnings: d.layero_warnings } : {}),
   });
 }
 
