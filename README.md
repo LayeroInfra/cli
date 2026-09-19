@@ -122,8 +122,10 @@ Run `layero <cmd> --help` for full options.
   separate `cli` environment). A project without a repository is always
   published live.
 - `--branch <name>` — **refused** (`branch_unsupported`, exit 4), see above.
-- `--claim` — deploy without an account: a temporary project for 72 hours
-  plus a `claim_url` for a human to take it over. Turns on by itself when
+- `--claim` — deploy without an account: a temporary site for 1 hour
+  plus a `claim_url` for a human to take it over. Static sites and SPAs only:
+  a server app (SSR, fullstack, container) is refused before anything is
+  uploaded (`claim_static_only`, exit 4). Turns on by itself when
   there is no token, the run is non-interactive (an agent, not CI), `--yes`
   is passed and the project is new: no `--project`, and the folder is not
   linked to an account project. An existing project without a token means
@@ -143,11 +145,16 @@ The platform creates a temporary project and a token for it; the CLI deploys
 with that token and prints, before `ready`:
 
 ```
-{"event":"claimable","url":"https://swift-fox.layero.app","claim_url":"https://app.layero.ru/claim?code=…","expires_at":"…"}
+{"event":"claimable","url":"https://k3v9q2m8x7w1c4r6t0y5u2ze.layero.app","claim_url":"https://app.layero.ru/claim?code=…","expires_at":"…"}
 ```
 
-The site lives for 72 hours. A human opens `claim_url`, signs in and takes
-the project into their account — the CLI cannot accept a claim by itself.
+The site lives for 1 hour, then stops answering and is deleted. Only static
+sites and SPAs are accepted: a server app needs an account. The address is
+random (the folder name and `--name` do not go into it), and the site is
+closed to search engines: `robots.txt` with `Disallow: /` and
+`X-Robots-Tag: noindex, nofollow`. A human opens `claim_url`, signs in and
+takes the project into their account — the CLI cannot accept a claim by
+itself.
 The claim code is saved in `.layero/project.json`; the temporary token stays
 in `~/.layero/config.json`, so `layero deploy` in the same directory keeps
 updating the same site until the claim expires or is accepted.

@@ -58,7 +58,7 @@ interface DeployOptions {
   // GitHub-push trigger or hook trigger uses the same subdir.
   root?: string;
   // --claim: деплой без аккаунта (этап 13). Платформа заводит временный
-  // проект на 72 часа и выдаёт токен на него; человек забирает сайт по
+  // проект на час и выдаёт токен на него; человек забирает сайт по
   // ссылке из события `claimable`. Включается и сам — когда токена нет,
   // среда агентская (не терминал и не CI) и передан `--yes`.
   claim?: boolean;
@@ -298,6 +298,28 @@ function isLegacyInitGuess(cfg: ProjectConfig | null): boolean {
       cfg.framework_hint === "static" &&
       cfg.build_cmd === "true" &&
       cfg.output_dir === ".",
+  );
+}
+
+/**
+ * 🚨 ПЕСОЧНИЦА — ТОЛЬКО СТАТИКА И SPA (T-20260919-10, решение владельца
+ * 19.09.2026). Серверное приложение (SSR, fullstack, контейнер) без аккаунта
+ * не выкладывается: это анонимный процесс с выходом в интернет на общем узле.
+ * Проверка ДО того, как заведена песочница и уехал архив; платформа и сборщик
+ * откажут и сами, но уже потратив чужую минуту.
+ */
+async function assertSandboxServesFiles(cwd: string, opts: DeployOptions): Promise<void> {
+  if (opts.prebuilt) return; // готовая сборка — это файлы по определению
+  const explicit = runtimeTypeOf(opts.type);
+  const kind =
+    explicit ??
+    (await detectProject(opts.root ? path.join(cwd, opts.root) : cwd)).runtime_kind ??
+    null;
+  if (!kind) return;
+  throw new LayeroError(
+    "claim_static_only",
+    `деплой без аккаунта (--claim) выкладывает только статику и SPA, а эта папка — серверное приложение (${kind})`,
+    "sign in and deploy from the account: `npx layero@latest login`, then run the same deploy without --claim",
   );
 }
 
@@ -716,6 +738,7 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       ? claimTokenFor(cliCfg, existing?.project_id)
       : undefined;
     if (reuse) {
+      await assertSandboxServesFiles(cwd, opts);
       cliCfg = { ...cliCfg, token: reuse };
       // Повторная выкатка песочницы: ссылка «забрать» нужна агенту и здесь —
       // без неё он искал её в `.layero/project.json` (симуляция 18.09.2026).
@@ -728,8 +751,9 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     ) {
       // 🚨 CI СЮДА НЕ ПОПАДАЕТ НАМЕРЕННО. Раннер без LAYERO_TOKEN — это
       // забытый секрет, и правильный ответ ему — отказ, а не сайт на
-      // временном адресе, который через 72 часа исчезнет вместе с
-      // «зелёным» прогоном. Явный `--claim` в CI работает.
+      // временном адресе, который через час исчезнет вместе с «зелёным»
+      // прогоном. Явный `--claim` в CI работает.
+      await assertSandboxServesFiles(cwd, opts);
       const r = await createClaimable(cliCfg, cwd, {
         name: opts.name ?? path.basename(cwd),
       });

@@ -680,7 +680,7 @@ export interface paths {
          *
          *     Возвращает токен со скоупом deploy (обычный `layero_ci_*`, привязан к
          *     держателю песочницы) и ссылку `claim_url`, по которой человек заберёт
-         *     проект в свой аккаунт. Песочница живёт 72 часа.
+         *     проект в свой аккаунт. Песочница живёт час.
          */
         post: operations["create_claimable_project_claimable_projects_post"];
         delete?: never;

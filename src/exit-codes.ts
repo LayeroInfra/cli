@@ -52,6 +52,7 @@ const INVALID_INPUT = new Set([
   "sql_missing",
   "branch_unsupported",
   "claim_with_project",
+  "claim_static_only",
   "provider_unknown",
   "repo_format",
   "token_missing",

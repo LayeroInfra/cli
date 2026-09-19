@@ -186,6 +186,54 @@ describe("deploy --claim", () => {
   });
 });
 
+describe("sandbox_rules: песочница — только статика и SPA (T-20260919-10)", () => {
+  it("серверная папка с --claim — claim_static_only до песочницы и до выгрузки", async () => {
+    const { detectProject } = await import("../src/detect.js");
+    vi.mocked(detectProject).mockResolvedValueOnce({
+      framework_hint: "next", build_cmd: null, output_dir: null, confident: true, runtime_kind: "ssr_next",
+      sources: { framework: "detected", build_cmd: "none", output_dir: "none" },
+    } as any);
+    const err: any = await deployCmd({ claim: true, yes: true, json: true }).catch((e) => e);
+    expect(err.code).toBe("claim_static_only");
+    expect(err.message).toContain("ssr_next");
+    expect(err.next_action).toContain("npx layero@latest login");
+    expect(M.createClaimableProject).not.toHaveBeenCalled();
+    expect(M.createDeploySession).not.toHaveBeenCalled();
+  });
+
+  it("--type серверного вида с --claim — тот же отказ, детект не нужен", async () => {
+    const err: any = await deployCmd({ claim: true, yes: true, json: true, type: "node_web" } as any).catch((e) => e);
+    expect(err.code).toBe("claim_static_only");
+    expect(M.createClaimableProject).not.toHaveBeenCalled();
+  });
+
+  it("повторная выкатка песочницы, папка стала сервером — отказ, токен заявки не тратится", async () => {
+    const { detectProject } = await import("../src/detect.js");
+    vi.mocked(detectProject).mockResolvedValueOnce({
+      framework_hint: "express", build_cmd: null, output_dir: null, confident: true, runtime_kind: "node_web",
+      sources: { framework: "detected", build_cmd: "none", output_dir: "none" },
+    } as any);
+    M.loadConfig.mockResolvedValue({ apiUrl: "https://api.layero.ru", claim_tokens: { "cp-1": "claim-jwt" } });
+    M.loadProjectConfig.mockResolvedValue({ project_id: "cp-1", slug: "swift-fox", claim: { code: "ABCD-1234", claim_url: CREATED.claim_url, expires_at: CREATED.expires_at } });
+    const err: any = await deployCmd({ yes: true, json: true }).catch((e) => e);
+    expect(err.code).toBe("claim_static_only");
+    expect(M.createDeploySession).not.toHaveBeenCalled();
+  });
+
+  it("статика с --claim проходит как раньше", async () => {
+    M.loadProjectConfig.mockResolvedValueOnce(null).mockResolvedValue({ project_id: "cp-1", slug: "swift-fox" });
+    const c = capture();
+    try { await deployCmd({ claim: true, yes: true, json: true }); } finally { c.restore(); }
+    expect(M.createClaimableProject).toHaveBeenCalledTimes(1);
+    expect(c.events().some((e) => e.event === "ready")).toBe(true);
+  });
+
+  it("код claim_static_only — неверный ввод (выход 4)", async () => {
+    const { exitCodeFor } = await import("../src/exit-codes.js");
+    expect(exitCodeFor("claim_static_only")).toBe(4);
+  });
+});
+
 describe("deploy --branch — честный отказ", () => {
   beforeEach(() => M.loadConfig.mockResolvedValue({ apiUrl: "x", token: "user-jwt" }));
 
