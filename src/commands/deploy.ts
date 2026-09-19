@@ -1128,8 +1128,11 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
 
     const dashboardUrl = projectUrl(cliCfg.apiUrl, project.id);
     const apexUrl = `https://${project.apex_hostname}`;
-    const deployRow = await api.getDeploy(started.deploy_id);
-    const probe = deployRow.environment_id
+    // Сборка уже готова: сбой этих запросов не повод объявлять её упавшей
+    // (`internal` при живом сайте, T-20260918-16). Без строки деплоя — адрес
+    // апекса и никаких чужих превью.
+    const deployRow = await api.getDeploy(started.deploy_id).catch(() => null);
+    const probe = deployRow?.environment_id
       ? await resolveReachability(api, deployRow.environment_id)
       : null;
 
@@ -1146,7 +1149,7 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     // Пустой список — обычный случай и молчит. Поля может не быть вовсе, если
     // платформа старше него: `?? []` и никаких предупреждений о том, чего не
     // знаем.
-    const evicted = deployRow.preview_evicted ?? [];
+    const evicted = deployRow?.preview_evicted ?? [];
     if (evicted.length > 0) {
       emit({ event: "preview_evicted", evicted });
     }

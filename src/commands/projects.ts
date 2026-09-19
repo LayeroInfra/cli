@@ -203,25 +203,25 @@ async function setupUrl(project: ProjectSummary): Promise<string> {
 
 /** Рантайм, который панель ставит проекту ДО первой сборки; статика — как есть. */
 const RUNTIME_KINDS = new Set<string>(["ssr_next", "streamlit", "gradio", "flask", "python_web", "node_web"]);
-/** Приложения, у которых `framework_hint` — рудимент: панель шлёт им `static`. */
-const HINT_IS_STATIC = new Set<string>(["ssr_next", "streamlit", "gradio"]);
 const PACKAGE_MANAGERS = new Set<string>(["npm", "yarn", "pnpm", "bun"]);
 
 /**
- * Тело `/setup` из подсказки детекта — так же, как его собирает мастер панели.
+ * Тело `/setup` при импорте репозитория без человека.
  *
- * Пишем только то, что детект действительно дал: пустое поле — не заглушка,
- * а «решит сборщик по репозиторию» (правило 3 `core/docs/BUILD-CONFIG.md`).
- * Менеджер пакетов закрепляем только из `layero.json`: это выбор владельца,
- * а вывод по лок-файлу сборщик и так повторит сам.
+ * 🚨 ФРЕЙМВОРК, КОМАНДА И КАТАЛОГ ИЗ ДЕТЕКТА В ПРОЕКТ НЕ УХОДЯТ. Настройки
+ * проекта сборщик исполняет дословно на КАЖДОЙ сборке (`BUILD-CONFIG.md`,
+ * правило 3), и догадка, записанная туда, становилась «выбором владельца»:
+ * репозиторий сменит сборщик — проект продолжит собирать старым. Панель
+ * перестала так делать 25.08 (T-20260824-16), а `projects create --repo`
+ * 17.09 повторил старое поведение (T-20260918-19). Пусто = «решит сборщик по
+ * клону» — тем же детектом, но на полном дереве и на каждой сборке заново.
+ *
+ * Остаётся то, что детект не угадывает, а читает как решение: менеджер пакетов
+ * из `layero.json` (выбор владельца) и папка приложения в монорепо (без неё
+ * сборщик при нескольких кандидатах откажет).
  */
 export function setupPayloadFromDetect(d: ProjectDetectOut): ProjectSetupIn {
-  const kind = d.runtime_kind ?? null;
-  const payload: ProjectSetupIn = {
-    framework_hint: kind && HINT_IS_STATIC.has(kind) ? "static" : d.framework,
-  };
-  if (d.build_cmd) payload.build_cmd = d.build_cmd;
-  if (d.output_dir) payload.output_dir = d.output_dir;
+  const payload: ProjectSetupIn = {};
   if (d.layero_found && d.package_manager && PACKAGE_MANAGERS.has(d.package_manager)) {
     payload.package_manager = d.package_manager as ProjectSetupIn["package_manager"];
   }
@@ -261,12 +261,13 @@ async function finishSetup(api: ApiClient, project: ProjectSummary, opts: Create
     });
     return;
   }
+  // Что увидел детект — для сведения: в проект эти значения не записаны.
   emit({
     event: "setup_applied",
     project: project.slug,
-    framework: payload.framework_hint ?? undefined,
-    build_cmd: payload.build_cmd ?? null,
-    output_dir: payload.output_dir ?? null,
+    framework: detected.framework ?? undefined,
+    build_cmd: detected.build_cmd || null,
+    output_dir: detected.output_dir || null,
     layero_found: detected.layero_found,
   });
   // Приложение, а не статика: тип — до первой сборки, иначе сборщик падает на
@@ -275,7 +276,7 @@ async function finishSetup(api: ApiClient, project: ProjectSummary, opts: Create
   const kind = detected.runtime_kind ?? null;
   if (kind && RUNTIME_KINDS.has(kind) && project.project_type !== kind) {
     try {
-      await api.setRuntimeType(project.id, kind as RuntimeKind);
+      await api.setRuntimeType(project.id, kind as RuntimeKind, false, "platform");
       emit({ event: "runtime_type_applied", project_type: kind });
     } catch {
       /* сборщик переставит тип сам, если репозиторий его подтвердит */

@@ -443,11 +443,14 @@ export class ApiClient {
     projectId: string,
     projectType: RuntimeKind,
     force = false,
+    // Кто назвал тип: `user` — человек (`--type`), `platform` — детект. Тип от
+    // детекта сборщик вправе уточнить по архиву; выбор человека — нет.
+    origin: "user" | "platform" = "user",
   ): Promise<ProjectSummary> {
     return this.request<ProjectSummary>(
       "POST",
       `/projects/${projectId}/runtime-type`,
-      { project_type: projectType, force },
+      { project_type: projectType, force, origin },
     );
   }
 

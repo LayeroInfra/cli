@@ -691,6 +691,17 @@ describe("--dry-run", () => {
 });
 
 describe("T-20260918-8: отказ и готовность", () => {
+  it("сборка готова, а запрос строки деплоя упал — ready с адресом, не internal", async () => {
+    // T-20260918-16: сбой одного запроса ПОСЛЕ успешной сборки объявлял её
+    // упавшей (`internal`), хотя сайт уже отвечал. Без строки деплоя — адрес
+    // апекса и никаких предупреждений о чужих превью.
+    loadProjectConfig.mockResolvedValue(null);
+    getDeploy.mockRejectedValueOnce(new TypeError("fetch failed"));
+    const events = await captured(() => deployCmd({ name: "smoke", json: true, yes: true }));
+    expect(events.find((e) => e.event === "error")).toBeUndefined();
+    expect(events.find((e) => e.event === "ready").url).toContain(PROJECT.apex_hostname);
+  });
+
   it("совет при упавшей сборке — команда diagnose, а не панель", async () => {
     loadProjectConfig.mockResolvedValue(null);
     vi.mocked(streamDeployLogs).mockResolvedValueOnce({ status: "failed", error_message: "boom" } as any);

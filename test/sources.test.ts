@@ -171,10 +171,13 @@ describe("projects create --repo", () => {
     try { await projectsCreateCmd({ repo: "gitverse:acme/site" }); } finally { c.restore(); }
     const ev = c.events();
     expect(M.detectProject).toHaveBeenCalledWith("p1");
-    // Только то, что дал детект: менеджер пакетов без layero.json не закрепляем.
-    expect(M.applySetup).toHaveBeenCalledWith("p1", { framework_hint: "vite", build_cmd: "npm run build", output_dir: "dist" });
+    // 🚨 Догадка детекта в проект НЕ уходит (T-20260918-19): настройки проекта
+    // сборщик исполняет дословно на каждой сборке, а «не задано» он решает сам
+    // по клону. Так же с 25.08 делает панель.
+    expect(M.applySetup).toHaveBeenCalledWith("p1", {});
     expect(M.triggerRepoDeploy).toHaveBeenCalledWith("p1");
     expect(M.setRuntimeType).not.toHaveBeenCalled();
+    // Событие пересказывает, что увидел детект, — для сведения.
     expect(ev.find((e) => e.event === "setup_applied")).toMatchObject({ project: "site", framework: "vite", build_cmd: "npm run build", output_dir: "dist", layero_found: false });
     expect(ev.find((e) => e.event === "deploy_started")).toMatchObject({ project: "site", deploy_id: "d42", url: "https://site.layero.app" });
   });
@@ -212,16 +215,24 @@ describe("projects create --repo", () => {
     expect(ev[4].hint).toContain("не запустилась");
   });
 
-  it("приложение: тип ставится до первой сборки; SSR/Streamlit получают framework_hint static", async () => {
+  it("приложение: тип ставится до первой сборки как вывод платформы, настройки сборки — нет", async () => {
     M.detectProject.mockResolvedValue({ ...DETECT, framework: "fastapi", runtime_kind: "python_web", build_cmd: "", output_dir: "" });
     const c = capture();
     try { await projectsCreateCmd({ repo: "gitverse:acme/site" }); } finally { c.restore(); }
-    expect(M.applySetup).toHaveBeenCalledWith("p1", { framework_hint: "fastapi" });
-    expect(M.setRuntimeType).toHaveBeenCalledWith("p1", "python_web");
+    expect(M.applySetup).toHaveBeenCalledWith("p1", {});
+    // `platform`: тип вывел детект, и сборщик вправе уточнить его по клону.
+    // С `user` проект заперт на догадке, как было у мастера до 13.09.
+    expect(M.setRuntimeType).toHaveBeenCalledWith("p1", "python_web", false, "platform");
     expect(c.events().map((e) => e.event)).toContain("runtime_type_applied");
-    expect(setupPayloadFromDetect({ ...DETECT, framework: "next", runtime_kind: "ssr_next" } as any).framework_hint).toBe("static");
-    // layero.json — выбор владельца: менеджер пакетов закрепляем.
-    expect(setupPayloadFromDetect({ ...DETECT, layero_found: true } as any)).toMatchObject({ package_manager: "pnpm" });
+    expect(setupPayloadFromDetect({ ...DETECT, framework: "next", runtime_kind: "ssr_next" } as any)).toEqual({});
+  });
+
+  it("в проект уходит только решение: менеджер пакетов из layero.json и папка приложения в монорепо", () => {
+    // Менеджер пакетов по лок-файлу сборщик выведет сам; из layero.json — выбор владельца.
+    expect(setupPayloadFromDetect({ ...DETECT } as any)).toEqual({});
+    expect(setupPayloadFromDetect({ ...DETECT, layero_found: true } as any)).toEqual({ package_manager: "pnpm" });
+    // Без папки сборщик при нескольких приложениях откажет — её закрепляем.
+    expect(setupPayloadFromDetect({ ...DETECT, suggested_root_directory: "apps/web" } as any)).toEqual({ root_directory: "apps/web" });
   });
 
   it("нет подключения к провайдеру — account_not_found; репозиторий не виден — repo_not_found", async () => {

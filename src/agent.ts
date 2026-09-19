@@ -604,8 +604,12 @@ function renderHuman(event: Event): void {
       // intentionally quiet in human mode — the next stage line takes over
       break;
     case "setup_applied":
+      // Фреймворк здесь — что увидел детект, а не записанная настройка:
+      // сборщик определяет его по репозиторию на каждой сборке.
       process.stdout.write(
-        event.framework ? `✓ Setup applied (${event.framework})\n` : `✓ Setup applied\n`,
+        event.framework
+          ? `✓ Setup complete (detected: ${event.framework})\n`
+          : `✓ Setup complete\n`,
       );
       break;
     case "setup_pending":
