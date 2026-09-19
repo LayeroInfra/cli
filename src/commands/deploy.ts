@@ -20,7 +20,7 @@ import {
 } from "../project-config.js";
 import { packCwd, packDirectory } from "../pack.js";
 import { streamDeployLogs } from "../logs.js";
-import { Detected, detectProject, detectedEvent } from "../detect.js";
+import { Detected, detectProject, detectedEvent, type ValueSource } from "../detect.js";
 import { runDeviceLogin } from "../auth.js";
 import { LayeroError, detectMode, emit, isCiEnv } from "../agent.js";
 import { ensureUsername } from "../username.js";
@@ -308,13 +308,15 @@ function isLegacyInitGuess(cfg: ProjectConfig | null): boolean {
  * Проверка ДО того, как заведена песочница и уехал архив; платформа и сборщик
  * откажут и сами, но уже потратив чужую минуту.
  */
-async function assertSandboxServesFiles(cwd: string, opts: DeployOptions): Promise<void> {
+async function assertSandboxServesFiles(
+  cwd: string,
+  opts: DeployOptions,
+  existing: ProjectConfig | null,
+  detectFolder: Detector,
+): Promise<void> {
   if (opts.prebuilt) return; // готовая сборка — это файлы по определению
-  const explicit = runtimeTypeOf(opts.type);
-  const kind =
-    explicit ??
-    (await detectProject(opts.root ? path.join(cwd, opts.root) : cwd)).runtime_kind ??
-    null;
+  const h = hintsFor(cwd, opts, existing);
+  const kind = h.asRuntime ?? (await detectFolder(h.detectCwd, h.hint, h.hintSource)).runtime_kind ?? null;
   if (!kind) return;
   throw new LayeroError(
     "claim_static_only",
@@ -323,16 +325,39 @@ async function assertSandboxServesFiles(cwd: string, opts: DeployOptions): Promi
   );
 }
 
-async function resolveSetupConfig(
+/** Детект папки: один на запуск, общий для проверки песочницы и плана сборки. */
+type Detector = (detectCwd: string, hint: string | null, hintSource: ValueSource) => Promise<Detected>;
+
+/**
+ * 🚨 ДЕТЕКТ — ОДИН НА ВЫКАТКУ. Гейт core «входов анализа не становится
+ * больше» считает запуски детекта в этом файле: каждый лишний — ещё один
+ * снимок папки со своей полнотой, и два снимка рано или поздно разойдутся.
+ * Проверка песочницы (до заявки) и план сборки (после входа) берут один
+ * результат по одинаковым входам.
+ */
+function oneDetectionPerRun(): Detector {
+  const memo = new Map<string, Promise<Detected>>();
+  return (detectCwd, hint, hintSource) => {
+    const key = `${detectCwd}\u0000${hint ?? ""}\u0000${hintSource}`;
+    let run = memo.get(key);
+    if (!run) {
+      run = detectProject(detectCwd, { frameworkHint: hint, hintSource });
+      memo.set(key, run);
+    }
+    return run;
+  };
+}
+
+/** Входы детекта: папка (с `--root`) и подсказка фреймворка с её источником. */
+function hintsFor(
   cwd: string,
   opts: DeployOptions,
   existing: ProjectConfig | null,
   projectFramework?: string | null,
-): Promise<SetupConfig> {
+) {
   // Honour --root when auto-detecting: the framework signals live in the
   // monorepo subdir, not the repo root.
   const detectCwd = opts.root ? path.join(cwd, opts.root) : cwd;
-
   // ⚠️ Runtime-тип в `framework_hint` не уходит: это разные вопросы. Хинт
   // отвечает «чем собирать» (vite, next, …), а runtime-kind — «запускать или
   // раздавать файлами». Положи мы сюда `node_web`, сборщик получил бы имя
@@ -342,10 +367,21 @@ async function resolveSetupConfig(
   const own = isLegacyInitGuess(existing) ? null : existing;
   const fileHint = own?.framework_hint ?? null;
   const hint = typeHint ?? fileHint ?? projectFramework ?? null;
-  const detected = await detectProject(detectCwd, {
-    frameworkHint: hint,
-    hintSource: typeHint ? "--type" : fileHint ? ".layero/project.json" : "project settings",
-  });
+  const hintSource: ValueSource = typeHint ? "--type" : fileHint ? ".layero/project.json" : "project settings";
+  return { detectCwd, asRuntime, typeHint, own, fileHint, hint, hintSource };
+}
+
+async function resolveSetupConfig(
+  cwd: string,
+  opts: DeployOptions,
+  existing: ProjectConfig | null,
+  projectFramework: string | null | undefined,
+  detectFolder: Detector,
+): Promise<SetupConfig> {
+  const { detectCwd, asRuntime, typeHint, own, fileHint, hint, hintSource } = hintsFor(
+    cwd, opts, existing, projectFramework,
+  );
+  const detected = await detectFolder(detectCwd, hint, hintSource);
   emit(detectedEvent(detected));
 
   return {
@@ -595,6 +631,7 @@ async function dryRun(
     { ...opts, root: root ?? undefined },
     existing,
     project?.framework_hint ?? null,
+    oneDetectionPerRun(),
   );
   const d = setup.detected;
   let buildCmd = d.build_cmd;
@@ -677,6 +714,7 @@ export async function waitUntilServing(
 
 export async function deployCmd(opts: DeployOptions): Promise<void> {
   const mode = detectMode();
+  const detectFolder = oneDetectionPerRun();
 
   if (
     opts.type &&
@@ -738,7 +776,7 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       ? claimTokenFor(cliCfg, existing?.project_id)
       : undefined;
     if (reuse) {
-      await assertSandboxServesFiles(cwd, opts);
+      await assertSandboxServesFiles(cwd, opts, existing, detectFolder);
       cliCfg = { ...cliCfg, token: reuse };
       // Повторная выкатка песочницы: ссылка «забрать» нужна агенту и здесь —
       // без неё он искал её в `.layero/project.json` (симуляция 18.09.2026).
@@ -753,7 +791,7 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       // забытый секрет, и правильный ответ ему — отказ, а не сайт на
       // временном адресе, который через час исчезнет вместе с «зелёным»
       // прогоном. Явный `--claim` в CI работает.
-      await assertSandboxServesFiles(cwd, opts);
+      await assertSandboxServesFiles(cwd, opts, existing, detectFolder);
       const r = await createClaimable(cliCfg, cwd, {
         name: opts.name ?? path.basename(cwd),
       });
@@ -830,7 +868,7 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
   // выкатку из исходников.
   const setup: Omit<SetupConfig, "detected"> = prebuiltDir
     ? { framework_hint: null, build_cmd: null, output_dir: null }
-    : await resolveSetupConfig(cwd, opts, existing);
+    : await resolveSetupConfig(cwd, opts, existing, undefined, detectFolder);
 
   if (prebuiltDir) {
     emit({ event: "prebuilt", dir: prebuiltDir });
