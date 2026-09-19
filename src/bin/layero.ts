@@ -67,17 +67,17 @@ async function main(): Promise<void> {
   program
     .command("login")
     .description(
-      "Вход через браузер (код из почты или Yandex ID): печатает одноразовый адрес и код.",
+      "Sign in through the browser (an emailed code or Yandex ID): prints a one-time URL and code.",
     )
-    .option("--no-browser", "не открывать браузер — только напечатать адрес и код")
+    .option("--no-browser", "do not open the browser — only print the URL and code")
     .addHelpText(
       "after",
-      "\nПримеры:\n" +
+      "\nExamples:\n" +
         "  $ layero login\n" +
-        "  $ layero login --no-browser        # SSH, контейнер, среда агента\n" +
-        "\nДля CI и агентов вход человеком не годится — нужен долгоживущий токен:\n" +
+        "  $ layero login --no-browser        # SSH, container, agent environment\n" +
+        "\nA human sign-in does not work for CI and agents — they need a long-lived token:\n" +
         "  $ layero token create ci\n" +
-        "  $ LAYERO_TOKEN=<токен> npx layero@latest deploy",
+        "  $ LAYERO_TOKEN=<token> npx layero@latest deploy",
     )
     .action(async (opts) => {
       await loginCmd(opts);
@@ -96,17 +96,17 @@ async function main(): Promise<void> {
   program
     .command("username <value>")
     .description(
-      "Задать имя аккаунта — оно же адрес личной организации. " +
-        "Без него платформе некуда положить проект. " +
-        "В интерактивном терминале `login` и `deploy` спросят его сами; " +
-        "эта команда нужна агентам и CI, где спрашивать некого.",
+      "Set the account username — it is also the address of your personal organization. " +
+        "Without it the platform has nowhere to put a project. " +
+        "In an interactive terminal `login` and `deploy` ask for it themselves; " +
+        "this command is for agents and CI, where there is nobody to ask.",
     )
     .addHelpText(
       "after",
       "\nExamples:\n" +
         "  $ layero username alice\n" +
         "  $ layero username my-team-bot\n\n" +
-        "Строчные латинские буквы, цифры и дефис; 2–32 символа.",
+        "Lowercase Latin letters, digits and hyphens; 2–32 characters.",
     )
     .action(async (value: string) => {
       const cfg = await loadConfig();
@@ -126,106 +126,112 @@ async function main(): Promise<void> {
 
   const projects = program
     .command("projects")
-    .description("Проекты аккаунта: список, создание из репозитория, удаление.");
+    .description("The account's projects: list, create from a repository, delete.");
   projects
     .command("list")
-    .description("Список ваших проектов.")
+    .description("List your projects.")
     .action(projectsListCmd);
   projects
     .command("create")
     .description(
-      "Создать проект из репозитория подключённого провайдера — путь (a): push в ветку = превью, push в main = прод. " +
-        "GitHub — через установленное App, остальные — через `layero sources connect`.",
+      "Create a project from a repository of a connected Git provider — path (a): push to a branch = preview, push to main = production. " +
+        "GitHub is connected through the installed Layero GitHub App, other providers through `layero sources connect`.",
     )
-    .requiredOption("--repo <provider:owner/repo>", "репозиторий: github:acme/site, gitverse:acme/site, gitlab:group/sub/project")
-    .option("--branch <name>", "основная ветка (по умолчанию — ветка репозитория по умолчанию)")
-    .option("--name <name>", "имя проекта (по умолчанию — имя репозитория)")
-    .option("--org <slug>", "организация (по умолчанию единственная)")
-    .option("--no-deploy", "не применять настройки и не запускать первую сборку — проект останется в мастере панели")
+    .requiredOption("--repo <provider:owner/repo>", "repository: github:acme/site, gitverse:acme/site, gitlab:group/sub/project")
+    .option("--branch <name>", "the project's main branch (default: the repository's default branch)")
+    .option("--name <name>", "project name (default: the repository name)")
+    .option("--org <slug>", "organization (default: your only one, otherwise your personal organization)")
+    .option("--no-deploy", "do not finish the setup or start the first build — the project stays in the setup wizard in the dashboard (app.layero.ru)")
     .addHelpText(
       "after",
-      "\nПримеры:\n" +
+      "\nExamples:\n" +
         "  $ layero projects create --repo github:acme/site\n" +
         "  $ layero projects create --repo gitverse:acme/site --branch develop --json\n" +
-        "\nПосле привязки команда сама применяет настройки из детекта и запускает первую сборку,\n" +
-        "как кнопка «Начать деплой» в панели. С --no-deploy проект остаётся в мастере.\n" +
-        "\nСобытия в --json: project_created, source_connected, webhook_installed | webhook_unavailable,\n" +
-        "затем setup_applied + deploy_started | setup_pending | setup_failed (проект создан, доделать в панели).\n" +
-        "Без вебхука push не собирается — заведите его вручную по адресу из webhook_unavailable.",
+        "\nOnce the repository is linked, the command finishes the setup and starts the first\n" +
+        "build itself. The detected framework, build command and output directory are not\n" +
+        "saved in the project: the builder detects them from the repository on every build\n" +
+        "(layero.json overrides them). Saved are only the monorepo app folder and the\n" +
+        "package manager from layero.json. With --no-deploy the project stays in the setup wizard.\n" +
+        "\nEvents with --json: project_created, source_connected, webhook_installed | webhook_unavailable,\n" +
+        "then setup_applied + deploy_started | setup_pending |\n" +
+        "setup_failed (the project exists; finish the setup in the dashboard).\n" +
+        "Without a webhook a push does not start a build — add the webhook by hand\n" +
+        "using the URL from webhook_unavailable.",
     )
     .action(async (opts) => projectsCreateCmd({ ...opts, json: program.opts().json }));
   projects
     .command("delete <id_or_slug>")
-    .description("Удалить проект. НЕОБРАТИМО; требует токена со scope admin (`layero token create <имя> --scope admin`).")
-    .option("-y, --yes", "не спрашивать подтверждение (вне терминала — обязателен)")
+    .description("Delete a project. IRREVERSIBLE; requires a token with the admin scope (`layero token create <name> --scope admin`).")
+    .option("-y, --yes", "do not ask for confirmation (required outside a terminal)")
     .action(async (ref: string, opts) => projectsDeleteCmd(ref, { ...opts, json: program.opts().json }));
 
   const sources = program
     .command("sources")
-    .description("Git-провайдеры организации: какие есть, подключить по токену, посмотреть репозитории.");
+    .description("The organization's Git providers: see which are available, connect one with a token, browse repositories.");
   sources
     .command("list")
-    .description("Провайдеры платформы и подключения организации.")
-    .option("--org <slug>", "организация (по умолчанию единственная)")
+    .description("Git providers the platform supports and the organization's connections.")
+    .option("--org <slug>", "organization (default: your only one, otherwise your personal organization)")
     .action(async (opts) => sourcesListCmd({ ...opts, json: program.opts().json }));
   sources
     .command("connect <provider>")
     .description(
-      "Подключить провайдера по персональному токену (PAT). Токен проверяется до записи и наружу не возвращается.",
+      "Connect a Git provider with a personal access token (PAT). The token is verified before it is saved and is never returned.",
     )
-    .option("--token <pat>", "токен провайдера (остаётся в истории shell — предпочтительнее --token-stdin)")
-    .option("--token-stdin", "прочитать токен из stdin: echo \"$PAT\" | layero sources connect gitverse --token-stdin")
-    .option("--base-url <url>", "адрес собственного инстанса (GitLab, GitFlic)")
-    .option("--name <label>", "подпись подключения")
-    .option("--org <slug>", "организация (по умолчанию единственная)")
+    .option("--token <pat>", "provider token (stays in the shell history — prefer --token-stdin)")
+    .option("--token-stdin", "read the token from stdin: echo \"$PAT\" | layero sources connect gitverse --token-stdin")
+    .option("--base-url <url>", "URL of a self-hosted instance (GitLab, GitFlic)")
+    .option("--name <label>", "connection label")
+    .option("--org <slug>", "organization (default: your only one, otherwise your personal organization)")
     .addHelpText(
       "after",
-      "\nПримеры:\n" +
+      "\nExamples:\n" +
         "  $ echo \"$GITVERSE_TOKEN\" | layero sources connect gitverse --token-stdin\n" +
         "  $ layero sources connect gitlab --token-stdin --base-url https://git.example.com < token.txt\n" +
-        "\nПровайдеры — `layero sources list`. GitHub подключается установкой App в панели.",
+        "\nProviders: `layero sources list`. GitHub is connected by installing\n" +
+        "the Layero GitHub App in the dashboard (app.layero.ru).",
     )
     .action(async (provider: string, opts) =>
       sourcesConnectCmd(provider, { ...opts, json: program.opts().json }),
     );
   sources
     .command("repos <connection_id>")
-    .description("Репозитории, видимые токену подключения.")
-    .option("--org <slug>", "организация (по умолчанию единственная)")
+    .description("Repositories visible to the connection's token.")
+    .option("--org <slug>", "organization (default: your only one, otherwise your personal organization)")
     .action(async (id: string, opts) => sourcesReposCmd(id, { ...opts, json: program.opts().json }));
 
   const envs = program
     .command("envs")
-    .description("Окружения проекта: ветки и их адреса.");
+    .description("The project's environments: branches and their addresses.");
   envs
     .command("list")
-    .description("Окружения проекта с адресами. У CLI-проекта одно — `cli`; у проекта с репозиторием — по ветке.")
-    .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)")
+    .description("The project's environments with their addresses. A CLI project has one — `cli`; a project with a repository has one per branch.")
+    .option("--project <id_or_slug>", "project (default: the linked project)")
     .action(async (opts) => envsListCmd({ ...opts, json: program.opts().json }));
 
   const claim = program
     .command("claim")
-    .description("Проект без аккаунта (`layero deploy --claim`): статус заявки и ссылка, чтобы забрать сайт.");
+    .description("Project without an account (`layero deploy --claim`): the claim status and the link to take the site over.");
   claim
     .command("status [code]")
-    .description("Состояние заявки: жива, забрана, истекла. Без кода — из .layero/project.json.")
+    .description("Claim state: alive, claimed or expired. Without a code, the code is taken from .layero/project.json.")
     .action(async (code: string | undefined) => claimStatusCmd(code, { json: program.opts().json }));
   claim
     .command("accept [code]")
     .description(
-      "Открыть страницу заявки в панели. Принять её может только человек, вошедший в панель, — CLI лишь открывает или печатает ссылку.",
+      "Open the claim page in the dashboard (app.layero.ru). Only a person signed in to the dashboard can accept the claim — the CLI only opens or prints the link.",
     )
-    .option("--no-browser", "не открывать браузер — только напечатать ссылку")
+    .option("--no-browser", "do not open the browser — only print the link")
     .action(async (code: string | undefined, opts) =>
       claimAcceptCmd(code, { ...opts, json: program.opts().json }),
     );
 
   const orgs = program
     .command("orgs")
-    .description("Организации аккаунта: личная и команды.");
+    .description("The account's organizations: personal and team ones.");
   orgs
     .command("list")
-    .description("Все организации, в которых вы состоите.")
+    .description("All organizations you are a member of.")
     .action(orgsListCmd);
 
   const deploys = program
@@ -234,7 +240,7 @@ async function main(): Promise<void> {
   deploys
     .command("list")
     .description("List recent deploys for the project's default branch (or --branch).")
-    .option("--project <id_or_slug>", "target project (default: linked .layero/project.json)")
+    .option("--project <id_or_slug>", "project (default: the one linked in .layero/project.json)")
     .option("--branch <name>", "branch to list deploys from (default: project's default_branch)")
     .option("--limit <n>", "max entries to show (default 20)", (v) => Number(v))
     .action(async (opts) => {
@@ -249,7 +255,7 @@ async function main(): Promise<void> {
   hooks
     .command("list")
     .description("List deploy hooks for the linked project.")
-    .option("--project <id>", "target project id (default: linked .layero/project.json)")
+    .option("--project <id>", "project id (default: the one linked in .layero/project.json)")
     .action(async (opts) => {
       await hooksListCmd(opts);
     });
@@ -259,7 +265,7 @@ async function main(): Promise<void> {
       "Create a new deploy hook. Prints a URL — paste it into Strapi / Sanity / "
         + "Contentful / GitHub Actions / cron as a POST webhook.",
     )
-    .option("--project <id>", "target project id (default: linked .layero/project.json)")
+    .option("--project <id>", "project id (default: the one linked in .layero/project.json)")
     .option(
       "--branch <name>",
       "branch to deploy when fired (default: project default_branch, evaluated at fire time)",
@@ -278,7 +284,7 @@ async function main(): Promise<void> {
   hooks
     .command("delete <id>")
     .description("Revoke a deploy hook. The URL stops working immediately.")
-    .option("--project <id>", "target project id (default: linked .layero/project.json)")
+    .option("--project <id>", "project id (default: the one linked in .layero/project.json)")
     .action(async (id: string, opts) => {
       await hooksDeleteCmd(id, opts);
     });
@@ -289,7 +295,7 @@ async function main(): Promise<void> {
       "Pin the project apex to a specific deploy (V071 production-pointer). " +
         "Without [deploy] picks the latest ready build on --branch (defaults to the 'cli' pseudo-branch).",
     )
-    .option("--project <id_or_slug>", "target project (default: linked .layero/project.json)")
+    .option("--project <id_or_slug>", "project (default: the one linked in .layero/project.json)")
     .option("--branch <name>", "branch to pick latest ready deploy from (default: cli)")
     .option("-y, --yes", "skip the confirmation prompt (CI)")
     .addHelpText(
@@ -312,7 +318,7 @@ async function main(): Promise<void> {
         "served by this branch. For a SPECIFIC older deploy use " +
         "`layero promote <commit-sha>`.",
     )
-    .option("--project <id_or_slug>", "target project (default: linked .layero/project.json)")
+    .option("--project <id_or_slug>", "project (default: the one linked in .layero/project.json)")
     .option("--branch <name>", "branch to roll back (default: project's default_branch)")
     .option("--deploy <id_or_sha>", "explicit deploy id or commit sha prefix to roll back to")
     .option("-y, --yes", "skip the confirmation prompt (CI)")
@@ -330,43 +336,43 @@ async function main(): Promise<void> {
 
   const env = program
     .command("env")
-    .description("Переменные окружения проекта. Значения не показываются — платформа их не отдаёт.");
+    .description("The project's environment variables. Values are not shown — the platform does not return them.");
   const envProject = (c: any) =>
-    c.option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)");
-  envProject(env.command("list").description("Имена переменных и длина значений."))
+    c.option("--project <id_or_slug>", "project (default: the linked project)");
+  envProject(env.command("list").description("Variable names and value lengths."))
     .action(async (opts: any) => envListCmd({ ...opts, json: program.opts().json }));
   envProject(
     env
       .command("set <pairs...>")
-      .description("Задать переменные: KEY=value. Остальные остаются нетронутыми."),
+      .description("Set variables as KEY=value. Other variables stay untouched."),
   ).action(async (pairs: string[], opts: any) =>
     envSetCmd(pairs, { ...opts, json: program.opts().json }),
   );
   envProject(
     env
       .command("unset <keys...>")
-      .description("Удалить переменные.")
-      .option("-y, --yes", "не спрашивать подтверждение"),
+      .description("Delete variables.")
+      .option("-y, --yes", "do not ask for confirmation"),
   ).action(async (keys: string[], opts: any) =>
     envUnsetCmd(keys, { ...opts, json: program.opts().json }),
   );
 
   const data = program
     .command("data")
-    .description("Data API базы: ключи, сайты, методы и доступ; адрес и ключ для фронтенда.");
+    .description("A database's Data API: keys, allowed sites, methods and access; the URL and key for the frontend.");
   data
     .command("env")
-    .description("Показать VITE_/NEXT_PUBLIC_ переменные Data API; --write кладёт их в .env.local.")
-    .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)")
-    .option("-w, --write", "записать в файл, а не печатать")
-    .option("--file <path>", "имя файла (по умолчанию .env.local)")
+    .description("Show the VITE_/NEXT_PUBLIC_ variables for the Data API; --write puts them in .env.local.")
+    .option("--project <id_or_slug>", "project (default: the linked project)")
+    .option("-w, --write", "write to the file instead of printing")
+    .option("--file <path>", "file name (default .env.local)")
     .addHelpText(
       "after",
-      "\nПримеры:\n" +
-        "  $ layero data env                       # посмотреть\n" +
-        "  $ layero data env --write               # положить в .env.local\n" +
-        "\nОтдаётся только ПУБЛИЧНЫЙ ключ — тот, что и так уезжает в бандл.\n" +
-        "Секретный ключ платформа не хранит и не отдаёт: он для сервера.",
+      "\nExamples:\n" +
+        "  $ layero data env                       # view\n" +
+        "  $ layero data env --write               # write to .env.local\n" +
+        "\nOnly the PUBLIC key is returned — the one that ends up in the bundle anyway.\n" +
+        "The platform neither stores nor returns the secret key: it is for the server.",
     )
     .action(async (opts: any) => dataEnvCmd({ ...opts, json: program.opts().json }));
 
@@ -374,48 +380,48 @@ async function main(): Promise<void> {
 
   const db = program
     .command("db")
-    .description("Базы организации: завести, посмотреть, подключить к проекту, выполнить SQL.");
-  const withOrg = (c: any) => c.option("--org <slug>", "организация (по умолчанию единственная)");
-  withOrg(db.command("list").description("Базы организации."))
+    .description("The organization's databases: create, list, connect to a project, run SQL.");
+  const withOrg = (c: any) => c.option("--org <slug>", "organization (default: your only one, otherwise your personal organization)");
+  withOrg(db.command("list").description("The organization's databases."))
     .action(async (opts: any) => dbListCmd({ ...opts, json: program.opts().json }));
   withOrg(
     db
       .command("create <name>")
-      .description("Завести базу. Строка подключения печатается ОДИН раз.")
+      .description("Create a database. The connection string is printed ONCE.")
       // 🚨 ФЛАГ ОСТАВЛЕН РАДИ ЧЕСТНОГО ОТКАЗА, А НЕ РАДИ РАБОТЫ. Он обещал
       // «объём платной базы в гигабайтах» и не делал НИЧЕГО: сервер поле не
       // читает ни одним путём создания — у Shared объём задаёт тариф, у
       // выделенного диск ступени. Убрать его совсем значило бы отвечать
       // «неизвестный параметр» тому, кто им пользовался, и оставить человека
       // гадать, куда делся объём. Теперь команда говорит это словами (C9).
-      .option("--gb <number>", "БОЛЬШЕ НЕ РАБОТАЕТ: объём задаёт тариф или ступень", (v: string) => parseInt(v, 10))
+      .option("--gb <number>", "NO LONGER WORKS: the size is set by the plan or by the dedicated instance's tier", (v: string) => parseInt(v, 10))
       // 🚨 ТЕ ЖЕ ФЛАГИ РАДИ ЧЕСТНОГО ОТКАЗА. Выделенный инстанс из терминала
       // не заказать, и это осознанно: у заказа есть цена и заморозка денег, а
       // карту в терминале не привяжешь и сумму подтвердить негде. Но человек,
       // прочитавший про ступени в панели, попробует `--cpu 2` — и без этих
       // флагов получит «неизвестный параметр», то есть ответ про синтаксис
       // вместо ответа про причину.
-      .option("--cpu <number>", "выделенный инстанс: заказывается в панели", (v: string) => parseInt(v, 10))
-      .option("--ram <mb>", "выделенный инстанс: заказывается в панели", (v: string) => parseInt(v, 10))
-      .option("--dedicated", "выделенный инстанс: заказывается в панели"),
+      .option("--cpu <number>", "dedicated instance: ordered only in the dashboard", (v: string) => parseInt(v, 10))
+      .option("--ram <mb>", "dedicated instance: ordered only in the dashboard", (v: string) => parseInt(v, 10))
+      .option("--dedicated", "dedicated instance: ordered only in the dashboard"),
   ).action(async (name: string, opts: any) =>
     dbCreateCmd(name, { ...opts, json: program.opts().json }),
   );
   withOrg(
     db
       .command("connect <database>")
-      .description("Подключить проект к базе: строка подключения приедет в его "
-        + "переменные, а домены проекта станут разрешёнными для Data API.")
-      .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)"),
+      .description("Connect a project to the database: the connection string goes into the project's "
+        + "environment variables, and the project's domains become allowed origins of the Data API.")
+      .option("--project <id_or_slug>", "project (default: the linked project)"),
   ).action(async (database: string, opts: any) =>
     dbConnectCmd(database, { ...opts, json: program.opts().json }),
   );
   withOrg(
     db
       .command("disconnect <database>")
-      .description("Отвязать проект от базы: переменная уйдёт следующим деплоем, "
-        + "роль проекта удалится, домены перестанут быть разрешёнными для Data API.")
-      .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)"),
+      .description("Disconnect a project from the database: the variable goes away with the next deploy, "
+        + "the project's role is deleted, and the project's domains stop being allowed origins of the Data API.")
+      .option("--project <id_or_slug>", "project (default: the linked project)"),
   ).action(async (database: string, opts: any) =>
     dbDisconnectCmd(database, { ...opts, json: program.opts().json }),
   );
@@ -427,8 +433,8 @@ async function main(): Promise<void> {
       // самой очевидной форме записи. Так эта команда и записана в приёмке
       // (C6), и так её пишет всякий, кто помнит psql.
       .command("sql <database> [sql]")
-      .description("Выполнить SQL в базе. Скрипт из нескольких операторов — одной транзакцией.")
-      .option("-c, --command <sql>", "запрос или скрипт"),
+      .description("Run SQL in a database. A script of several statements runs as one transaction.")
+      .option("-c, --command <sql>", "query or script"),
   ).action(async (database: string, sql: string | undefined, opts: any) =>
     dbSqlCmd(database, {
       ...opts,
@@ -441,77 +447,77 @@ async function main(): Promise<void> {
 
   const analytics = program
     .command("analytics")
-    .description("Яндекс.Метрика: подключение и статистика сайта.");
+    .description("Yandex Metrica: connect it and see the site's statistics.");
   const withProject = (c: any) =>
-    c.option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)");
-  withProject(analytics.command("status").description("Подключена ли Метрика и к какой ветке."))
+    c.option("--project <id_or_slug>", "project (default: the linked project)");
+  withProject(analytics.command("status").description("Whether Yandex Metrica is connected, and to which branch."))
     .action(async (opts: any) => analyticsStatusCmd({ ...opts, json: program.opts().json }));
   withProject(
     analytics
       .command("connect")
-      .description("Подключить Метрику. Печатает ссылку — открыть её и разрешить доступ должен человек.")
-      .option("--branch <name>", "ветка, чей адрес получит счётчик (по умолчанию основная)"),
+      .description("Connect Yandex Metrica. Prints a link — a human must open it and grant access.")
+      .option("--branch <name>", "branch whose address gets the counter (default: the main branch)"),
   ).action(async (opts: any) => analyticsConnectCmd({ ...opts, json: program.opts().json }));
   withProject(
     analytics
       .command("stats")
-      .description("Посещаемость: итоги, тренд и топ источников/устройств/страниц.")
-      .option("--period <7d|30d|90d>", "период (по умолчанию 7d)"),
+      .description("Traffic: totals, trend and top sources/devices/pages.")
+      .option("--period <7d|30d|90d>", "period (default 7d)"),
   ).action(async (opts: any) => analyticsStatsCmd({ ...opts, json: program.opts().json }));
   withProject(
     analytics
       .command("disconnect")
-      .description("Отключить Метрику от проекта.")
-      .option("-y, --yes", "не спрашивать подтверждение"),
+      .description("Disconnect Yandex Metrica from the project.")
+      .option("-y, --yes", "do not ask for confirmation"),
   ).action(async (opts: any) => analyticsDisconnectCmd({ ...opts, json: program.opts().json }));
 
   const perf = program
     .command("perf")
-    .description("Замер производительности сайта со сравнением с предыдущим деплоем.");
+    .description("Measure site performance and compare it with the previous deploy.");
   perf
     .command("check")
-    .description("Запустить замер активного деплоя. Прогон асинхронный — с --wait команда дождётся результата.")
-    .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)")
-    .option("--wait", "дождаться результата (до 4 минут)")
+    .description("Start a measurement of the active deploy. The run is asynchronous — with --wait the command waits for the result.")
+    .option("--project <id_or_slug>", "project (default: the linked project)")
+    .option("--wait", "wait for the result (up to 4 minutes)")
     .action(async (opts) => perfCheckCmd({ ...opts, json: program.opts().json }));
   perf
     .command("show")
-    .description("Показать последний замер и сравнение с предыдущим деплоем.")
-    .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)")
+    .description("Show the latest measurement and the comparison with the previous deploy.")
+    .option("--project <id_or_slug>", "project (default: the linked project)")
     .action(async (opts) => perfShowCmd({ ...opts, json: program.opts().json }));
 
   const domains = program
     .command("domains")
-    .description("Свои домены проекта: привязать, проверить DNS, сделать основным, снять.");
+    .description("The project's custom domains: attach, check DNS, make primary, remove.");
   const domainOpts = (c: any) =>
-    c.option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)");
-  domainOpts(domains.command("list").description("Показать домены проекта."))
+    c.option("--project <id_or_slug>", "project (default: the linked project)");
+  domainOpts(domains.command("list").description("Show the project's domains."))
     .action(async (opts: any) => domainsListCmd({ ...opts, json: program.opts().json }));
   domainOpts(
     domains
       .command("add <domain>")
       .description(
-        "Привязать домен. Печатает DNS-записи, которые нужно вписать у регистратора; "
-          + "готовности НЕ ждёт — распространение DNS занимает от минут до часа.",
+        "Attach a domain. Prints the DNS records to add at your registrar; "
+          + "does NOT wait until the domain is ready — DNS propagation takes from minutes to an hour.",
       ),
   ).action(async (domain: string, opts: any) =>
     domainsAddCmd(domain, { ...opts, json: program.opts().json }),
   );
   domainOpts(
-    domains.command("verify <domain>").description("Проверить DNS сейчас, не дожидаясь фоновой перепроверки."),
+    domains.command("verify <domain>").description("Check DNS now instead of waiting for the background re-check."),
   ).action(async (domain: string, opts: any) =>
     domainsVerifyCmd(domain, { ...opts, json: program.opts().json }),
   );
   domainOpts(
-    domains.command("primary <domain>").description("Сделать домен основным: платформенный адрес станет 301-редиректом на него."),
+    domains.command("primary <domain>").description("Make the domain primary: the platform address becomes a 301 redirect to it."),
   ).action(async (domain: string, opts: any) =>
     domainsPrimaryCmd(domain, { ...opts, json: program.opts().json }),
   );
   domainOpts(
     domains
       .command("remove <domain>")
-      .description("Снять домен с проекта. Необратимо и рвёт живой трафик; требует токена со scope admin.")
-      .option("-y, --yes", "не спрашивать подтверждение"),
+      .description("Remove the domain from the project. Irreversible and breaks live traffic; requires a token with the admin scope.")
+      .option("-y, --yes", "do not ask for confirmation"),
   ).action(async (domain: string, opts: any) =>
     domainsRemoveCmd(domain, { ...opts, json: program.opts().json }),
   );
@@ -519,13 +525,13 @@ async function main(): Promise<void> {
   program
     .command("diagnose")
     .description(
-      "Разобрать, почему деплой в таком состоянии: причина человеческим языком, "
-        + "окрестность ошибки в логе сборки и состояние приложения. Без --deploy берёт "
-        + "последний неуспешный деплой проекта.",
+      "Explain why a deploy is in its current state: the cause in plain language, "
+        + "the build log around the error, and the application's state. Without --deploy takes "
+        + "the project's most recent deploy, whatever its status.",
     )
-    .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный в .layero/project.json)")
-    .option("--deploy <id>", "конкретный деплой")
-    .addHelpText("after", "\nПримеры:\n  $ layero diagnose\n  $ layero diagnose --deploy 8da10ee6")
+    .option("--project <id_or_slug>", "project (default: the one linked in .layero/project.json)")
+    .option("--deploy <id>", "a specific deploy")
+    .addHelpText("after", "\nExamples:\n  $ layero diagnose\n  $ layero diagnose --deploy 8da10ee6")
     .action(async (opts) => {
       await diagnoseCmd({ ...opts, json: program.opts().json });
     });
@@ -533,13 +539,13 @@ async function main(): Promise<void> {
   program
     .command("logs")
     .description(
-      "Показать логи деплоя: сборки (по умолчанию) или приложения (--runtime).",
+      "Show a deploy's logs: the build log (default) or the application log (--runtime).",
     )
-    .option("--project <id_or_slug>", "проект (по умолчанию — залинкованный)")
-    .option("--deploy <id>", "конкретный деплой")
-    .option("--runtime", "логи запущенного приложения вместо логов сборки")
-    .option("--tail <n>", "сколько последних строк приложения (по умолчанию 100)", (v) => Number(v))
-    .addHelpText("after", "\nПримеры:\n  $ layero logs\n  $ layero logs --runtime --tail 200")
+    .option("--project <id_or_slug>", "project (default: the linked project)")
+    .option("--deploy <id>", "a specific deploy")
+    .option("--runtime", "the running application's logs instead of build logs")
+    .option("--tail <n>", "how many recent application log lines to show (default 100)", (v) => Number(v))
+    .addHelpText("after", "\nExamples:\n  $ layero logs\n  $ layero logs --runtime --tail 200")
     .action(async (opts) => {
       await logsCmd({ ...opts, json: program.opts().json });
     });
@@ -555,32 +561,32 @@ async function main(): Promise<void> {
   token
     .command("create <name>")
     .description(
-      "Выпустить долгоживущий токен для CI и агентов. " +
-        "Показывается ОДИН раз. По умолчанию read+deploy, без необратимого.",
+      "Issue a long-lived token for CI and agents. " +
+        "It is shown ONCE. Default scopes: read+deploy, nothing irreversible.",
     )
-    .option("--scope <list>", "через запятую: read, deploy, admin")
+    .option("--scope <list>", "comma-separated: read, deploy, admin")
     .addHelpText(
       "after",
-      "\nПримеры:\n" +
+      "\nExamples:\n" +
         "  $ layero token create ci                       # read+deploy\n" +
-        "  $ layero token create ci --scope read          # только чтение\n" +
-        "\nВ CI:  LAYERO_TOKEN=<токен> npx layero@latest deploy",
+        "  $ layero token create ci --scope read          # read only\n" +
+        "\nIn CI:  LAYERO_TOKEN=<token> npx layero@latest deploy",
     )
     .action(async (name: string, opts: any) =>
       tokenCreateCmd(name, { ...opts, json: program.opts().json }),
     );
   token
     .command("list")
-    .description("Выпущенные токены: имя, подсказка, права, последнее использование.")
+    .description("Issued tokens: name, hint, scopes, last use.")
     .action(async () => tokenListCmd({ json: program.opts().json }));
   token
     .command("revoke <id>")
-    .description("Отозвать токен. Действует немедленно.")
+    .description("Revoke a token. Takes effect immediately.")
     .action(async (id: string) => tokenRevokeCmd(id, { json: program.opts().json }));
   token
     .command("set <jwt>")
     .description(
-      "Сохранить токен, полученный иначе (например, `layero token create` на другой машине).",
+      "Save a token obtained elsewhere (for example, with `layero token create` on another machine).",
     )
     .action(tokenSetCmd);
 

@@ -649,80 +649,80 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
 export function registerDataApiCommands(data: Command, program: Command): void {
   const withDb = (c: Command) =>
     c
-      .option("--db <name>", "база: имя, слаг или id (по умолчанию — единственная подходящая)")
-      .option("--org <slug>", "организация (по умолчанию единственная)");
+      .option("--db <name>", "database: name, slug or id (default: the only matching database)")
+      .option("--org <slug>", "organization (default: your only one, otherwise your personal organization)");
   const json = (opts: any) => ({ ...opts, json: program.opts().json });
 
-  const keys = data.command("keys").description("Ключи Data API: список, выпуск, отзыв.");
-  withDb(keys.command("list").description("Ключи базы: префикс, срок, последний вызов. Значений нет."))
+  const keys = data.command("keys").description("Data API keys: list, issue, revoke.");
+  withDb(keys.command("list").description("The database's keys: prefix, expiry, last call. No key values."))
     .action(async (opts: any) => dataKeysListCmd(json(opts)));
   withDb(
     keys
       .command("issue")
-      .description("Выпустить ключ. Значение печатается один раз.")
-      .option("--kind <kind>", "public — для сайта, secret — для сервера", "public")
-      .option("--label <text>", "подпись, по которой ключ узнают в списке")
-      .option("--expires-in <days>", "срок: 30, 90, 365 или never", "never"),
+      .description("Issue a key. The value is printed once.")
+      .option("--kind <kind>", "public — for the site, secret — for the server", "public")
+      .option("--label <text>", "label to recognize the key by in the list")
+      .option("--expires-in <days>", "lifetime in days: 30, 90, 365 or never", "never"),
   ).action(async (opts: any) => dataKeysIssueCmd(json(opts)));
   withDb(
     keys
       .command("revoke <id>")
-      .description("Отозвать ключ по id или префиксу. Запросы с ним сразу получают отказ.")
-      .option("-y, --yes", "не спрашивать подтверждение"),
+      .description("Revoke a key by id or prefix. Requests with it are refused immediately.")
+      .option("-y, --yes", "do not ask for confirmation"),
   ).action(async (id: string, opts: any) => dataKeysRevokeCmd(id, json(opts)));
 
-  const origins = data.command("origins").description("Сайты, которым можно звать базу из браузера.");
-  withDb(origins.command("list").description("Адреса проектов базы и добавленные вручную."))
+  const origins = data.command("origins").description("Sites allowed to call the database from the browser.");
+  withDb(origins.command("list").description("Addresses of the projects connected to the database, plus sites added by hand."))
     .action(async (opts: any) => dataOriginsListCmd(json(opts)));
   withDb(
     origins
       .command("add <url>")
-      .description("Пустить сайт. Данных не открывает: это решают уровни доступа.")
-      .option("--note <text>", "зачем добавлен"),
+      .description("Allow a site. This opens no data: access levels decide that.")
+      .option("--note <text>", "why the site was added"),
   ).action(async (url: string, opts: any) => dataOriginsAddCmd(url, json(opts)));
   withDb(
     origins
       .command("remove <url>")
-      .description("Убрать сайт из списка.")
-      .option("-y, --yes", "не спрашивать подтверждение"),
+      .description("Remove a site from the list.")
+      .option("-y, --yes", "do not ask for confirmation"),
   ).action(async (url: string, opts: any) => dataOriginsRemoveCmd(url, json(opts)));
 
-  withDb(data.command("methods").description("REST и RPC базы с уровнем доступа на каждый метод."))
+  withDb(data.command("methods").description("The database's REST and RPC methods with the access level of each."))
     .action(async (opts: any) => dataMethodsCmd(json(opts)));
 
   withDb(
     data
       .command("grant <object>")
-      .description("Уровень доступа к методам таблицы или функции: показывает SQL, применяет после подтверждения.")
-      .option("--get <level>", "чтение таблицы")
-      .option("--post <level>", "добавление строк")
-      .option("--patch <level>", "изменение строк")
-      .option("--delete <level>", "удаление строк")
-      .option("--call <level>", "вызов функции")
-      .option("-y, --yes", "применить без подтверждения")
+      .description("Set the access level of a table's or function's methods: shows the SQL, applies it after confirmation.")
+      .option("--get <level>", "read the table")
+      .option("--post <level>", "insert rows")
+      .option("--patch <level>", "update rows")
+      .option("--delete <level>", "delete rows")
+      .option("--call <level>", "call the function")
+      .option("-y, --yes", "apply without confirmation")
       .addHelpText(
         "after",
-        "\nУровни: closed — закрыто, visitor — любой посетитель, user — вошедшие, server — только сервер.\n" +
-          "Неназванные методы таблицы сохраняют текущий уровень.\n" +
-          "\nПримеры:\n" +
-          "  $ layero data grant app.products --get visitor         # каталог виден сайту\n" +
-          "  $ layero data grant app.orders --get user --post user  # заказы — вошедшим\n" +
-          "  $ layero data grant api.order_create --call visitor     # функция для сайта\n" +
-          "  $ layero data grant 'api.pick(integer)' --call server   # перегрузка — по типам\n" +
-          "\nБез --yes вне терминала команда показывает SQL, ничего не меняет и завершается ошибкой.",
+        "\nLevels: closed — no access, visitor — any visitor, user — signed-in users, server — server only.\n" +
+          "Table methods you do not name keep their current level.\n" +
+          "\nExamples:\n" +
+          "  $ layero data grant app.products --get visitor         # the site can read the catalog\n" +
+          "  $ layero data grant app.orders --get user --post user  # orders for signed-in users\n" +
+          "  $ layero data grant api.order_create --call visitor     # a function for the site\n" +
+          "  $ layero data grant 'api.pick(integer)' --call server   # an overload: name it by argument types\n" +
+          "\nWithout --yes outside a terminal the command shows the SQL, changes nothing and exits with an error.",
       ),
   ).action(async (object: string, opts: any) => dataGrantCmd(object, json(opts)));
 
   withDb(
     data
       .command("enable")
-      .description("Включить Data API у базы: схема api, роли и публичный ключ. Методы закрыты.")
-      .option("--with-secret", "выпустить и секретный ключ для сервера")
+      .description("Enable the Data API for a database: sets up the api schema and roles, issues a public key. All methods start closed.")
+      .option("--with-secret", "also issue a secret key for the server")
       .option(
         "--repair",
-        "переприменить роли и схему api у базы с включённым Data API; снимает права ролей на схему public",
+        "re-apply the roles and the api schema for a database whose Data API is already enabled; revokes the roles' privileges on schema public",
       )
-      .option("-y, --yes", "не спрашивать подтверждение для --repair"),
+      .option("-y, --yes", "do not ask for confirmation for --repair"),
   ).action(async (opts: any) => dataEnableCmd(json(opts)));
 
   registerDataProbeCommand(data, withDb, json);

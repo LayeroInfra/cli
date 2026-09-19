@@ -70,6 +70,8 @@ const ANSWER_HEADERS = [
 ];
 /** Что откат пробы не возвращает — теми же словами, что панель. */
 const NOT_UNDONE = "номера последовательностей, внешние вызовы из базы, сессионные блокировки и суточная квота вызовов";
+/** Тот же список по-английски — для `--help` (справка для агентов на английском). Правите один — правьте оба. */
+const NOT_UNDONE_HELP = "sequence numbers, outbound calls made by the database, session locks and the daily call quota";
 /** Ручка ждёт UUID (`UUID(user_id)`). */
 const UUID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
 const CONTACTS = "https://docs.layero.ru/contacts/";
@@ -655,31 +657,31 @@ export function registerDataProbeCommand(
   withDb(
     data
       .command("probe <method> <path>")
-      .description("Проба метода настоящим запросом через шлюз: права и правила строк настоящие, запись откатывается.")
-      .option("--as <who>", "от чьего имени: visitor — посетитель (по умолчанию), user — вошедший, server — сервер")
-      .option("--user <id>", "для --as user: id пользователя приложения (UUID)")
-      .option("--query <name=value>", "параметр запроса в синтаксисе PostgREST; флаг повторяется", collect)
-      .option("--body <json>", "тело POST и PATCH: объект или массив JSON")
-      .option("--body-file <file>", "тело из файла с JSON")
-      .option("--schema <schema>", "схема таблицы: api, public или app; без флага шлюз ищет в api, затем в public, затем в app")
-      .option("--expect <status>", "ожидаемый статус: 200, 2xx или несколько через запятую; не совпал — ошибка")
+      .description("Probe a method with a real request through the gateway: real grants and RLS policies apply, writes are rolled back.")
+      .option("--as <who>", "who makes the request: visitor — a site visitor (default), user — a signed-in user, server — the server")
+      .option("--user <id>", "for --as user: the app user's id (UUID)")
+      .option("--query <name=value>", "query parameter in PostgREST syntax; repeat the flag for more", collect)
+      .option("--body <json>", "body for POST and PATCH: a JSON object or array")
+      .option("--body-file <file>", "body from a JSON file")
+      .option("--schema <schema>", "table schema: api, public or app; without the flag the gateway looks in api, then public, then app")
+      .option("--expect <status>", "expected status: 200, 2xx or a comma-separated list; a mismatch is an error")
       .addHelpText(
         "after",
-        "\nПути: /rest/v1/<таблица>, /rest/v1/rpc/<функция> (GET или POST), /whoami (только GET).\n" +
-          "Параметры — флагами --query, не через «?» в пути.\n" +
-          "\nПримеры:\n" +
+        "\nPaths: /rest/v1/<table>, /rest/v1/rpc/<function> (GET or POST), /whoami (GET only).\n" +
+          "Pass parameters as --query flags, not with a \"?\" in the path.\n" +
+          "\nExamples:\n" +
           "  $ layero data probe GET /rest/v1/products --query select=id,title --query limit=5\n" +
           "  $ layero data probe POST /rest/v1/cart --as user --user <id> --body '{\"qty\":1}'\n" +
           "  $ layero data probe POST /rest/v1/rpc/order_create --body-file order.json --as server\n" +
-          "  $ layero data probe GET /rest/v1/orders --expect 401,403   # закрыто ли посетителю\n" +
+          "  $ layero data probe GET /rest/v1/orders --expect 401,403   # is it closed to visitors?\n" +
           "  $ layero data probe GET /whoami\n" +
-          `\nЗапись откатывается. Не откатываются: ${NOT_UNDONE}.\n` +
-          "\nКод выхода — по порядку:\n" +
-          "  1. откат записи не подтверждён — ошибка data_probe_not_rolled_back;\n" +
-          "  2. статус совпал с --expect — 0;\n" +
-          "  3. шлюз ответил 5xx — ошибка data_probe_gateway_failed;\n" +
-          "  4. статус не совпал с --expect — ошибка data_probe_unexpected_status;\n" +
-          "  5. иначе 0, в том числе на отказ 4xx: 401, 403, 404 — ответ пробы, а не сбой.",
+          `\nWrites are rolled back. Not rolled back: ${NOT_UNDONE_HELP}.\n` +
+          "\nExit code, decided in this order:\n" +
+          "  1. the write rollback was not confirmed — error data_probe_not_rolled_back;\n" +
+          "  2. the status matches --expect — 0;\n" +
+          "  3. the gateway answered 5xx — error data_probe_gateway_failed;\n" +
+          "  4. the status does not match --expect — error data_probe_unexpected_status;\n" +
+          "  5. otherwise 0, including a 4xx refusal: 401, 403, 404 are the probe's answer, not a failure.",
       ),
   ).action(async (method: string, path: string, opts: any) => dataProbeCmd(method, path, json(opts)));
 }
