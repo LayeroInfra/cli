@@ -572,6 +572,41 @@ async function findServerEntry(cwd: string, pkg: PackageJson | null): Promise<st
   return null;
 }
 
+/**
+ * Сервер, привязанный к localhost: снаружи контейнера до него не достучаться,
+ * и запуск оборвётся по таймауту — а текст отказа причину не называет
+ * (чистая комната 19.09.2026, T-20260919-9). Сборщик судит по команде запуска;
+ * здесь — по коду точки входа, до первого деплоя.
+ */
+const LOOPBACK_LISTEN_RE =
+  /\.listen\s*\([^;\n]*?["'`](127\.0\.0\.1|localhost|::1)["'`]|host\s*[:=]\s*["'](127\.0\.0\.1|localhost)["']|--host[= ]+(127\.0\.0\.1|localhost)\b/;
+
+/** Файл, который запускает команда `node|tsx|ts-node <file>`. */
+function entryFromStart(start: string | null): string | null {
+  const m = start?.match(/^(?:node|tsx|ts-node|bun)\s+(?:--[\w-]+\s+)*([^\s&|;]+\.(?:m?js|cjs|ts|mts))/);
+  return m?.[1] ?? null;
+}
+
+function loopbackNote(entry: string): string {
+  return `${entry} binds the server to localhost (127.0.0.1): unreachable from outside the container, so the launch times out and the failure text does not say why. Listen on 0.0.0.0 and $PORT.`;
+}
+
+/** Точка входа, которая слушает только localhost, — или null. */
+async function loopbackEntry(cwd: string, pkg: PackageJson | null, start: string | null): Promise<string | null> {
+  const names = [
+    ...(entryFromStart(start) ? [entryFromStart(start)!] : []),
+    ...(typeof pkg?.main === "string" ? [pkg.main] : []),
+    ...SERVER_ENTRY_CANDIDATES,
+    "server/index.ts", "src/index.ts", "src/server.ts", "src/main.ts", "main.py", "app.py",
+  ];
+  for (const n of names) {
+    const text = await readText(path.join(cwd, n));
+    if (text !== null && LOOPBACK_LISTEN_RE.test(text.slice(0, 64 * 1024))) return n;
+  }
+  if (start && /--host[= ]+(127\.0\.0\.1|localhost)\b/.test(start)) return "start script";
+  return null;
+}
+
 /** Первая папка с index.html, если в корне его нет, — по правилу сборщика
  * (`discover_served_root`): мельчайшая, затем по алфавиту. */
 async function servedSubdir(cwd: string, maxDepth = 3): Promise<string | null> {
@@ -703,6 +738,18 @@ async function detectFromSnapshot(cwd: string, snap: dc.Snapshot, opts: DetectOp
     }
     // node_web / python_web / streamlit / gradio / fullstack: the container
     // serves the app, nothing is uploaded as static files from this plan.
+    const runtimeNotes: string[] = [];
+    if (plan.projectKind === "fullstack") {
+      runtimeNotes.push("Full-stack layout from layero.json: the frontend is served as files, the backend runs in a container.");
+    }
+    {
+      // Узнанный сервер тоже падает на запуске, если слушает localhost, — а
+      // текст отказа причину не называет (T-20260919-9).
+      const pkg = snap.packageJson as PackageJson | null;
+      const start = str(layero?.start) ?? str(layero?.startCommand) ?? scriptOf(pkg, "start");
+      const loop = await loopbackEntry(cwd, pkg, start);
+      if (loop) runtimeNotes.push(loopbackNote(loop));
+    }
     return {
       framework_hint: plan.framework,
       build_cmd: null,
@@ -710,9 +757,7 @@ async function detectFromSnapshot(cwd: string, snap: dc.Snapshot, opts: DetectOp
       confident: true,
       runtime_kind: plan.projectType as RuntimeKind,
       sources,
-      ...(plan.projectKind === "fullstack"
-        ? { hint: "Full-stack layout from layero.json: the frontend is served as files, the backend runs in a container." }
-        : {}),
+      ...(runtimeNotes.length ? { hint: runtimeNotes.join(" ") } : {}),
     };
   }
 
@@ -802,6 +847,22 @@ async function detectFromSnapshot(cwd: string, snap: dc.Snapshot, opts: DetectOp
   if (fileOutput) {
     outputDir = fileOutput;
     outputSource = "layero.json";
+  }
+
+  {
+    const pkg = snap.packageJson as PackageJson | null;
+    const buildScript = scriptOf(pkg, "build");
+    // Проверка типов внутри сборки: на платформе она упадёт так же, как
+    // локально, а деплой ради этого — потраченная сборка (чистая комната 19.09).
+    if (buildScript && /(^|[\s&;])tsc\b/.test(buildScript) && !/\bnoEmit\b.*\|\|/.test(buildScript)) {
+      notes.push(
+        `The build script runs the TypeScript checker (\`${buildScript}\`): a type error fails the build on the platform exactly as it does locally — run it locally before deploying.`,
+      );
+    }
+    const loop = await loopbackEntry(cwd, pkg, scriptOf(pkg, "start"));
+    // Форма узнана верно, поэтому `confident` не трогаем: это дефект кода,
+    // а не догадка детекта — и агенту нужен именно этот текст.
+    if (loop) notes.push(loopbackNote(loop));
   }
 
   const warning = ssrWarning(snap, framework);

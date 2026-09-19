@@ -124,3 +124,64 @@ describe("streamDeployLogs: сбои опроса", () => {
     expect(api.pollLogs).toHaveBeenCalledTimes(1);
   });
 });
+
+// Чистая комната 19.09.2026 (T-20260919-9): `stage` дублировались, а между
+// `deploy_started` и первым этапом была минута тишины.
+describe("streamDeployLogs: этапы и очередь", () => {
+  beforeEach(() => setRetryDelayScaleForTests(0));
+
+  it("этап объявляется один раз, даже если его строки приходят после следующего", async () => {
+    const api = {
+      pollLogs: vi
+        .fn()
+        .mockResolvedValueOnce({
+          current_stage: "detect",
+          terminal: false,
+          status: "building",
+          lines: [
+            { id: 1, line: "cloning", stream: "stdout", stage: "clone" },
+            { id: 2, line: "detecting", stream: "stdout", stage: "detect" },
+          ],
+        })
+        .mockResolvedValueOnce({
+          current_stage: "install",
+          terminal: true,
+          status: "ready",
+          lines: [
+            { id: 3, line: "late clone line", stream: "stdout", stage: "clone" },
+            { id: 4, line: "npm ci", stream: "stdout", stage: "install" },
+          ],
+        }),
+    };
+    const { events, restore } = capture();
+    try {
+      await streamDeployLogs(api as any, "dep-2");
+    } finally {
+      restore();
+    }
+    const stages = events.filter((e) => e.event === "stage").map((e) => e.name);
+    expect(stages).toEqual(["clone", "detect", "install"]);
+  });
+
+  it("в очереди печатает queued с waited_s, пока не начался первый этап", async () => {
+    const api = {
+      pollLogs: vi
+        .fn()
+        .mockResolvedValueOnce({ current_stage: null, terminal: false, status: "queued", lines: [] })
+        .mockResolvedValueOnce({ current_stage: "clone", terminal: true, status: "ready", lines: [] }),
+    };
+    const { events, restore } = capture();
+    const realNow = Date.now;
+    let t = 0;
+    Date.now = () => (t += 20_000);
+    try {
+      await streamDeployLogs(api as any, "dep-3");
+    } finally {
+      Date.now = realNow;
+      restore();
+    }
+    const q = events.filter((e) => e.event === "queued");
+    expect(q.length).toBe(1);
+    expect(q[0].waited_s).toBeGreaterThan(0);
+  });
+});

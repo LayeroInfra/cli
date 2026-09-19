@@ -203,6 +203,9 @@ export type Event =
   | ({ event: "deploy_started"; deploy_id: string; project?: string; url?: string } & EventCommon)
   | ({ event: "build_log"; line: string; stream: string } & EventCommon)
   | ({ event: "stage"; name: string } & EventCommon)
+  // Сборка стоит в очереди сборщиков: до первого `stage` бывает минута тишины
+  // (чистая комната 19.09.2026). Печатается раз в 15 с, пока не начнётся clone.
+  | ({ event: "queued"; waited_s: number } & EventCommon)
   // Диагностика (AGENT-08). `build_log_excerpt` — ВЫЖИМКА вокруг фатальной
   // строки, а не хвост: платформа уже выбрала из лога значимое, и агенту не
   // нужно тянуть в контекст две тысячи строк ради одной.

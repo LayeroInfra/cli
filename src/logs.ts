@@ -12,6 +12,7 @@ const POLL_INTERVAL_MS = 1500;
 // Теперь: таймаут на запрос (api.ts), до MAX_POLL_FAILURES сбоев ПОДРЯД с
 // растущей паузой, и свой код ошибки с подсказкой, где смотреть итог.
 const MAX_POLL_FAILURES = 8;
+const QUEUED_EVERY_MS = 15_000;
 const RETRY_BASE_MS = 1500;
 const RETRY_CAP_MS = 10_000;
 
@@ -63,10 +64,17 @@ export async function streamDeployLogs(
   let lastStage: string | null = null;
   let hiddenNoted = false;
   let failures = 0;
+  // Этап объявляется один раз: строки прошлого этапа приходят вперемешку с
+  // началом нового, и `announce` по строке дублировал `clone`/`probe`
+  // (чистая комната 19.09.2026).
+  const announced = new Set<string>();
+  const startedAt = Date.now();
+  let lastQueuedAt = startedAt;
   const sleep = (ms: number): Promise<void> =>
     new Promise((res) => setTimeout(res, retryDelayScale() * ms));
   const announce = (name: string): void => {
-    if (name === lastStage) return;
+    if (name === lastStage || announced.has(name)) return;
+    announced.add(name);
     lastStage = name;
     if (json) {
       emit({ event: "stage", name });
@@ -120,6 +128,15 @@ export async function streamDeployLogs(
       }
     }
     if (poll.current_stage) announce(poll.current_stage);
+    if (
+      json &&
+      poll.status === "queued" &&
+      announced.size === 0 &&
+      Date.now() - lastQueuedAt >= QUEUED_EVERY_MS
+    ) {
+      lastQueuedAt = Date.now();
+      emit({ event: "queued", waited_s: Math.round((Date.now() - startedAt) / 1000) });
+    }
     if (poll.terminal) {
       return poll;
     }
