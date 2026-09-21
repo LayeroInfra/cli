@@ -7,7 +7,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 const M = vi.hoisted(() => ({
   createClaimableProject: vi.fn(), getClaimStatus: vi.fn(), getProject: vi.fn(), listProjects: vi.fn(),
   createDeploySession: vi.fn(), startDeploySession: vi.fn(), getDeploy: vi.fn(), probeEnvironment: vi.fn(),
-  loadConfig: vi.fn(), saveConfig: vi.fn(), saveClaim: vi.fn(), loadProjectConfig: vi.fn(), persistProjectLinking: vi.fn(),
+  loadConfig: vi.fn(), saveConfig: vi.fn(), saveClaim: vi.fn(), forgetSandbox: vi.fn(), loadProjectConfig: vi.fn(), persistProjectLinking: vi.fn(), unlinkProject: vi.fn(),
   runDeviceLogin: vi.fn(), open: vi.fn(),
 }));
 
@@ -27,10 +27,11 @@ vi.mock("../src/api.js", () => {
   }
   return { ApiClient, ApiError, uploadArchive: vi.fn(async () => undefined) };
 });
-vi.mock("../src/config.js", () => ({ loadConfig: M.loadConfig, saveConfig: M.saveConfig, saveClaim: M.saveClaim, configPath: () => "/c" }));
+vi.mock("../src/config.js", () => ({ loadConfig: M.loadConfig, saveConfig: M.saveConfig, saveClaim: M.saveClaim, forgetSandbox: M.forgetSandbox, configPath: () => "/c" }));
 vi.mock("../src/project-config.js", () => ({
   loadProjectConfig: M.loadProjectConfig,
   persistProjectLinking: M.persistProjectLinking,
+  unlinkProject: M.unlinkProject,
   projectConfigPath: (cwd: string) => `${cwd}/.layero/project.json`,
 }));
 vi.mock("../src/auth.js", () => ({ runDeviceLogin: M.runDeviceLogin }));
@@ -217,6 +218,71 @@ describe("deploy --claim", () => {
     const err: any = await deployCmd({ claim: true, json: true }).catch((e) => e);
     expect(err.next_action).toMatch(/without --claim/);
     expect(err.next_action).toMatch(/Do not run `layero logout`/);
+  });
+});
+
+describe("sandbox_lifecycle: повторная выкатка в забранную или истёкшую песочницу (T-20260919-3)", () => {
+  const LINKED = { project_id: "cp-1", slug: "swift-fox" };
+  const withSandbox = () => {
+    M.loadConfig.mockResolvedValue({
+      apiUrl: "https://api.layero.ru",
+      claim_tokens: { "cp-1": "claim-jwt" },
+      claims: { "cp-1": { code: "ABCD-1234", claim_url: CREATED.claim_url, expires_at: CREATED.expires_at } },
+    });
+    M.loadProjectConfig.mockResolvedValue(LINKED);
+  };
+
+  it("сайт забрали — sandbox_claimed (выход 2), мёртвый токен забыт, привязка остаётся", async () => {
+    withSandbox();
+    M.getClaimStatus.mockResolvedValue({ status: "claimed", expires_at: CREATED.expires_at, url: "", slug: "swift-fox" });
+    const err: any = await deployCmd({ yes: true, json: true }).catch((e) => e);
+    expect(err.code).toBe("sandbox_claimed");
+    expect(err.next_action).toContain("npx layero@latest login");
+    const { exitCodeFor } = await import("../src/exit-codes.js");
+    expect(exitCodeFor("sandbox_claimed")).toBe(2);
+    expect(M.forgetSandbox).toHaveBeenCalledWith("cp-1");
+    expect(M.unlinkProject).not.toHaveBeenCalled();
+    expect(M.createDeploySession).not.toHaveBeenCalled();
+  });
+
+  it("срок вышел — sandbox_expired (выход 3), токен, заявка и привязка убраны", async () => {
+    withSandbox();
+    M.getClaimStatus.mockResolvedValue({ status: "expired", expires_at: CREATED.expires_at, url: "", slug: "swift-fox" });
+    const err: any = await deployCmd({ yes: true, json: true }).catch((e) => e);
+    expect(err.code).toBe("sandbox_expired");
+    expect(err.next_action).toContain("deploy --claim");
+    const { exitCodeFor } = await import("../src/exit-codes.js");
+    expect(exitCodeFor("sandbox_expired")).toBe(3);
+    expect(M.forgetSandbox).toHaveBeenCalledWith("cp-1");
+    expect(M.unlinkProject).toHaveBeenCalled();
+    expect(M.createDeploySession).not.toHaveBeenCalled();
+  });
+
+  it("кода заявки больше нет (404 — уборка удалила) — тоже sandbox_expired", async () => {
+    withSandbox();
+    const { ApiError } = await import("../src/api.js");
+    M.getClaimStatus.mockRejectedValue(new ApiError("x", 404, "песочница не найдена"));
+    const err: any = await deployCmd({ yes: true, json: true }).catch((e) => e);
+    expect(err.code).toBe("sandbox_expired");
+  });
+
+  it("статус не ответил (5xx) — выкатка идёт как раньше, решает платформа", async () => {
+    withSandbox();
+    const { ApiError } = await import("../src/api.js");
+    M.getClaimStatus.mockRejectedValue(new ApiError("x", 502, "bad gateway"));
+    const c = capture();
+    try { await deployCmd({ yes: true, json: true }); } finally { c.restore(); }
+    expect(M.createDeploySession).toHaveBeenCalled();
+    expect(M.forgetSandbox).not.toHaveBeenCalled();
+  });
+
+  it("живая песочница — выкатка идёт её токеном", async () => {
+    withSandbox();
+    M.getClaimStatus.mockResolvedValue({ status: "unclaimed", expires_at: CREATED.expires_at, url: "", slug: "swift-fox" });
+    const c = capture();
+    try { await deployCmd({ yes: true, json: true }); } finally { c.restore(); }
+    expect(c.events().some((e) => e.event === "ready")).toBe(true);
+    expect(M.forgetSandbox).not.toHaveBeenCalled();
   });
 });
 

@@ -1,7 +1,7 @@
 import open from "open";
 import { ApiClient, ApiError, ClaimableProjectOut } from "../api.js";
-import { CliConfig, SandboxClaim, loadConfig, saveClaim, saveConfig } from "../config.js";
-import { ProjectConfig, loadProjectConfig, persistProjectLinking } from "../project-config.js";
+import { CliConfig, SandboxClaim, forgetSandbox, loadConfig, saveClaim, saveConfig } from "../config.js";
+import { ProjectConfig, loadProjectConfig, persistProjectLinking, unlinkProject } from "../project-config.js";
 import { LayeroError, detectMode, emit } from "../agent.js";
 import { dashboardOrigin } from "../urls.js";
 
@@ -82,6 +82,54 @@ export async function createClaimable(
     apex_hostname: created.url ? new URL(created.url).hostname : `${created.slug}.layero.app`,
   });
   return { cfg: next, created, code };
+}
+
+/**
+ * Жива ли песочница папки, прежде чем выкатывать в неё её токеном (T-20260919-3).
+ *
+ * Токен песочницы умирает в двух случаях: сайт забрали в аккаунт (токен
+ * отозван при заборе) или вышел срок — час, после чего уборка удаляет проект
+ * и держателя. Раньше агент узнавал об этом сырым 401 посреди выкатки и не
+ * знал, что делать дальше. Публичный статус по коду заявки отвечает до
+ * упаковки: `claimed` → `sandbox_claimed` (войти тем аккаунтом, привязка
+ * остаётся — проект тот же), `expired` или кода больше нет → `sandbox_expired`
+ * (мёртвые токен, заявка и привязка убираются, `--claim` заведёт новую).
+ * Сеть или платформа не ответили — не отказываем: решит сама выкатка.
+ */
+export async function assertSandboxAlive(
+  cfg: CliConfig,
+  cwd: string,
+  linked: Pick<ProjectConfig, "project_id" | "slug" | "claim"> | null | undefined,
+): Promise<void> {
+  const claim = claimFor(cfg, linked);
+  if (!claim?.code || !linked?.project_id) return;
+  let status: string;
+  try {
+    status = (await new ApiClient({ apiUrl: cfg.apiUrl }).getClaimStatus(claim.code)).status;
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 404 || err.status === 410)) status = "expired";
+    else return;
+  }
+  const site = linked.slug ? ` (${linked.slug})` : "";
+  if (status === "claimed") {
+    await forgetSandbox(linked.project_id);
+    throw new LayeroError(
+      "sandbox_claimed",
+      `сайт этой папки${site} забрали в аккаунт — токен песочницы больше не действует`,
+      "the person took the site into their account: sign in with that account " +
+        "(`npx layero@latest login`) and run the same deploy — the folder stays linked to the project",
+    );
+  }
+  if (status === "expired") {
+    await forgetSandbox(linked.project_id);
+    await unlinkProject(cwd);
+    throw new LayeroError(
+      "sandbox_expired",
+      `песочница этой папки${site} истекла и удалена`,
+      "a new site without an account: `npx layero@latest deploy --claim` (static sites and SPAs, 1 hour); " +
+        "to keep a site, sign in and deploy into the account",
+    );
+  }
 }
 
 /**

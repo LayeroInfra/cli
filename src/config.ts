@@ -102,6 +102,30 @@ export async function saveClaim(projectId: string, claim: SandboxClaim): Promise
   if (process.platform !== "win32") await fs.chmod(CONFIG_FILE, 0o600);
 }
 
+/**
+ * Забыть песочницу: её токен и заявку (T-20260919-3). Зовётся, когда
+ * песочницы больше нет или её забрали, — мёртвый токен иначе подхватывала бы
+ * каждая следующая выкатка из этой папки. Пишет сам файл (см. `saveClaim`).
+ */
+export async function forgetSandbox(projectId: string): Promise<void> {
+  let raw: Record<string, unknown>;
+  try {
+    raw = JSON.parse(await fs.readFile(CONFIG_FILE, "utf-8")) as Record<string, unknown>;
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException)?.code === "ENOENT") return;
+    throw err;
+  }
+  const tokens = { ...((raw.claim_tokens as Record<string, string> | undefined) ?? {}) };
+  const claims = { ...((raw.claims as Record<string, SandboxClaim> | undefined) ?? {}) };
+  delete tokens[projectId];
+  delete claims[projectId];
+  await fs.writeFile(CONFIG_FILE, JSON.stringify({ ...raw, claim_tokens: tokens, claims }, null, 2), {
+    encoding: "utf-8",
+    mode: 0o600,
+  });
+  if (process.platform !== "win32") await fs.chmod(CONFIG_FILE, 0o600);
+}
+
 export async function clearConfig(): Promise<void> {
   try {
     await fs.unlink(CONFIG_FILE);

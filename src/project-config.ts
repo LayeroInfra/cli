@@ -131,3 +131,29 @@ export async function persistProjectLinking(
   await fs.writeFile(file, JSON.stringify(merged, null, 2), "utf-8");
   return merged as unknown as ProjectConfig;
 }
+
+/**
+ * Отвязать папку от проекта, сохранив поля, которые человек вписал сам.
+ *
+ * Зовётся, когда проекта больше нет — песочница истекла и удалена
+ * (T-20260919-3): мёртвая привязка иначе уводила бы каждую следующую выкатку
+ * в несуществующий проект. Пустой после этого файл удаляется.
+ */
+export async function unlinkProject(cwd: string): Promise<void> {
+  const file = projectConfigPath(cwd);
+  let raw: Record<string, unknown>;
+  try {
+    raw = JSON.parse(await fs.readFile(file, "utf-8")) as Record<string, unknown>;
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException)?.code === "ENOENT") return;
+    throw err;
+  }
+  for (const key of ["project_id", "slug", "organization_slug", "owner_slug", "apex_hostname", "api_url", "claim"]) {
+    delete raw[key];
+  }
+  if (Object.keys(raw).length === 0) {
+    await fs.unlink(file);
+    return;
+  }
+  await fs.writeFile(file, JSON.stringify(raw, null, 2), "utf-8");
+}

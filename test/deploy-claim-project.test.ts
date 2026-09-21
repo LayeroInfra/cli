@@ -11,7 +11,7 @@ const M = vi.hoisted(() => ({
   createClaimableProject: vi.fn(), getProject: vi.fn(), listProjects: vi.fn(),
   createDeploySession: vi.fn(), startDeploySession: vi.fn(), getDeploy: vi.fn(), probeEnvironment: vi.fn(),
   startDeviceAuth: vi.fn(), pollDeviceAuth: vi.fn(), me: vi.fn(), tokens: [] as (string | undefined)[],
-  loadConfig: vi.fn(), saveConfig: vi.fn(), saveClaim: vi.fn(), loadProjectConfig: vi.fn(), persistProjectLinking: vi.fn(),
+  loadConfig: vi.fn(), saveConfig: vi.fn(), saveClaim: vi.fn(), forgetSandbox: vi.fn(), loadProjectConfig: vi.fn(), persistProjectLinking: vi.fn(), unlinkProject: vi.fn(),
 }));
 
 vi.mock("../src/api.js", () => {
@@ -32,10 +32,11 @@ vi.mock("../src/api.js", () => {
   }
   return { ApiClient, ApiError, uploadArchive: vi.fn(async () => undefined) };
 });
-vi.mock("../src/config.js", () => ({ loadConfig: M.loadConfig, saveConfig: M.saveConfig, saveClaim: M.saveClaim, configPath: () => "/c" }));
+vi.mock("../src/config.js", () => ({ loadConfig: M.loadConfig, saveConfig: M.saveConfig, saveClaim: M.saveClaim, forgetSandbox: M.forgetSandbox, configPath: () => "/c" }));
 vi.mock("../src/project-config.js", () => ({
   loadProjectConfig: M.loadProjectConfig,
   persistProjectLinking: M.persistProjectLinking,
+  unlinkProject: M.unlinkProject,
   projectConfigPath: (cwd: string) => `${cwd}/.layero/project.json`,
 }));
 vi.mock("../src/pack.js", () => ({

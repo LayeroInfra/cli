@@ -24,7 +24,7 @@ import { Detected, detectProject, detectedEvent, type ValueSource } from "../det
 import { runDeviceLogin } from "../auth.js";
 import { LayeroError, detectMode, emit, isCiEnv } from "../agent.js";
 import { ensureUsername } from "../username.js";
-import { claimFor, claimTokenFor, createClaimable, keepLegacyClaim } from "./claim.js";
+import { assertSandboxAlive, claimFor, claimTokenFor, createClaimable, keepLegacyClaim } from "./claim.js";
 
 interface DeployOptions {
   // Legacy alias of "auto-detect framework + use .layero/project.json
@@ -777,6 +777,7 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       ? claimTokenFor(cliCfg, existing?.project_id)
       : undefined;
     if (reuse) {
+      await assertSandboxAlive(cliCfg, cwd, existing);
       await assertSandboxServesFiles(cwd, opts, existing, detectFolder);
       cliCfg = { ...cliCfg, token: reuse };
       // Повторная выкатка песочницы: ссылка «забрать» нужна агенту и здесь —

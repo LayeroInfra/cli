@@ -20,9 +20,10 @@
  * не попавший ни в один список, даёт 1 — честно «прочее», а не наугад.
  */
 
-const AUTH = new Set(["auth_required", "auth_expired", "auth_timeout"]);
+const AUTH = new Set(["auth_required", "auth_expired", "auth_timeout", "sandbox_claimed"]);
 
 const NOT_FOUND = new Set([
+  "sandbox_expired",
   "project_unknown",
   "project_not_found",
   "org_unknown",
