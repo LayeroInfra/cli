@@ -646,8 +646,7 @@ async function main(): Promise<void> {
       "deploy without an account: a temporary site for 1 hour plus a claim_url for a human to take it over. " +
         "Static sites and SPAs only — a server app (SSR, fullstack, container) is refused (claim_static_only, exit 4). " +
         "The address is random and closed to search engines. " +
-        "Turns on by itself when there is no token, the run is non-interactive (agent, not CI), --yes is passed " +
-        "and the project is new (no --project, folder not linked to an account project). " +
+        "Only with this flag: without a token and without --claim, deploy asks for a login. " +
         "Refused together with --project (claim_with_project, exit 4).",
     )
     .option(

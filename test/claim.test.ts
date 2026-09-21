@@ -7,7 +7,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 const M = vi.hoisted(() => ({
   createClaimableProject: vi.fn(), getClaimStatus: vi.fn(), getProject: vi.fn(), listProjects: vi.fn(),
   createDeploySession: vi.fn(), startDeploySession: vi.fn(), getDeploy: vi.fn(), probeEnvironment: vi.fn(),
-  loadConfig: vi.fn(), saveConfig: vi.fn(), loadProjectConfig: vi.fn(), persistProjectLinking: vi.fn(),
+  loadConfig: vi.fn(), saveConfig: vi.fn(), saveClaim: vi.fn(), loadProjectConfig: vi.fn(), persistProjectLinking: vi.fn(),
   runDeviceLogin: vi.fn(), open: vi.fn(),
 }));
 
@@ -27,7 +27,7 @@ vi.mock("../src/api.js", () => {
   }
   return { ApiClient, ApiError, uploadArchive: vi.fn(async () => undefined) };
 });
-vi.mock("../src/config.js", () => ({ loadConfig: M.loadConfig, saveConfig: M.saveConfig, configPath: () => "/c" }));
+vi.mock("../src/config.js", () => ({ loadConfig: M.loadConfig, saveConfig: M.saveConfig, saveClaim: M.saveClaim, configPath: () => "/c" }));
 vi.mock("../src/project-config.js", () => ({
   loadProjectConfig: M.loadProjectConfig,
   persistProjectLinking: M.persistProjectLinking,
@@ -97,17 +97,22 @@ beforeEach(() => {
 });
 
 describe("createClaimable", () => {
-  it("код — из claim_url, токен — в ~/.layero/config.json по проекту, код и ссылка — в .layero/project.json", async () => {
+  it("claim_hygiene: токен, код и ссылка — в ~/.layero/config.json; в .layero/project.json только привязка", async () => {
     const r = await createClaimable({ apiUrl: "x" }, "/cwd", { name: "site" });
     expect(r.code).toBe("ABCD-1234");
     expect(r.cfg.token).toBe("claim-jwt");
-    // В файл — только карта токенов заявок, не «вход».
-    expect(M.saveConfig).toHaveBeenCalledWith({ apiUrl: "x", claim_tokens: { "cp-1": "claim-jwt" } });
-    expect(M.persistProjectLinking).toHaveBeenCalledWith("/cwd", expect.objectContaining({
-      project_id: "cp-1", slug: "swift-fox", claim: { code: "ABCD-1234", claim_url: CREATED.claim_url, expires_at: CREATED.expires_at },
-    }));
-    // Токена в project.json нет.
-    expect(JSON.stringify(M.persistProjectLinking.mock.calls[0]![1])).not.toContain("claim-jwt");
+    // В файл — карты заявок, не «вход».
+    expect(M.saveConfig).toHaveBeenCalledWith({
+      apiUrl: "x",
+      claim_tokens: { "cp-1": "claim-jwt" },
+      claims: { "cp-1": { code: "ABCD-1234", claim_url: CREATED.claim_url, expires_at: CREATED.expires_at } },
+    });
+    expect(M.persistProjectLinking).toHaveBeenCalledWith("/cwd", expect.objectContaining({ project_id: "cp-1", slug: "swift-fox" }));
+    // 🚨 project.json уходит в git: ни токена, ни кода забора.
+    const linking = JSON.stringify(M.persistProjectLinking.mock.calls[0]![1]);
+    expect(linking).not.toContain("claim-jwt");
+    expect(linking).not.toContain("ABCD-1234");
+    expect(M.persistProjectLinking.mock.calls[0]![1]).not.toHaveProperty("claim");
   });
   it("claimCodeOf берёт claim_code сервера, иначе последний сегмент пути", () => {
     expect(claimCodeOf({ claim_url: "https://app/claim?code=Q", claim_code: "SRV" })).toBe("SRV");
@@ -139,12 +144,41 @@ describe("deploy --claim", () => {
     expect(M.runDeviceLogin).not.toHaveBeenCalled();
   });
 
-  it("включается сам: нет токена, агентская среда, --yes", async () => {
-    M.loadProjectConfig.mockResolvedValueOnce(null).mockResolvedValue({ project_id: "cp-1", slug: "swift-fox" });
+  it("claim_hygiene: сам не включается — агентская среда и --yes без --claim ведут ко входу", async () => {
+    // До 0.11.8 агент без входа с `deploy --yes` молча публиковал папку в
+    // открытый интернет (T-20260921). Теперь песочница — только явным флагом.
+    M.runDeviceLogin.mockResolvedValue({ apiUrl: "https://api.layero.ru", token: "user-jwt" });
     const c = capture();
     try { await deployCmd({ yes: true, json: true }); } finally { c.restore(); }
-    expect(M.createClaimableProject).toHaveBeenCalledTimes(1);
-    expect(c.events().some((e) => e.event === "claimable")).toBe(true);
+    expect(M.createClaimableProject).not.toHaveBeenCalled();
+    expect(M.runDeviceLogin).toHaveBeenCalledTimes(1);
+    expect(c.events().some((e) => e.event === "claimable")).toBe(false);
+  });
+
+  it("claim_hygiene: повторный деплой — заявка из конфига, событие claimable с её ссылкой", async () => {
+    M.loadConfig.mockResolvedValue({
+      apiUrl: "https://api.layero.ru",
+      claim_tokens: { "cp-1": "claim-jwt" },
+      claims: { "cp-1": { code: "ABCD-1234", claim_url: CREATED.claim_url, expires_at: CREATED.expires_at } },
+    });
+    M.loadProjectConfig.mockResolvedValue({ project_id: "cp-1", slug: "swift-fox" });
+    const c = capture();
+    try { await deployCmd({ yes: true, json: true }); } finally { c.restore(); }
+    expect(M.createClaimableProject).not.toHaveBeenCalled();
+    expect(c.events().find((e) => e.event === "claimable")).toMatchObject({ claim_url: CREATED.claim_url });
+    expect(M.saveClaim).not.toHaveBeenCalled();
+  });
+
+  it("claim_hygiene: код забора из project.json старого CLI уезжает в конфиг", async () => {
+    M.loadConfig.mockResolvedValue({ apiUrl: "https://api.layero.ru", claim_tokens: { "cp-1": "claim-jwt" } });
+    const CLAIM = { code: "ABCD-1234", claim_url: CREATED.claim_url, expires_at: CREATED.expires_at };
+    M.loadProjectConfig.mockResolvedValue({ project_id: "cp-1", slug: "swift-fox", claim: CLAIM });
+    const c = capture();
+    try { await deployCmd({ yes: true, json: true }); } finally { c.restore(); }
+    expect(M.saveClaim).toHaveBeenCalledWith("cp-1", CLAIM);
+    // Файл папки переписан — без кода (persistProjectLinking убирает поле).
+    expect(M.persistProjectLinking).toHaveBeenCalled();
+    expect(M.saveClaim.mock.invocationCallOrder[0]).toBeLessThan(M.persistProjectLinking.mock.invocationCallOrder[0]);
   });
 
   it("без --yes в агентской среде — обычный device flow, заявки нет", async () => {
@@ -262,7 +296,18 @@ describe("deploy --branch — честный отказ", () => {
 });
 
 describe("claim status / accept", () => {
-  it("status без кода — из .layero/project.json; без заявки — claim_unknown", async () => {
+  it("claim_hygiene: status без кода — заявка из конфига", async () => {
+    M.loadConfig.mockResolvedValue({
+      apiUrl: "https://api.layero.ru",
+      claims: { "cp-1": { code: "WXYZ-9876", claim_url: CREATED.claim_url, expires_at: CREATED.expires_at } },
+    });
+    M.loadProjectConfig.mockResolvedValue({ project_id: "cp-1" });
+    const c = capture();
+    try { await claimStatusCmd(undefined, { json: true }); } finally { c.restore(); }
+    expect(M.getClaimStatus).toHaveBeenCalledWith("WXYZ-9876");
+  });
+
+  it("status без кода — из .layero/project.json старого CLI; без заявки — claim_unknown", async () => {
     M.loadProjectConfig.mockResolvedValue({ project_id: "cp-1", claim: { code: "ABCD-1234", claim_url: CREATED.claim_url, expires_at: CREATED.expires_at } });
     const c = capture();
     try { await claimStatusCmd(undefined, { json: true }); } finally { c.restore(); }

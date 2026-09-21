@@ -16,8 +16,10 @@ export interface ProjectConfig {
   output_dir?: string;
   analytics_enabled?: boolean;
   env_vars?: Record<string, string>;
-  // Claimable-проект (этап 13): код заявки и адрес, по которому человек
-  // забирает сайт в свой аккаунт. Токена здесь нет намеренно — файл в git.
+  // Claimable-проект (этап 13): код заявки и адрес забора. 🚨 ТОЛЬКО ЧТЕНИЕ
+  // старых файлов: с 0.11.8 код живёт в `~/.layero/config.json` (T-20260921) —
+  // этот файл уходит в git, а код в публичном репозитории отдаёт сайт первому
+  // встречному. `persistProjectLinking` поле из файла убирает.
   claim?: {
     code: string;
     claim_url: string;
@@ -88,7 +90,6 @@ export async function persistProjectLinking(
     organization_slug: string;
     apex_hostname: string;
     api_url?: string;
-    claim?: ProjectConfig["claim"];
   },
   fallbackHint?: string | null,
 ): Promise<ProjectConfig> {
@@ -114,7 +115,9 @@ export async function persistProjectLinking(
     apex_hostname: linking.apex_hostname,
   };
   if (linking.api_url !== undefined) merged.api_url = linking.api_url;
-  if (linking.claim !== undefined) merged.claim = linking.claim;
+  // Код забора от CLI до 0.11.8 — вон из файла, который коммитят
+  // (T-20260921). Живую заявку вызывающий перед этим переносит в конфиг.
+  delete merged.claim;
   // Only seed framework_hint if the user hasn't set one yet — once it's in
   // the file (manually or from a prior --type), leave it alone.
   if (

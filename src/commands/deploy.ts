@@ -24,7 +24,7 @@ import { Detected, detectProject, detectedEvent, type ValueSource } from "../det
 import { runDeviceLogin } from "../auth.js";
 import { LayeroError, detectMode, emit, isCiEnv } from "../agent.js";
 import { ensureUsername } from "../username.js";
-import { claimTokenFor, createClaimable } from "./claim.js";
+import { claimFor, claimTokenFor, createClaimable, keepLegacyClaim } from "./claim.js";
 
 interface DeployOptions {
   // Legacy alias of "auto-detect framework + use .layero/project.json
@@ -59,8 +59,7 @@ interface DeployOptions {
   root?: string;
   // --claim: деплой без аккаунта (этап 13). Платформа заводит временный
   // проект на час и выдаёт токен на него; человек забирает сайт по
-  // ссылке из события `claimable`. Включается и сам — когда токена нет,
-  // среда агентская (не терминал и не CI) и передан `--yes`.
+  // ссылке из события `claimable`. Только явным флагом (T-20260921).
   claim?: boolean;
   // --dry-run: показать, как платформа соберёт папку, и ничего не выгружать.
   // Входа не требует: читает только диск (и настройки проекта, если вход есть).
@@ -764,7 +763,9 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     !opts.project ||
     (existing?.project_id !== undefined &&
       (opts.project === existing.project_id || opts.project === existing.slug));
-  const linkedIsClaimable = Boolean(existing?.project_id && existing.claim);
+  const linkedIsClaimable = Boolean(
+    existing?.project_id && (claimFor(cliCfg, existing) || claimTokenFor(cliCfg, existing.project_id)),
+  );
   const boundToAccountProject = opts.project
     ? !(projectIsLinkedOne && linkedIsClaimable)
     : Boolean(existing?.project_id) && !linkedIsClaimable;
@@ -780,12 +781,14 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       cliCfg = { ...cliCfg, token: reuse };
       // Повторная выкатка песочницы: ссылка «забрать» нужна агенту и здесь —
       // без неё он искал её в `.layero/project.json` (симуляция 18.09.2026).
-      if (existing?.claim) reusedClaim = existing.claim;
+      reusedClaim = claimFor(cliCfg, existing) ?? null;
     } else if (
-      // Явный `--claim` — всегда новая песочница (с `--project` он отклонён
-      // выше). Сам режим включается только для нового проекта.
-      opts.claim ||
-      (!boundToAccountProject && !mode.interactive && !isCiEnv() && opts.yes)
+      // 🚨 ТОЛЬКО ЯВНЫЙ `--claim` (T-20260921). До 0.11.8 режим включался сам —
+      // нет токена, агентская среда, `--yes` — и агент молча публиковал папку
+      // в открытый интернет: человек не решал публиковать и не принимал
+      // условий. Теперь без флага — обычный вход (`auth_required`). С
+      // `--project` флаг отклонён выше: песочница — только новый проект.
+      opts.claim
     ) {
       // 🚨 CI СЮДА НЕ ПОПАДАЕТ НАМЕРЕННО. Раннер без LAYERO_TOKEN — это
       // забытый секрет, и правильный ответ ему — отказ, а не сайт на
@@ -1062,6 +1065,9 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
 
   // Только связка папки с проектом. Фреймворк сюда больше не пишется: поле
   // этого файла CLI читает как выбор человека (см. `resolveSetupConfig`).
+  // Код забора старого CLI сначала уезжает в конфиг, потом файл
+  // переписывается уже без него (T-20260921).
+  await keepLegacyClaim(cliCfg, existing);
   await persistProjectLinking(cwd, {
     project_id: project.id,
     slug: project.slug,

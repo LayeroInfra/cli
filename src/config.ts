@@ -14,6 +14,18 @@ export interface CliConfig {
   // создании заявки. Живут здесь, а не в `.layero/project.json`: та папка
   // уходит в git, а токен даёт право деплоить в проект до конца срока.
   claim_tokens?: Record<string, string>;
+  // Код и ссылка забора песочницы: проект → заявка. 🚨 ТОЖЕ ЗДЕСЬ, а не в
+  // `.layero/project.json` (T-20260921): код забора в публичном репозитории —
+  // это сайт, который заберёт первый встречный с аккаунтом. До 0.11.8 код
+  // писался в project.json; такие файлы по-прежнему читаются.
+  claims?: Record<string, SandboxClaim>;
+}
+
+/** Заявка песочницы: чем и где человек заберёт сайт в аккаунт. */
+export interface SandboxClaim {
+  code: string;
+  claim_url: string;
+  expires_at: string;
 }
 
 const CONFIG_DIR = path.join(homedir(), ".layero");
@@ -45,6 +57,7 @@ export async function loadConfig(): Promise<CliConfig> {
       // выводе врала бы. Кто мы — узнаем у API.
       user: ENV_TOKEN ? undefined : parsed.user,
       claim_tokens: parsed.claim_tokens,
+      claims: parsed.claims,
     };
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
@@ -64,6 +77,29 @@ export async function saveConfig(cfg: CliConfig): Promise<void> {
   if (process.platform !== "win32") {
     await fs.chmod(CONFIG_FILE, 0o600);
   }
+}
+
+/**
+ * Записать заявку песочницы в файл конфига, не трогая остального.
+ *
+ * Читает и пишет САМ файл, а не результат `loadConfig`: тот подставляет
+ * `LAYERO_TOKEN` из окружения, и запись через него унесла бы токен CI в
+ * файл на диске.
+ */
+export async function saveClaim(projectId: string, claim: SandboxClaim): Promise<void> {
+  let raw: Record<string, unknown> = {};
+  try {
+    raw = JSON.parse(await fs.readFile(CONFIG_FILE, "utf-8")) as Record<string, unknown>;
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException)?.code !== "ENOENT") throw err;
+  }
+  const claims = { ...((raw.claims as Record<string, SandboxClaim> | undefined) ?? {}), [projectId]: claim };
+  await ensureDir();
+  await fs.writeFile(CONFIG_FILE, JSON.stringify({ ...raw, claims }, null, 2), {
+    encoding: "utf-8",
+    mode: 0o600,
+  });
+  if (process.platform !== "win32") await fs.chmod(CONFIG_FILE, 0o600);
 }
 
 export async function clearConfig(): Promise<void> {

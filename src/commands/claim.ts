@@ -1,7 +1,7 @@
 import open from "open";
 import { ApiClient, ApiError, ClaimableProjectOut } from "../api.js";
-import { CliConfig, loadConfig, saveConfig } from "../config.js";
-import { loadProjectConfig, persistProjectLinking } from "../project-config.js";
+import { CliConfig, SandboxClaim, loadConfig, saveClaim, saveConfig } from "../config.js";
+import { ProjectConfig, loadProjectConfig, persistProjectLinking } from "../project-config.js";
 import { LayeroError, detectMode, emit } from "../agent.js";
 import { dashboardOrigin } from "../urls.js";
 
@@ -35,9 +35,10 @@ export function claimCodeOf(created: Pick<ClaimableProjectOut, "claim_url" | "cl
 }
 
 /**
- * Создать claimable-проект и запомнить его: токен — в `~/.layero/config.json`
- * (по проекту), код и ссылку — в `.layero/project.json`. Возвращает конфиг
- * с токеном заявки, которым идёт деплой.
+ * Создать claimable-проект и запомнить его: токен, код и ссылку — в
+ * `~/.layero/config.json` (по проекту, файл 0600); в `.layero/project.json` —
+ * только привязка папки. Возвращает конфиг с токеном заявки, которым идёт
+ * деплой.
  */
 export async function createClaimable(
   cfg: CliConfig,
@@ -63,22 +64,49 @@ export async function createClaimable(
     throw err;
   }
   const code = claimCodeOf(created);
+  const claim: SandboxClaim = { code, claim_url: created.claim_url, expires_at: created.expires_at };
   const next: CliConfig = {
     ...cfg,
     token: created.token,
     claim_tokens: { ...(cfg.claim_tokens ?? {}), [created.project_id]: created.token },
+    claims: { ...(cfg.claims ?? {}), [created.project_id]: claim },
   };
-  // В файл — только карту токенов заявок, не сам токен как «вход»: иначе
-  // следующий `layero whoami` считал бы временный токен аккаунтом.
-  await saveConfig({ ...cfg, claim_tokens: next.claim_tokens });
+  // В файл — карты заявок, не сам токен как «вход»: иначе следующий
+  // `layero whoami` считал бы временный токен аккаунтом.
+  await saveConfig({ ...cfg, claim_tokens: next.claim_tokens, claims: next.claims });
+  // 🚨 Код забора в project.json НЕ пишется (T-20260921): файл уходит в git.
   await persistProjectLinking(cwd, {
     project_id: created.project_id,
     slug: created.slug,
     organization_slug: created.organization,
     apex_hostname: created.url ? new URL(created.url).hostname : `${created.slug}.layero.app`,
-    claim: { code, claim_url: created.claim_url, expires_at: created.expires_at },
   });
   return { cfg: next, created, code };
+}
+
+/**
+ * Код забора из `.layero/project.json` старого CLI (до 0.11.8) — в конфиг.
+ * Файл папки после этого перепишет `persistProjectLinking` уже без кода.
+ */
+export async function keepLegacyClaim(
+  cfg: CliConfig,
+  linked: Pick<ProjectConfig, "project_id" | "claim"> | null | undefined,
+): Promise<void> {
+  if (!linked?.project_id || !linked.claim?.code) return;
+  if (cfg.claims?.[linked.project_id]) return;
+  await saveClaim(linked.project_id, linked.claim);
+}
+
+/**
+ * Заявка песочницы для проекта папки: из `~/.layero/config.json`, а у папок,
+ * выложенных CLI до 0.11.8, — из старого поля `claim` в `.layero/project.json`.
+ */
+export function claimFor(
+  cfg: CliConfig,
+  linked: Pick<ProjectConfig, "project_id" | "claim"> | null | undefined,
+): SandboxClaim | undefined {
+  if (!linked?.project_id) return undefined;
+  return cfg.claims?.[linked.project_id] ?? linked.claim ?? undefined;
 }
 
 /** Токен заявки для проекта из `.layero/project.json`, если он есть. */
@@ -119,10 +147,14 @@ function claimUrlFor(cfg: CliConfig, code: string): string {
   return `${dashboardOrigin(cfg.apiUrl)}/claim?code=${encodeURIComponent(code)}`;
 }
 
-async function resolveCode(cwd: string, explicit?: string): Promise<{ code: string; claim_url: string | null }> {
+async function resolveCode(
+  cfg: CliConfig,
+  cwd: string,
+  explicit?: string,
+): Promise<{ code: string; claim_url: string | null }> {
   if (explicit) return { code: explicit.trim(), claim_url: null };
-  const linked = await loadProjectConfig(cwd);
-  if (linked?.claim?.code) return { code: linked.claim.code, claim_url: linked.claim.claim_url };
+  const claim = claimFor(cfg, await loadProjectConfig(cwd));
+  if (claim?.code) return { code: claim.code, claim_url: claim.claim_url };
   throw new LayeroError(
     "claim_unknown",
     "в этой папке нет claimable-проекта",
@@ -134,7 +166,7 @@ async function resolveCode(cwd: string, explicit?: string): Promise<{ code: stri
 export async function claimStatusCmd(code: string | undefined, opts: { json?: boolean }): Promise<void> {
   const cwd = process.cwd();
   const cfg = await loadConfig();
-  const ref = await resolveCode(cwd, code);
+  const ref = await resolveCode(cfg, cwd, code);
   // Без токена намеренно: статус заявки — публичный по коду, как и сама ссылка.
   const api = new ApiClient({ apiUrl: cfg.apiUrl });
   let status;
@@ -171,7 +203,7 @@ export async function claimStatusCmd(code: string | undefined, opts: { json?: bo
 export async function claimAcceptCmd(code: string | undefined, opts: { json?: boolean; noBrowser?: boolean }): Promise<void> {
   const cwd = process.cwd();
   const cfg = await loadConfig();
-  const ref = await resolveCode(cwd, code);
+  const ref = await resolveCode(cfg, cwd, code);
   const claimUrl = ref.claim_url ?? claimUrlFor(cfg, ref.code);
   const mode = detectMode();
   let opened = false;

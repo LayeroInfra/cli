@@ -11,7 +11,7 @@ const M = vi.hoisted(() => ({
   createClaimableProject: vi.fn(), getProject: vi.fn(), listProjects: vi.fn(),
   createDeploySession: vi.fn(), startDeploySession: vi.fn(), getDeploy: vi.fn(), probeEnvironment: vi.fn(),
   startDeviceAuth: vi.fn(), pollDeviceAuth: vi.fn(), me: vi.fn(), tokens: [] as (string | undefined)[],
-  loadConfig: vi.fn(), saveConfig: vi.fn(), loadProjectConfig: vi.fn(), persistProjectLinking: vi.fn(),
+  loadConfig: vi.fn(), saveConfig: vi.fn(), saveClaim: vi.fn(), loadProjectConfig: vi.fn(), persistProjectLinking: vi.fn(),
 }));
 
 vi.mock("../src/api.js", () => {
@@ -32,7 +32,7 @@ vi.mock("../src/api.js", () => {
   }
   return { ApiClient, ApiError, uploadArchive: vi.fn(async () => undefined) };
 });
-vi.mock("../src/config.js", () => ({ loadConfig: M.loadConfig, saveConfig: M.saveConfig, configPath: () => "/c" }));
+vi.mock("../src/config.js", () => ({ loadConfig: M.loadConfig, saveConfig: M.saveConfig, saveClaim: M.saveClaim, configPath: () => "/c" }));
 vi.mock("../src/project-config.js", () => ({
   loadProjectConfig: M.loadProjectConfig,
   persistProjectLinking: M.persistProjectLinking,
@@ -136,9 +136,17 @@ describe("песочница (claim) только для нового проек
     expect(exitCodeFor(r.error.code)).toBe(2);
   });
 
-  it("новая папка без токена + агент + --yes → claimable как раньше", async () => {
-    M.loadProjectConfig.mockResolvedValueOnce(null).mockResolvedValue({ project_id: "cp-1", slug: "swift-fox", claim: CLAIM });
+  it("claim_hygiene: новая папка без токена + агент + --yes → вход, песочница только явным --claim", async () => {
+    // До 0.11.8 здесь молча заводилась песочница — публикация без решения
+    // человека (T-20260921).
     const r = await deployUnapproved({ yes: true, json: true });
+    expect(M.createClaimableProject).not.toHaveBeenCalled();
+    expect(r.events[0]).toMatchObject({ event: "auth_required", user_code: "WXYZ-1234" });
+  });
+
+  it("новая папка без токена + --claim → claimable до ready", async () => {
+    M.loadProjectConfig.mockResolvedValueOnce(null).mockResolvedValue({ project_id: "cp-1", slug: "swift-fox" });
+    const r = await deployUnapproved({ claim: true, yes: true, json: true });
     expect(r.error).toBeNull();
     expect(M.createClaimableProject).toHaveBeenCalledTimes(1);
     expect(M.startDeviceAuth).not.toHaveBeenCalled();

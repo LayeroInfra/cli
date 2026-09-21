@@ -125,11 +125,9 @@ Run `layero <cmd> --help` for full options.
 - `--claim` — deploy without an account: a temporary site for 1 hour
   plus a `claim_url` for a human to take it over. Static sites and SPAs only:
   a server app (SSR, fullstack, container) is refused before anything is
-  uploaded (`claim_static_only`, exit 4). Turns on by itself when
-  there is no token, the run is non-interactive (an agent, not CI), `--yes`
-  is passed and the project is new: no `--project`, and the folder is not
-  linked to an account project. An existing project without a token means
-  signing in (`auth_required`). With `--project` it is refused
+  uploaded (`claim_static_only`, exit 4). Only with this flag: without a
+  token and without `--claim`, `deploy` asks for a login (`auth_required`),
+  in an agent environment too. With `--project` it is refused
   (`claim_with_project`, exit 4). In CI a missing `LAYERO_TOKEN` stays an error.
 - `--org <slug>` — organization for first-time project creation.
 - `--yes` / `-y` — non-interactive mode.
@@ -155,9 +153,13 @@ closed to search engines: `robots.txt` with `Disallow: /` and
 `X-Robots-Tag: noindex, nofollow`. A human opens `claim_url`, signs in and
 takes the project into their account — the CLI cannot accept a claim by
 itself.
-The claim code is saved in `.layero/project.json`; the temporary token stays
-in `~/.layero/config.json`, so `layero deploy` in the same directory keeps
-updating the same site until the claim expires or is accepted.
+The temporary token, the claim code and the link are saved in
+`~/.layero/config.json` (readable by you only); `.layero/project.json` gets
+only the folder's link to the project, because that file goes to git and a
+claim code there would let anyone take the site. `layero deploy` in the same
+directory keeps updating the same site until the claim expires or is
+accepted. Claiming the site clears what was set up without an account —
+environment variables, deploy hooks and build settings.
 `layero claim status` shows where things stand; `layero claim accept` opens
 the page in a browser (in agent mode it prints the link).
 
