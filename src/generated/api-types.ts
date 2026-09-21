@@ -672,6 +672,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/claimable/preview/{label}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Claimable Preview
+         * @description Что показать странице `/preview/<метка>`: адрес сайта и срок.
+         *
+         *     Метка публична — это первая часть адреса сайта, её и так видит каждый, кому
+         *     дали ссылку. Кода забора ручка не знает и не отдаёт. Забранный, истёкший и
+         *     несуществующий сайт неразличимы: 404.
+         */
+        get: operations["claimable_preview_claimable_preview__label__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/claimable/projects": {
         parameters: {
             query?: never;
@@ -7012,6 +7036,14 @@ export interface components {
         };
         /** ClaimableCreateIn */
         ClaimableCreateIn: {
+            /** Captcha Token */
+            captcha_token?: string | null;
+            /**
+             * Channel
+             * @default cli
+             * @enum {string}
+             */
+            channel: "cli" | "web";
             /** Framework Hint */
             framework_hint?: string | null;
             /** Name */
@@ -7027,6 +7059,8 @@ export interface components {
             expires_at: string;
             /** Organization */
             organization: string;
+            /** Preview Url */
+            preview_url: string;
             /**
              * Project Id
              * Format: uuid
@@ -7036,6 +7070,13 @@ export interface components {
             slug: string;
             /** Token */
             token: string;
+            /** Url */
+            url: string;
+        };
+        /** ClaimablePreviewOut */
+        ClaimablePreviewOut: {
+            /** Expires At */
+            expires_at: string;
             /** Url */
             url: string;
         };
@@ -11212,6 +11253,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claimable_preview_claimable_preview__label__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                label: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimablePreviewOut"];
                 };
             };
             /** @description Validation Error */
