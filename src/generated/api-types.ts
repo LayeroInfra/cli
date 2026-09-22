@@ -672,6 +672,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/claimable/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard Sandbox
+         * @description Отказаться от песочницы до срока — кнопка «Попробовать ещё раз» на
+         *     layero.ru/create: временный сайт у посетителя один, новый — вместо старого.
+         *
+         *     Без аутентификации, право даёт код забора: он есть только у создателя.
+         *     Срок становится «сейчас»: адрес гаснет немедленно, файлы и строки снимает
+         *     обычная уборка в течение минуты. Забранную и уже истёкшую не трогаем.
+         */
+        post: operations["discard_sandbox_claimable_discard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/claimable/preview/{label}": {
         parameters: {
             query?: never;
@@ -11256,6 +11281,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ProjectOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_sandbox_claimable_discard_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
