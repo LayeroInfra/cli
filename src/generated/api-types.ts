@@ -7334,6 +7334,10 @@ export interface components {
             purge_after?: string | null;
             /** Quota Bytes */
             quota_bytes: number;
+            /** Restarting */
+            restarting?: {
+                [key: string]: unknown;
+            } | null;
             /** Role Name */
             role_name?: string | null;
             /** Size Bytes */
