@@ -3826,6 +3826,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/migrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Migrate Start
+         * @description Начать переезд базы с общего шарда на выделенный инстанс.
+         *
+         *     🚨 ПОРЯДОК ТОТ ЖЕ, ЧТО У ЗАКАЗА НОВОЙ ВЫДЕЛЕННОЙ БАЗЫ: запись намерения →
+         *     холд денег → кластер заказывает воркер → готово и проверено → списание
+         *     (`billing_resources.on_ready` в конце переезда). Отказ холда — переезд
+         *     не начинается, заказ снимается.
+         */
+        post: operations["migrate_start_organizations__slug__databases__db_id__migrate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/migrate/preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Migrate Preflight
+         * @description Что мешает переезду и что человек должен знать до нажатия.
+         */
+        get: operations["migrate_preflight_organizations__slug__databases__db_id__migrate_preflight_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/migrate/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Migrate Rollback
+         * @description Вернуть базу на прежнее место в окне отката. Данные после переезда теряются.
+         */
+        post: operations["migrate_rollback_organizations__slug__databases__db_id__migrate_rollback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/migrate/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Migrate Status
+         * @description Шаг, подпись и окно отката последнего переезда. `null` — переездов не было.
+         */
+        get: operations["migrate_status_organizations__slug__databases__db_id__migrate_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/network": {
         parameters: {
             query?: never;
@@ -7306,6 +7391,10 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Migrating */
+            migrating?: {
+                [key: string]: unknown;
+            } | null;
             /** Name */
             name: string;
             /** Name Slug */
@@ -8279,6 +8368,17 @@ export interface components {
             tracked_branch_name?: string | null;
             /** Yandex Login */
             yandex_login?: string | null;
+        };
+        /** MigrateIn */
+        MigrateIn: {
+            /** Cpu */
+            cpu: number;
+            /** Disk Gb */
+            disk_gb: number;
+            /** Ram Mb */
+            ram_mb: number;
+            /** Version */
+            version?: number | null;
         };
         /** NetworkModeIn */
         NetworkModeIn: {
@@ -16992,6 +17092,146 @@ export interface operations {
             query?: {
                 range?: string;
             };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    migrate_start_organizations__slug__databases__db_id__migrate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MigrateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    migrate_preflight_organizations__slug__databases__db_id__migrate_preflight_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    migrate_rollback_organizations__slug__databases__db_id__migrate_rollback_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    migrate_status_organizations__slug__databases__db_id__migrate_status_get: {
+        parameters: {
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
