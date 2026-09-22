@@ -7084,6 +7084,8 @@ export interface components {
         ClaimableStatusOut: {
             /** Expires At */
             expires_at: string;
+            /** Preview Url */
+            preview_url: string;
             /** Slug */
             slug: string;
             /**
