@@ -4104,13 +4104,16 @@ export interface paths {
         };
         /**
          * Resize Quote
-         * @description Сколько стоит увеличить этот инстанс — до нажатия, а не после.
+         * @description Сколько стоит новая конфигурация этого инстанса — до нажатия, а не после.
+         *
+         *     Две механики, как у партнёра: `preset_id` — готовая ступень; `cpu`,
+         *     `ram_mb`, `disk_gb` — своя конфигурация, не названное остаётся как есть.
          *
          *     🚨 ДИАЛОГ ОБЯЗАН НАЗВАТЬ СУММУ, КОТОРУЮ ПОТОМ СПИШЕТ. Апгрейд списывает
          *     разницу за оставшиеся дни сразу, в момент изменения. Диалог, который об
          *     этом молчит, превращает нажатие «Применить» в списание вслепую.
          *
-         *     Отвечает ТОТ ЖЕ расчёт, что потом исполнит списание (`plan_change` +
+         *     Отвечает ТОТ ЖЕ расчёт, что потом исполнит списание (`_plan_change_for` +
          *     `upgrade_topup_kopecks`): вторая формула в панели разошлась бы с первой на
          *     первой же правке каталога, и человек увидел бы одну сумму, а заплатил
          *     другую. Этот класс уже стоил нам цены, расходившейся между мастером и
@@ -4228,14 +4231,21 @@ export interface paths {
         head?: never;
         /**
          * Change Spec Of
-         * @description Перевести выделенный инстанс на другую ступень мощности.
+         * @description Сменить конфигурацию выделенного инстанса: ступень или свои ресурсы.
+         *
+         *     Как в панели партнёра: либо готовая ступень (`preset_id`), либо своя
+         *     конфигурация, где ядра, память и диск задаются по отдельности. Сумма к
+         *     списанию и то, что получится, — в `GET …/resize-quote` с теми же
+         *     параметрами; здесь исполняется ровно тот же план.
          *
          *     🚨 ЭТА РУЧКА И СОСЕДНЯЯ ПРО ДИСК ПОЯВЛЯЮТСЯ ВМЕСТЕ, И ЭТО НЕ АККУРАТНОСТЬ.
-         *     Признак `resize` открывает в панели ОБЕ карточки экрана «Ресурсы». Завести
-         *     одну ручку значило бы показать человеку две кнопки, из которых работает
-         *     первая, — ровно тот инцидент, ради которого признак и придуман.
+         *     Признак `resize` открывает в панели карточку «Ресурсы». Завести одну
+         *     ручку значило бы показать человеку кнопку, за которой ничего нет, — ровно
+         *     тот инцидент, ради которого признак и придуман (T-20260905-5).
          *
-         *     ⚠️ Перезапуск: 15–25 секунд без точки входа (замер 06.09.2026).
+         *     ⚠️ Смена ядер, памяти или ступени — перезапуск: 15–25 секунд без точки
+         *     входа (замер 06.09.2026). Рост одного диска у собранной конфигурации — на
+         *     ходу (замер 29.08.2026).
          */
         patch: operations["change_spec_of_organizations__slug__databases__db_id__spec_patch"];
         trace?: never;
@@ -9556,12 +9566,22 @@ export interface components {
          * @description Во что обойдётся смена конфигурации ЭТОГО инстанса прямо сейчас.
          */
         ResizeQuoteOut: {
+            /** Cpu */
+            cpu: number;
+            /** Disk Gb */
+            disk_gb: number;
             /** Kind */
             kind: string;
+            /** Noop */
+            noop: boolean;
             /** Price Month */
             price_month: number;
             /** Price Month Now */
             price_month_now: number;
+            /** Ram Mb */
+            ram_mb: number;
+            /** Restart */
+            restart: boolean;
             /** Topup Kopecks */
             topup_kopecks: number;
             /** Unused Days */
@@ -9976,6 +9996,24 @@ export interface components {
             updated_at: string | null;
         };
         /**
+         * SpecChangeIn
+         * @description Новая конфигурация — ровно одна из двух механик партнёра.
+         *
+         *     `preset_id` — готовая ступень целиком (диск в неё входит). Иначе — своя
+         *     конфигурация: любые из `cpu`, `ram_mb`, `disk_gb`, не названное остаётся
+         *     как есть. Вместе их партнёр не принимает, и мы тоже.
+         */
+        SpecChangeIn: {
+            /** Cpu */
+            cpu?: number | null;
+            /** Disk Gb */
+            disk_gb?: number | null;
+            /** Preset Id */
+            preset_id?: number | null;
+            /** Ram Mb */
+            ram_mb?: number | null;
+        };
+        /**
          * SpecIn
          * @description Конфигурация выделенного кластера. Один кластер на одну базу, поэтому
          *     это и есть то, что человек выбрал в панели.
@@ -10121,13 +10159,6 @@ export interface components {
             apply: boolean;
             /** Dump */
             dump: string;
-        };
-        /** TierIn */
-        TierIn: {
-            /** Cpu */
-            cpu: number;
-            /** Ram Mb */
-            ram_mb: number;
         };
         /**
          * TransferInitIn
@@ -17456,6 +17487,7 @@ export interface operations {
     resize_quote_organizations__slug__databases__db_id__resize_quote_get: {
         parameters: {
             query?: {
+                preset_id?: number | null;
                 cpu?: number | null;
                 ram_mb?: number | null;
                 disk_gb?: number | null;
@@ -17722,7 +17754,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TierIn"];
+                "application/json": components["schemas"]["SpecChangeIn"];
             };
         };
         responses: {
