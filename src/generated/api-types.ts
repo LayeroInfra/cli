@@ -10396,6 +10396,8 @@ export interface components {
         };
         /** UsageProjectOut */
         UsageProjectOut: {
+            /** Favicon Url */
+            favicon_url?: string | null;
             /** Name */
             name: string | null;
             /** Project Id */
