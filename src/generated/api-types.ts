@@ -4722,6 +4722,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Organization Usage */
+        get: operations["organization_usage_organizations__slug__usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects": {
         parameters: {
             query?: never;
@@ -10336,6 +10353,59 @@ export interface components {
             source_archive_key: string;
             /** Upload Url */
             upload_url: string;
+        };
+        /** UsageMetricOut */
+        UsageMetricOut: {
+            /** Code */
+            code: string;
+            /** Kind */
+            kind: string;
+            /** Points */
+            points: components["schemas"]["UsagePoint"][];
+            /** Total */
+            total: number;
+            /** Unit */
+            unit: string;
+        };
+        /** UsageOut */
+        UsageOut: {
+            /**
+             * From Day
+             * Format: date
+             */
+            from_day: string;
+            /** Metrics */
+            metrics: components["schemas"]["UsageMetricOut"][];
+            /** Projects */
+            projects: components["schemas"]["UsageProjectOut"][];
+            /**
+             * To Day
+             * Format: date
+             */
+            to_day: string;
+        };
+        /** UsagePoint */
+        UsagePoint: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Value */
+            value: number;
+        };
+        /** UsageProjectOut */
+        UsageProjectOut: {
+            /** Name */
+            name: string | null;
+            /** Project Id */
+            project_id: string;
+            /** Slug */
+            slug: string | null;
+            /** Totals */
+            totals: {
+                [key: string]: number;
+            };
         };
         /** UsernameCheckOut */
         UsernameCheckOut: {
@@ -18886,6 +18956,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourceProviderOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    organization_usage_organizations__slug__usage_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageOut"];
                 };
             };
             /** @description Validation Error */
