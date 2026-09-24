@@ -10376,6 +10376,7 @@ export interface components {
             from_day: string;
             /** Metrics */
             metrics: components["schemas"]["UsageMetricOut"][];
+            period: components["schemas"]["UsagePeriodOut"];
             /** Projects */
             projects: components["schemas"]["UsageProjectOut"][];
             /**
@@ -10383,6 +10384,30 @@ export interface components {
              * Format: date
              */
             to_day: string;
+        };
+        /**
+         * UsagePeriodOut
+         * @description Расчётный период — окно, внутри которого копятся лимиты (модель
+         *     Vercel/Supabase, решение владельца 24.09.2026). `start` включительно,
+         *     `end` исключительно; `anchor` говорит, от чего отсчёт: `subscription` —
+         *     от начала текущего периода подписки (оплата открывает новый период),
+         *     `organization` — от дня создания организации, когда подписки нет.
+         */
+        UsagePeriodOut: {
+            /** Anchor */
+            anchor: string;
+            /** Days Left */
+            days_left: number;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
         };
         /** UsagePoint */
         UsagePoint: {
