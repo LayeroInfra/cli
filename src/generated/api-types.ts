@@ -307,9 +307,13 @@ export interface paths {
          *          DELETEs each projects row so apex_hostname slots free immediately),
          *       3. revoke every auth_session — the JWT this request rode on dies too.
          *
+         *     Also in the same transaction: the saved card is detached (autopay off —
+         *     no renewals during the grace window) and every database of the orgs the
+         *     user owns is moved to `deleting` for the purge worker.
+         *
          *     Hard-delete of the user_identities + users row is the finalizer's job
          *     once the grace window elapses AND every owned project's cleanup task is
-         *     drained. Until then support can restore on appeal by flipping status
+         *     drained AND every such database is physically gone. Until then support can restore on appeal by flipping status
          *     back to 'active' (no automated unlock endpoint by design).
          */
         delete: operations["delete_account_auth_me_delete"];
@@ -10485,6 +10489,8 @@ export interface components {
             marketing_consent: boolean;
             /** Pd Consent */
             pd_consent?: boolean | null;
+            /** Terms Consent */
+            terms_consent?: boolean | null;
             /** Value */
             value: string;
         };
