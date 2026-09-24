@@ -10354,6 +10354,33 @@ export interface components {
             /** Upload Url */
             upload_url: string;
         };
+        /** UsageDatabaseOut */
+        UsageDatabaseOut: {
+            /** Api Enabled */
+            api_enabled: boolean;
+            /** Connections Peak */
+            connections_peak: number | null;
+            /** Dataapi Bytes */
+            dataapi_bytes: number;
+            /** Dataapi Calls */
+            dataapi_calls: number;
+            /** Dedicated */
+            dedicated: boolean;
+            /** Id */
+            id: string;
+            /** Measured Day */
+            measured_day: string | null;
+            /** Name */
+            name: string;
+            /** Quota Bytes */
+            quota_bytes: number | null;
+            /** Size Bytes */
+            size_bytes: number | null;
+            /** Slug */
+            slug: string | null;
+            /** Status */
+            status: string;
+        };
         /** UsageMetricOut */
         UsageMetricOut: {
             /** Code */
@@ -10369,6 +10396,8 @@ export interface components {
         };
         /** UsageOut */
         UsageOut: {
+            /** Databases */
+            databases: components["schemas"]["UsageDatabaseOut"][];
             /**
              * From Day
              * Format: date
@@ -10377,6 +10406,10 @@ export interface components {
             /** Metrics */
             metrics: components["schemas"]["UsageMetricOut"][];
             period: components["schemas"]["UsagePeriodOut"];
+            /** Period Totals */
+            period_totals: {
+                [key: string]: number;
+            };
             /** Projects */
             projects: components["schemas"]["UsageProjectOut"][];
             /**
