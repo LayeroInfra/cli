@@ -315,6 +315,12 @@ export interface paths {
          *     once the grace window elapses AND every owned project's cleanup task is
          *     drained AND every such database is physically gone. Until then support can restore on appeal by flipping status
          *     back to 'active' (no automated unlock endpoint by design).
+         *
+         *     409 `owns_team_organizations` — the caller created a team organization
+         *     that has other members. Hard delete would cascade it away together with
+         *     the other members' projects and databases, so the request is refused
+         *     and nothing changes. The list names each such team; the owner deletes
+         *     it (its projects and databases first) or asks support to hand it over.
          */
         delete: operations["delete_account_auth_me_delete"];
         options?: never;
