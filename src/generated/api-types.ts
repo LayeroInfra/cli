@@ -5654,6 +5654,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/integrations/metrika/session-recording": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Metrika Session Recording
+         * @description Включить или выключить запись сессий (Вебвизор) у подключённой Метрики.
+         *
+         *     Три действия, в таком порядке:
+         *       1. флаг в базе — от него зависит `webvisor` в теге следующей сборки;
+         *       2. `arch_enabled` у счётчика в аккаунте клиента (Management API);
+         *       3. пересборка отслеживаемой ветки, чтобы тег сменился без пуша.
+         *
+         *     Флаг пишется первым намеренно: выключение — это просьба владельца
+         *     перестать писать сессии, и сбой Метрики не должен её отменять. Второй и
+         *     третий шаги best-effort, их итог возвращается в ответе.
+         */
+        put: operations["set_metrika_session_recording_projects__project_id__integrations_metrika_session_recording_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/integrations/metrika/stats": {
         parameters: {
             query?: never;
@@ -8385,6 +8414,11 @@ export interface components {
             injection_mode: string;
             /** Metrika Url */
             metrika_url?: string | null;
+            /**
+             * Session Recording
+             * @default false
+             */
+            session_recording: boolean;
             /** Site Url */
             site_url?: string | null;
             /** Snippet */
@@ -10007,6 +10041,28 @@ export interface components {
             /** User Agent */
             user_agent?: string | null;
         };
+        /** SessionRecordingIn */
+        SessionRecordingIn: {
+            /** Enabled */
+            enabled: boolean;
+        };
+        /**
+         * SessionRecordingOut
+         * @description Итог переключения записи сессий.
+         *
+         *     `counter_updated` — удалось ли поменять настройку у самого счётчика в
+         *     Метрике. False — флаг и тег поменялись, а переключатель в Метрике владельцу
+         *     придётся перевести вручную: панель говорит об этом прямо.
+         *     `redeployed` — запущена ли пересборка, чтобы тег на сайте сменился.
+         */
+        SessionRecordingOut: {
+            /** Counter Updated */
+            counter_updated: boolean;
+            /** Redeployed */
+            redeployed: boolean;
+            /** Session Recording */
+            session_recording: boolean;
+        };
         /** SiteUserIn */
         SiteUserIn: {
             /** Password */
@@ -10532,6 +10588,11 @@ export interface components {
         app__api__routes__yandex_metrika__ConnectIn: {
             /** Branch Name */
             branch_name?: string | null;
+            /**
+             * Session Recording
+             * @default false
+             */
+            session_recording: boolean;
         };
     };
     responses: never;
@@ -20667,6 +20728,43 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_metrika_session_recording_projects__project_id__integrations_metrika_session_recording_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionRecordingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionRecordingOut"];
                 };
             };
             /** @description Validation Error */
