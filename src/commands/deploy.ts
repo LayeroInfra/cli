@@ -324,6 +324,14 @@ async function assertSandboxServesFiles(
   );
 }
 
+/** Обёртка временного сайта по его адресу: `<панель>/preview/<метка>`.
+ *  Считается здесь для повторной выкатки — платформа отдаёт поле только при
+ *  создании песочницы. */
+function sandboxPreviewUrl(siteUrl: string): string {
+  const label = new URL(siteUrl).hostname.split(".")[0];
+  return `https://app.layero.ru/preview/${label}`;
+}
+
 /** Детект папки: один на запуск, общий для проверки песочницы и плана сборки. */
 type Detector = (detectCwd: string, hint: string | null, hintSource: ValueSource) => Promise<Detected>;
 
@@ -741,7 +749,13 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
   }
   // Claimable-проект этого запуска (этап 13): событие `claimable` уходит
   // перед `ready`, когда адрес сайта уже известен.
-  let claimable: { claim_url: string; expires_at: string; project_id: string; slug: string } | null = null;
+  let claimable: {
+    claim_url: string;
+    preview_url: string | null;
+    expires_at: string;
+    project_id: string;
+    slug: string;
+  } | null = null;
   let reusedClaim: ProjectConfig["claim"] | null = null;
   // 🚨 ПЕСОЧНИЦА — ТОЛЬКО ДЛЯ НОВОГО ПРОЕКТА. `--project` или папка,
   // привязанная к проекту аккаунта, значат «выкатить в существующий», а у
@@ -802,6 +816,9 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
       cliCfg = r.cfg;
       claimable = {
         claim_url: r.created.claim_url,
+        // Обёртка панели — ссылка «для людей»: голый адрес песочницы браузеру
+        // отвечает переходом на неё. Старая платформа поля не отдаёт.
+        preview_url: r.created.preview_url ?? null,
         expires_at: r.created.expires_at,
         project_id: r.created.project_id,
         slug: r.created.slug,
@@ -1225,13 +1242,16 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     }
 
     // Claimable: ссылка «забрать» — ДО `ready`, потому что после `ready`
-    // агент не читает, а без этой ссылки сайт исчезнет через 72 часа.
+    // агент не читает, а без этой ссылки сайт исчезнет через час.
+    // `preview_url` — обёртка панели: пока сайт временный, человеку
+    // открывается только она; `url` остаётся для проверок и агентов.
     if (claimable) {
       emit({
         event: "claimable",
         project_id: claimable.project_id,
         slug: claimable.slug,
         url: liveUrl,
+        preview_url: claimable.preview_url ?? sandboxPreviewUrl(liveUrl),
         claim_url: claimable.claim_url,
         expires_at: claimable.expires_at,
       });
@@ -1241,6 +1261,7 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
         project_id: project.id,
         slug: project.slug,
         url: liveUrl,
+        preview_url: sandboxPreviewUrl(liveUrl),
         claim_url: reusedClaim.claim_url,
         expires_at: reusedClaim.expires_at,
       });

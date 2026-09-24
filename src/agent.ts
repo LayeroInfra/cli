@@ -507,6 +507,8 @@ export type Event =
       project_id: string;
       slug: string;
       url: string;
+      /** Обёртка панели — ссылка «для людей»; ею делятся. */
+      preview_url: string;
       claim_url: string;
       expires_at: string;
     } & EventCommon)
@@ -798,8 +800,8 @@ function renderHuman(event: Event): void {
       process.stdout.write(`✓ Проект ${event.slug} удалён (очистка ресурсов идёт в фоне)\n`);
       break;
     case "claimable":
-      process.stdout.write(`→ Временный проект ${event.slug}: ${event.url}\n`);
-      process.stdout.write(`  Сайт живёт до ${event.expires_at} (час). Забрать в аккаунт: ${event.claim_url}\n`);
+      process.stdout.write(`→ Временный сайт ${event.slug}: ${event.preview_url ?? event.url}\n`);
+      process.stdout.write(`  Живёт до ${event.expires_at} (час). Забрать в аккаунт: ${event.claim_url}\n`);
       break;
     case "claim_status":
       process.stdout.write(
