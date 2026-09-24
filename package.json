@@ -1,6 +1,6 @@
 {
   "name": "layero",
-  "version": "0.11.8",
+  "version": "0.11.9",
   "description": "Layero CLI — deploy a directory or a repo to hosting with build servers in Russia. JSON events and exit codes for AI agents and CI.",
   "license": "MIT",
   "type": "module",
