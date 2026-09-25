@@ -10537,6 +10537,8 @@ export interface components {
         UsernameCheckOut: {
             /** Available */
             available: boolean;
+            /** Available At */
+            available_at?: string | null;
             /** Normalized */
             normalized: string;
             /** Reason */
