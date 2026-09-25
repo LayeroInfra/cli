@@ -10524,6 +10524,16 @@ export interface components {
             favicon_url?: string | null;
             /** Name */
             name: string | null;
+            /**
+             * Preview Envs
+             * @default 0
+             */
+            preview_envs: number;
+            /**
+             * Preview Limit
+             * @default 0
+             */
+            preview_limit: number;
             /** Project Id */
             project_id: string;
             /** Slug */
