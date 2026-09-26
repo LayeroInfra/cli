@@ -5195,6 +5195,13 @@ export interface paths {
          *     environment. Used by `layero deploys list` so the CLI doesn't have
          *     to chase environment_id first.
          *
+         *     ?all_environments=true — свежие деплои ВСЕХ окружений проекта одним
+         *     запросом (явная ?branch по-прежнему важнее). Нужен странице «Деплои»
+         *     панели: она опрашивала каждое окружение отдельно раз в 5 секунд, и у
+         *     проекта с 201 окружением одна открытая вкладка давала ~40 запросов в
+         *     секунду — 680 тыс. за 12.09.2026 и 391 тыс. за 20.09, каждый оплачен в
+         *     API Gateway.
+         *
          *     Если окружения дефолтной ветки нет — отдаём деплои по всему проекту, а не
          *     пустой список. У проекта, залитого через CLI, единственное окружение
          *     зовётся `cli`, тогда как default_branch остаётся 'main': выборка по ветке
@@ -19919,6 +19926,7 @@ export interface operations {
         parameters: {
             query?: {
                 branch?: string | null;
+                all_environments?: boolean;
             };
             header?: {
                 authorization?: string | null;
