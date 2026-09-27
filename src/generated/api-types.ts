@@ -4494,6 +4494,26 @@ export interface paths {
         patch: operations["update_member_role_organizations__slug__members__user_id__patch"];
         trace?: never;
     };
+    "/organizations/{slug}/overage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Organization Overage
+         * @description Перерасход организации: идущий период и прошлые (до 12).
+         */
+        get: operations["organization_overage_organizations__slug__overage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/rename/check": {
         parameters: {
             query?: never;
@@ -8536,6 +8556,18 @@ export interface components {
             /** Slug */
             slug: string;
         };
+        /** OrganizationOverageOut */
+        OrganizationOverageOut: {
+            current: components["schemas"]["OverageStatementOut"] | null;
+            /** History */
+            history: components["schemas"]["OverageStatementOut"][];
+            /** Min Final Kopecks */
+            min_final_kopecks: number;
+            /** Shadow */
+            shadow: boolean;
+            /** Threshold Kopecks */
+            threshold_kopecks: number;
+        };
         /** OrganizationRenameCheckOut */
         OrganizationRenameCheckOut: {
             /** Available */
@@ -8590,6 +8622,54 @@ export interface components {
             /** Origin */
             origin: string;
         };
+        /** OverageChargeOut */
+        OverageChargeOut: {
+            /** Amount Kopecks */
+            amount_kopecks: number;
+            /**
+             * Covered Through
+             * Format: date
+             */
+            covered_through: string;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Lines */
+            lines: {
+                [key: string]: unknown;
+            }[];
+            /** Reason */
+            reason: string;
+            /** Seq */
+            seq: number;
+            /** Status */
+            status: string;
+        };
+        /** OverageLineOut */
+        OverageLineOut: {
+            /** Accrued Estimate Kopecks */
+            accrued_estimate_kopecks: number;
+            /** Accrued Sealed Kopecks */
+            accrued_sealed_kopecks: number;
+            /** Billed Kopecks */
+            billed_kopecks: number;
+            /** Included */
+            included: number;
+            /** Metric */
+            metric: string;
+            /** Per */
+            per: number;
+            /** Price Kopecks */
+            price_kopecks: number;
+            /** Title */
+            title: string;
+            /** Used Estimate */
+            used_estimate: number;
+            /** Used Sealed */
+            used_sealed: number;
+        };
         /**
          * OverageOut
          * @description `price_kopecks` за `per` единиц показателя сверх лимита.
@@ -8599,6 +8679,54 @@ export interface components {
             per: number;
             /** Price Kopecks */
             price_kopecks: number;
+        };
+        /**
+         * OverageStatementOut
+         * @description Период организации. `period_end` — исключительно (день продления).
+         */
+        OverageStatementOut: {
+            /** Accrued Estimate Kopecks */
+            accrued_estimate_kopecks: number;
+            /** Accrued Sealed Kopecks */
+            accrued_sealed_kopecks: number;
+            /** Billable Kopecks */
+            billable_kopecks: number;
+            /** Billed Kopecks */
+            billed_kopecks: number;
+            /** Cap Kopecks */
+            cap_kopecks: number;
+            /** Charges */
+            charges: components["schemas"]["OverageChargeOut"][];
+            /**
+             * Final Due At
+             * Format: date-time
+             */
+            final_due_at: string;
+            /** Forecast Kopecks */
+            forecast_kopecks: number | null;
+            /** Lines */
+            lines: components["schemas"]["OverageLineOut"][];
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /** Sealed Through */
+            sealed_through: string | null;
+            /** Shadow */
+            shadow: boolean;
+            /** Status */
+            status: string;
+            /**
+             * Summary At
+             * Format: date-time
+             */
+            summary_at: string;
         };
         /**
          * PackageScriptOut
@@ -18563,6 +18691,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    organization_overage_organizations__slug__overage_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationOverageOut"];
                 };
             };
             /** @description Validation Error */
