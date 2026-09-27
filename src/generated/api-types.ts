@@ -8591,6 +8591,16 @@ export interface components {
             origin: string;
         };
         /**
+         * OverageOut
+         * @description `price_kopecks` за `per` единиц показателя сверх лимита.
+         */
+        OverageOut: {
+            /** Per */
+            per: number;
+            /** Price Kopecks */
+            price_kopecks: number;
+        };
+        /**
          * PackageScriptOut
          * @description One entry from package.json `scripts`. `is_build_like` flags scripts
          *     whose name looks like a production-build target (`build`, `generate`,
@@ -10476,13 +10486,23 @@ export interface components {
              * Format: date
              */
             from_day: string;
+            /** Limits */
+            limits: {
+                [key: string]: number;
+            };
             /** Metrics */
             metrics: components["schemas"]["UsageMetricOut"][];
+            /** Overage */
+            overage: {
+                [key: string]: components["schemas"]["OverageOut"];
+            };
             period: components["schemas"]["UsagePeriodOut"];
             /** Period Totals */
             period_totals: {
                 [key: string]: number;
             };
+            /** Plan */
+            plan: string;
             /** Projects */
             projects: components["schemas"]["UsageProjectOut"][];
             /**
