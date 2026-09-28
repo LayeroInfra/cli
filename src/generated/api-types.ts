@@ -9361,6 +9361,11 @@ export interface components {
             /** Installation State */
             installation_state?: string | null;
             /**
+             * Is Blocked
+             * @default false
+             */
+            is_blocked: boolean;
+            /**
              * Is Suspended
              * @default false
              */
