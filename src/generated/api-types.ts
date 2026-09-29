@@ -6099,6 +6099,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/rules-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Project Rules Check
+         * @description Нарушает ли опубликованный сайт правила против фишинга.
+         *
+         *     Пустой `violations` — нарушений нет. Проверяется адрес проекта и то, что
+         *     видит на нём посетитель: главная страница и её собственные скрипты.
+         */
+        get: operations["project_rules_check_projects__project_id__rules_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/runtime-plan": {
         parameters: {
             query?: never;
@@ -9996,6 +10019,34 @@ export interface components {
         RollbackRequest: {
             /** Deploy Id */
             deploy_id?: string | null;
+        };
+        /** RulesCheckOut */
+        RulesCheckOut: {
+            /** Checked */
+            checked: boolean;
+            /** Deploy Id */
+            deploy_id?: string | null;
+            /**
+             * Rules Url
+             * @default https://layero.ru/rules
+             */
+            rules_url: string;
+            /**
+             * Violations
+             * @default []
+             */
+            violations: components["schemas"]["RulesViolationOut"][];
+        };
+        /** RulesViolationOut */
+        RulesViolationOut: {
+            /** Explanation */
+            explanation: string;
+            /** Rule */
+            rule: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
         };
         /** RuntimeLogLine */
         RuntimeLogLine: {
@@ -21720,6 +21771,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    project_rules_check_projects__project_id__rules_check_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RulesCheckOut"];
                 };
             };
             /** @description Validation Error */
