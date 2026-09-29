@@ -192,8 +192,8 @@ function hasDep(pkg: PackageJson | null, name: string): boolean {
   return Boolean(pkg && ((pkg.dependencies ?? {})[name] ?? (pkg.devDependencies ?? {})[name]));
 }
 
-/** Mirror of the builder's static-host pre-flight warning for the two
- * frameworks that build a server by default (Nuxt, SvelteKit). */
+/** Mirror of the builder's pre-flight warning for the two frameworks whose
+ * default build may not run on Layero as is (Nuxt, SvelteKit). */
 function ssrWarning(snap: dc.Snapshot, framework: string): string | undefined {
   const pkg = snap.packageJson;
   if (framework === "nuxt") {
@@ -223,10 +223,23 @@ function ssrWarning(snap: dc.Snapshot, framework: string): string | undefined {
     const serverAdapter = Object.keys(allDeps).find(
       (d) => d.startsWith("@sveltejs/adapter-") && d !== "@sveltejs/adapter-static",
     );
-    if (serverAdapter) {
-      return `SvelteKit использует ${serverAdapter} (серверный адаптер). Layero хостит только статику — поставьте @sveltejs/adapter-static.`;
+    // adapter-node is a server Layero runs in a container — nothing to warn
+    // about. Until 29.09.2026 this said "Layero hosts static sites only",
+    // which stopped being true when containers arrived (T-20260929-7).
+    if (serverAdapter === "@sveltejs/adapter-node") return undefined;
+    const choose =
+      "Pick one yourself: @sveltejs/adapter-static builds a static site, " +
+      "@sveltejs/adapter-node builds a server that Layero runs in a container.";
+    if (serverAdapter === "@sveltejs/adapter-auto") {
+      return (
+        "SvelteKit uses @sveltejs/adapter-auto: it picks an adapter for platforms it knows, " +
+        `Layero is not one of them, so the build will produce nothing. ${choose}`
+      );
     }
-    return "SvelteKit без явного адаптера — поставьте @sveltejs/adapter-static для статического хостинга.";
+    if (serverAdapter) {
+      return `SvelteKit uses ${serverAdapter}, an adapter for another platform; its output will not run on Layero. ${choose}`;
+    }
+    return `SvelteKit has no adapter, so the build has nothing to output. ${choose}`;
   }
   return undefined;
 }

@@ -1,0 +1,9 @@
+{
+  "name": "sveltekit-auto-fixture",
+  "private": true,
+  "devDependencies": {
+    "@sveltejs/kit": "^2.20.0",
+    "@sveltejs/adapter-auto": "^6.0.0"
+  },
+  "scripts": { "build": "vite build" }
+}

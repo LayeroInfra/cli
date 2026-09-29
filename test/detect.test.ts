@@ -112,11 +112,19 @@ describe("Angular output_dir parity (CLI side)", () => {
 });
 
 describe("SvelteKit SSR-warning parity (CLI side)", () => {
-  it("flags SvelteKit with a non-static adapter", async () => {
-    const r = await detectProject(path.join(FIXTURES, "sveltekit-ssr"));
+  it("flags adapter-auto and names both paths, static and server", async () => {
+    const r = await detectProject(path.join(FIXTURES, "sveltekit-auto"));
     expect(r.framework_hint).toBe("sveltekit");
     expect(r.ssr_warning).toBeDefined();
-    expect(r.ssr_warning).toMatch(/adapter-node|серверный адаптер/);
+    expect(r.ssr_warning).toMatch(/adapter-static/);
+    expect(r.ssr_warning).toMatch(/adapter-node/);
+    expect(r.ssr_warning).not.toMatch(/static sites only|только статику/);
+  });
+
+  it("does not warn on adapter-node: Layero runs it as a server (T-20260929-7)", async () => {
+    const r = await detectProject(path.join(FIXTURES, "sveltekit-ssr"));
+    expect(r.framework_hint).toBe("sveltekit");
+    expect(r.ssr_warning).toBeUndefined();
   });
 
   it("does not warn when adapter-static is present", async () => {
