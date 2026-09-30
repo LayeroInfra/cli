@@ -349,6 +349,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/me/email/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Me Email Confirm
+         * @description Шаг 2: код верен → почта записана в аккаунт.
+         *
+         *     Чужой адрес сюда не пришьёшь: код приходит на него. Адрес, за которым уже
+         *     стоит другой аккаунт, не забираем — это был бы вход в чужой аккаунт без
+         *     его согласия; человеку предлагаем войти тем аккаунтом (слияние делает
+         *     вход по коду, `_email_login_resolve`).
+         */
+        post: operations["me_email_confirm_auth_me_email_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/me/email/request-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Me Email Request Code
+         * @description Добавить почту к аккаунту без неё — шаг 1, код на адрес.
+         *
+         *     Кому это нужно: вошедшим через Яндекс с «телефонным» Яндекс ID —
+         *     userinfo отдаёт `emails: []` при запрошенном `login:email`, и аккаунт
+         *     рождается без почты. Без почты нет чека (54-ФЗ), значит нет оплаты
+         *     (T-20260924-19); до этой ручки добавить её было негде — только через
+         *     поддержку (SUP_261). Код и лимиты — те же, что у входа по почте.
+         */
+        post: operations["me_email_request_code_auth_me_email_request_code_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/me/identities/{provider}": {
         parameters: {
             query?: never;
@@ -8402,6 +8453,23 @@ export interface components {
             /** Stream */
             stream: string;
         };
+        /** MeEmailConfirmIn */
+        MeEmailConfirmIn: {
+            /** Code */
+            code: string;
+            /** Email */
+            email: string;
+        };
+        /** MeEmailOut */
+        MeEmailOut: {
+            /** Email */
+            email: string;
+        };
+        /** MeEmailRequestIn */
+        MeEmailRequestIn: {
+            /** Email */
+            email: string;
+        };
         /** MeOut */
         MeOut: {
             /** Avatar Url */
@@ -11385,6 +11453,78 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["EmailTestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    me_email_confirm_auth_me_email_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeEmailConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeEmailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    me_email_request_code_auth_me_email_request_code_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeEmailRequestIn"];
             };
         };
         responses: {
