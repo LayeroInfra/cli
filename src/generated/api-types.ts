@@ -4506,7 +4506,15 @@ export interface paths {
          * @description Перерасход организации: идущий период и прошлые (до 12).
          */
         get: operations["organization_overage_organizations__slug__overage_get"];
-        put?: never;
+        /**
+         * Put Organization Overage
+         * @description Настройки дополнительного потребления: включить, лимит, что на лимите.
+         *
+         *     Только владелец аккаунта организации — он платит. Включение и смена
+         *     лимита — согласие на автосписание до суммы лимита в месяц, выключение —
+         *     отказ; оба в журнале согласий (LEGAL-13), в одной транзакции с записью.
+         */
+        put: operations["put_organization_overage_organizations__slug__overage_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -8586,6 +8594,7 @@ export interface components {
             history: components["schemas"]["OverageStatementOut"][];
             /** Min Final Kopecks */
             min_final_kopecks: number;
+            settings: components["schemas"]["OverageSettingsOut"];
             /** Shadow */
             shadow: boolean;
             /** Threshold Kopecks */
@@ -8702,6 +8711,27 @@ export interface components {
             per: number;
             /** Price Kopecks */
             price_kopecks: number;
+        };
+        /** OverageSettingsIn */
+        OverageSettingsIn: {
+            /** Cap Kopecks */
+            cap_kopecks: number;
+            /** Enabled */
+            enabled: boolean;
+            /** On Limit */
+            on_limit: string;
+        };
+        /**
+         * OverageSettingsOut
+         * @description Настройки владельца. Нет строки в базе — умолчания: выключено, 1 000 ₽, пауза.
+         */
+        OverageSettingsOut: {
+            /** Cap Kopecks */
+            cap_kopecks: number;
+            /** Enabled */
+            enabled: boolean;
+            /** On Limit */
+            on_limit: string;
         };
         /**
          * OverageStatementOut
@@ -18772,6 +18802,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationOverageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_organization_overage_organizations__slug__overage_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OverageSettingsIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
