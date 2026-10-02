@@ -7111,6 +7111,8 @@ export interface components {
             client_id: string;
             /** Client Name */
             client_name: string;
+            /** Issuer */
+            issuer: string;
             /** Redirect Uri */
             redirect_uri: string;
             /** Scopes */
