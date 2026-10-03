@@ -10168,6 +10168,19 @@ export interface components {
             /** Status */
             status: string;
         };
+        /**
+         * RuntimeMeasurementOut
+         * @description Known runtime measurement issues, not a certificate of completeness.
+         *
+         *     Gap durations are intentionally absent: wall-clock jumps are not elapsed
+         *     execution time. Unverified minutes are diagnostic, not a charge estimate.
+         */
+        RuntimeMeasurementOut: {
+            /** Known Gap Count */
+            known_gap_count: number;
+            /** Unverified Minutes */
+            unverified_minutes: number;
+        };
         /** RuntimeMemoryBucketOut */
         RuntimeMemoryBucketOut: {
             /** Avg Cpu Cores */
@@ -10787,6 +10800,7 @@ export interface components {
                 [key: string]: components["schemas"]["OverageOut"];
             };
             period: components["schemas"]["UsagePeriodOut"];
+            period_runtime_measurement: components["schemas"]["RuntimeMeasurementOut"];
             /** Period Totals */
             period_totals: {
                 [key: string]: number;
@@ -10800,6 +10814,7 @@ export interface components {
              * Format: date
              */
             to_day: string;
+            window_runtime_measurement: components["schemas"]["RuntimeMeasurementOut"];
         };
         /**
          * UsagePeriodOut
