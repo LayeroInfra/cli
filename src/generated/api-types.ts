@@ -4832,6 +4832,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/usage/enforcement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Enforcement Status */
+        get: operations["enforcement_status_organizations__slug__usage_enforcement_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/usage/extra": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Extra Usage
+         * @description Разрешить дополнительное потребление пилоту; не согласие на автосписание.
+         */
+        put: operations["set_extra_usage_organizations__slug__usage_extra_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects": {
         parameters: {
             query?: never;
@@ -8122,6 +8159,11 @@ export interface components {
             /** Names */
             names: string[];
         };
+        /** ExtraUsageIn */
+        ExtraUsageIn: {
+            /** Enabled */
+            enabled: boolean;
+        };
         /** FilesPolicyDryRunIn */
         FilesPolicyDryRunIn: {
             /** Bucket */
@@ -10767,6 +10809,40 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** UsageEnforcementOut */
+        UsageEnforcementOut: {
+            /**
+             * Can Enable Extra
+             * @default false
+             */
+            can_enable_extra: boolean;
+            /**
+             * Can Manage
+             * @default false
+             */
+            can_manage: boolean;
+            /**
+             * Card Bound
+             * @default false
+             */
+            card_bound: boolean;
+            /**
+             * Charging Enabled
+             * @default false
+             */
+            charging_enabled: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Extra Enabled
+             * @default false
+             */
+            extra_enabled: boolean;
+            /** Metrics */
+            metrics: components["schemas"]["UsageQuotaState"][];
+            /** Plan */
+            plan?: string | null;
+        };
         /** UsageMetricOut */
         UsageMetricOut: {
             /** Code */
@@ -10874,6 +10950,44 @@ export interface components {
             totals: {
                 [key: string]: number;
             };
+        };
+        /** UsageQuotaState */
+        UsageQuotaState: {
+            /** Action */
+            action: string;
+            /** Forecast At */
+            forecast_at: string | null;
+            /** Forecast Reason */
+            forecast_reason: string;
+            /** Forecast Sample Days */
+            forecast_sample_days: number;
+            /**
+             * Measured At
+             * Format: date-time
+             */
+            measured_at: string;
+            /** Metric */
+            metric: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /** Plan */
+            plan: string;
+            /** Quota */
+            quota: number;
+            /** Reason */
+            reason: string;
+            /** State */
+            state: string;
+            /** Used */
+            used: number;
         };
         /** UsernameCheckOut */
         UsernameCheckOut: {
@@ -19611,6 +19725,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enforcement_status_organizations__slug__usage_enforcement_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageEnforcementOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_extra_usage_organizations__slug__usage_extra_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtraUsageIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageEnforcementOut"];
                 };
             };
             /** @description Validation Error */
