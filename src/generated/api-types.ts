@@ -7495,6 +7495,8 @@ export interface components {
              * @constant
              */
             engine: "postgres";
+            /** Expected Price Month */
+            expected_price_month?: number | null;
             /** Extensions */
             extensions?: string[];
             /** Name */
@@ -8612,6 +8614,8 @@ export interface components {
             cpu: number;
             /** Disk Gb */
             disk_gb: number;
+            /** Expected Price Month */
+            expected_price_month?: number | null;
             /** Ram Mb */
             ram_mb: number;
             /** Version */
@@ -10557,6 +10561,8 @@ export interface components {
             cpu?: number | null;
             /** Disk Gb */
             disk_gb?: number | null;
+            /** Expected Price Month */
+            expected_price_month?: number | null;
             /** Preset Id */
             preset_id?: number | null;
             /** Ram Mb */
