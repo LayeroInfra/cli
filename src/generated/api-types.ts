@@ -7585,6 +7585,8 @@ export interface components {
             capabilities: string[];
             /** Connection String */
             connection_string: string;
+            /** Data Recovery */
+            data_recovery?: string | null;
             /** Db Name */
             db_name: string;
             /**
