@@ -7585,8 +7585,6 @@ export interface components {
             capabilities: string[];
             /** Connection String */
             connection_string: string;
-            /** Data Recovery */
-            data_recovery?: string | null;
             /** Db Name */
             db_name: string;
             /**
@@ -9592,8 +9590,6 @@ export interface components {
              * @default unknown
              */
             publish_status: string;
-            /** Redeploy Available */
-            redeploy_available?: boolean | null;
             /** Repo Full Name */
             repo_full_name?: string | null;
             /**
