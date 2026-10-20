@@ -6122,6 +6122,23 @@ export interface paths {
         patch: operations["rename_project_projects__project_id__rename_patch"];
         trace?: never;
     };
+    "/projects/{project_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Project */
+        post: operations["resume_project_projects__project_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/retry-cdn-registration": {
         parameters: {
             query?: never;
@@ -6438,6 +6455,23 @@ export interface paths {
         put?: never;
         /** Create Speed Run */
         post: operations["create_speed_run_projects__project_id__speed_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suspend Project */
+        post: operations["suspend_project_projects__project_id__suspend_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9540,6 +9574,11 @@ export interface components {
              * @default false
              */
             is_blocked: boolean;
+            /**
+             * Is Manually Suspended
+             * @default false
+             */
+            is_manually_suspended: boolean;
             /**
              * Is Suspended
              * @default false
@@ -22103,6 +22142,37 @@ export interface operations {
             };
         };
     };
+    resume_project_projects__project_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     retry_cdn_registration_projects__project_id__retry_cdn_registration_post: {
         parameters: {
             query?: never;
@@ -22644,6 +22714,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SpeedRunOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suspend_project_projects__project_id__suspend_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
