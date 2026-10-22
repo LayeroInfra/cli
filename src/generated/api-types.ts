@@ -7447,6 +7447,8 @@ export interface components {
         ClaimableStatusOut: {
             /** Expires At */
             expires_at: string;
+            /** Favicon Url */
+            favicon_url?: string | null;
             /** Preview Url */
             preview_url: string;
             /** Slug */
