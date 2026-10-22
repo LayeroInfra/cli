@@ -324,14 +324,6 @@ async function assertSandboxServesFiles(
   );
 }
 
-/** Обёртка временного сайта по его адресу: `<панель>/preview/<метка>`.
- *  Считается здесь для повторной выкатки — платформа отдаёт поле только при
- *  создании песочницы. */
-function sandboxPreviewUrl(siteUrl: string): string {
-  const label = new URL(siteUrl).hostname.split(".")[0];
-  return `https://app.layero.ru/preview/${label}`;
-}
-
 /** Детект папки: один на запуск, общий для проверки песочницы и плана сборки. */
 type Detector = (detectCwd: string, hint: string | null, hintSource: ValueSource) => Promise<Detected>;
 
@@ -1243,15 +1235,15 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
 
     // Claimable: ссылка «забрать» — ДО `ready`, потому что после `ready`
     // агент не читает, а без этой ссылки сайт исчезнет через час.
-    // `preview_url` — обёртка панели: пока сайт временный, человеку
-    // открывается только она; `url` остаётся для проверок и агентов.
+    // `preview_url` — ссылка для людей. С 22.10.2026 это сам сайт
+    // `<метка>.preview.layero.app`: обёртки панели больше нет.
     if (claimable) {
       emit({
         event: "claimable",
         project_id: claimable.project_id,
         slug: claimable.slug,
         url: liveUrl,
-        preview_url: claimable.preview_url ?? sandboxPreviewUrl(liveUrl),
+        preview_url: claimable.preview_url ?? liveUrl,
         claim_url: claimable.claim_url,
         expires_at: claimable.expires_at,
       });
@@ -1261,7 +1253,7 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
         project_id: project.id,
         slug: project.slug,
         url: liveUrl,
-        preview_url: sandboxPreviewUrl(liveUrl),
+        preview_url: liveUrl,
         claim_url: reusedClaim.claim_url,
         expires_at: reusedClaim.expires_at,
       });

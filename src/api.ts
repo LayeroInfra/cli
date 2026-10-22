@@ -127,7 +127,7 @@ export interface ClaimableProjectOut {
   claim_code?: string;
   /** Адрес сайта; если не прислан — `https://<slug>.layero.app` не выдумываем, ждём `ready`. */
   url?: string;
-  /** Обёртка панели `<панель>/preview/<метка>` — ссылка «для людей». */
+  /** Ссылка «для людей» — сам временный сайт `<метка>.preview.layero.app`. */
   preview_url?: string;
 }
 
