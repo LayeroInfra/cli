@@ -3692,6 +3692,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Database Connections
+         * @description Пределы подключений к базе и сколько из них занято прямо сейчас.
+         *
+         *     Пределы — из модели (`userdb_connections.limits_for`), занятость — ряды
+         *     роутеров в хранилище метрик, сумма по обоим входам. Недоступное хранилище
+         *     не прячет пределы: `usage` тогда `None`, а `usage_error` говорит почему.
+         */
+        get: operations["database_connections_organizations__slug__databases__db_id__connections_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/databases/{db_id}/disk": {
         parameters: {
             query?: never;
@@ -7624,6 +7648,10 @@ export interface components {
             capabilities: string[];
             /** Connection String */
             connection_string: string;
+            /** Connections */
+            connections?: {
+                [key: string]: unknown;
+            } | null;
             /** Data Recovery */
             data_recovery?: string | null;
             /** Db Name */
@@ -17556,6 +17584,40 @@ export interface operations {
                 "application/json": components["schemas"]["RestoreIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    database_connections_organizations__slug__databases__db_id__connections_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
