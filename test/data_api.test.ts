@@ -511,7 +511,7 @@ describe("включение", () => {
   it("у базы с включённым Data API — отказ без вызова включения", async () => {
     const err = await dataEnableCmd({ db: "kofeinya" }).then(() => null, (e) => e);
     expect(err).toMatchObject({ code: "data_api_already_enabled" });
-    expect(String(err.message)).toContain("схему public");
+    expect(String(err.message)).toContain("права на таблицы сохранятся");
     expect(String(err.next_action)).toContain("layero data keys list --db kofeinya");
     expect(String(err.next_action)).toContain("layero data enable --db kofeinya --repair");
     expect(String(err.next_action)).not.toContain("keys issue");
@@ -528,7 +528,7 @@ describe("включение", () => {
     await expect(dataEnableCmd({ db: "draft", repair: true, yes: true })).rejects.toMatchObject({ code: "data_api_disabled" });
     const err = await dataEnableCmd({ db: "kofeinya", repair: true }).then(() => null, (e) => e);
     expect(err).toMatchObject({ code: "confirmation_required" });
-    expect(String(err.message)).toContain("схему public");
+    expect(String(err.message)).toContain("права на таблицы сохранятся");
     expect(String(err.next_action)).toContain("layero data enable --db kofeinya --repair --yes");
     expect(api.enableDataApi).not.toHaveBeenCalled();
 
@@ -539,7 +539,7 @@ describe("включение", () => {
     } finally {
       log.mockRestore();
     }
-    expect(prompt.asked[0]).toContain("схему public");
+    expect(prompt.asked[0]).toContain("права на таблицы сохранятся");
     expect(api.enableDataApi).not.toHaveBeenCalled();
   });
 
@@ -567,8 +567,7 @@ describe("включение", () => {
       log.mockRestore();
     }
     expect(repaired).toContain("переприменён");
-    expect(repaired).toContain("лишились прав на схему public (USAGE)");
-    expect(repaired).toContain("схемах api и app сохранились");
+    expect(repaired).toContain("Выданные права на таблицы сохранились");
     expect(repaired).not.toContain("потеряют");
     expect(repaired).not.toContain("Все методы закрыты");
     expect(enabled).toContain("Все методы закрыты");

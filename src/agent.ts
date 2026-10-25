@@ -231,7 +231,7 @@ export type Event =
   // сайта. Скрывать их от агента, который этот фронтенд и пишет, — обряд:
   // без них он не соберёт первый же запрос к базе. Секретного ключа здесь не
   // бывает никогда — платформа его не хранит.
-  | ({ event: "data_env"; project: string; vars: Record<string, string> } & EventCommon)
+  | ({ event: "data_env"; project: string; vars: Record<string, string>; reason?: string; next_action?: string } & EventCommon)
   // Data API базы (T-20260911-9). В списке ключей — только префиксы. Значение
   // ключа есть в одном событии, `data_key_issued`, и ровно один раз: секретный
   // платформа не хранит, другого способа его узнать нет ни у кого.
@@ -296,7 +296,7 @@ export type Event =
       slug: string;
       public_key: string | null;
       secret_key: string | null;
-      // `true` — переприменение у базы с включённым API (`--repair`): права ролей на `public` сняты.
+      // `true` — переприменение у базы с включённым API (`--repair`): сняты умолчания для новых таблиц.
       reapplied: boolean;
     } & EventCommon)
   // Базы организации (DX-03). `database_created` несёт строку подключения:
@@ -310,7 +310,9 @@ export type Event =
       org: string;
       name: string;
       connection_string: string;
-      password: string;
+      /** Поля события, которые нельзя печатать и класть в журнал (T-20261025-12):
+       *  пароль приходит ОДИН раз и только внутри `connection_string`. */
+      secrets: string[];
     } & EventCommon)
   | ({ event: "database_connected"; org: string; database: string; project: string } & EventCommon)
   | ({ event: "database_disconnected"; org: string; database: string; project: string } & EventCommon)

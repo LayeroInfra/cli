@@ -100,16 +100,17 @@ export async function dataEnvCmd(opts: DataEnvOptions): Promise<void> {
   const vars = await api.dataEnv(project.id);
 
   if (!Object.keys(vars).length) {
+    // 🚨 Пустой ответ — не «всё в порядке» (T-20261025-9): агент видел
+    // `vars: {}` без подсказки и решал, что писать нечего. Говорим, почему
+    // пусто и что сделать, тем же `next_action`, что у отказов.
+    const next =
+      `подключите к проекту базу с Data API: layero db connect <база> --project ${project.slug}; ` +
+      "Data API у базы: layero data enable --db <база> (или панель → Базы данных → база → Data API → «Включить Data API»)";
     if (mode.json) {
-      emit({ event: "data_env", project: project.slug, vars: {} });
+      emit({ event: "data_env", project: project.slug, vars: {}, reason: "no_data_api_database", next_action: next });
       return;
     }
-    console.log(
-      chalk.dim(
-        `у проекта "${project.slug}" нет базы с включённым Data API\n` +
-          "включить: панель → база → «API» → «Включить API»",
-      ),
-    );
+    console.log(chalk.dim(`у проекта "${project.slug}" нет подключённой базы с включённым Data API\n${next}`));
     return;
   }
 

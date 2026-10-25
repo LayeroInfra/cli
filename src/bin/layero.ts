@@ -755,7 +755,10 @@ function asAccountStateError(err: unknown): LayeroError | null {
       return new LayeroError(
         detail.code ?? `http_${err.status}`,
         detail.message,
-        detail.next_action ?? "исправьте запрос и повторите",
+        // Общий совет — последний: причина и лекарство чаще всего уже в тексте
+        // отказа (подсказки SQL про роли и Авторизацию, T-20261025-9), и
+        // «исправьте запрос» уводил агента от них.
+        detail.next_action ?? "причина и что сделать — в тексте отказа; исправьте и повторите",
       );
     }
   }

@@ -539,9 +539,13 @@ export async function dataGrantCmd(object: string, opts: DataApiOptions): Promis
   console.log(`\n${chalk.green("✓")} доступ изменён`);
 }
 
-// Что снимает переприменение: агент узла при каждом включении API отзывает у
-// ролей Data API всё в схеме `public` (`runtime/userdb-agent/agent.py`, `api_enable`).
-const REPAIR_LOSS = "роли Data API потеряют права на схему public (USAGE) и на все её таблицы";
+// Что снимает переприменение (сверено с агентом узла 25.10.2026,
+// `runtime/userdb-agent/agent.py`, `api_enable`): права на таблицы и USAGE на
+// `public` у существующих ролей СОХРАНЯЮТСЯ (с T-20260914-3 снимается только у
+// роли, созданной этим же включением; USAGE на `public` выдаётся с 25.10).
+// Снимаются только умолчания, которые сами открывали ролям НОВЫЕ таблицы.
+const REPAIR_LOSS =
+  "умолчания, которые сами открывали ролям Data API новые таблицы, будут сняты; уже выданные права на таблицы сохранятся";
 
 /**
  * Включение Data API.
@@ -560,7 +564,7 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
   if (opts.repair && !opts.db) {
     throw new LayeroError(
       "database_unknown",
-      `переприменение Data API снимает права ролей на схему public — базу нужно указать явно`,
+      `переприменение Data API меняет умолчания прав у ролей базы — базу нужно указать явно`,
       "layero data enable --db <база> --repair",
     );
   }
@@ -618,9 +622,8 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
     reapplied
       ? `${chalk.green("✓")} Data API переприменён у базы «${db.name}»\n` +
           chalk.yellow(
-            "  Роли Data API лишились прав на схему public (USAGE) и на все её таблицы. " +
-              "Уровни таблиц в схемах api и app сохранились; таблицы public, если они были открыты, " +
-              "откройте заново: layero data methods, затем layero data grant",
+            "  Выданные права на таблицы сохранились. Сняты только умолчания, которые сами открывали " +
+              "новые таблицы ролям Data API: новые таблицы открывайте явно — layero data grant",
           )
       : `${chalk.green("✓")} Data API включён у базы «${db.name}»`,
   );
@@ -720,7 +723,7 @@ export function registerDataApiCommands(data: Command, program: Command): void {
       .option("--with-secret", "also issue a secret key for the server")
       .option(
         "--repair",
-        "re-apply the roles and the api schema for a database whose Data API is already enabled; revokes the roles' privileges on schema public",
+        "re-apply the roles and the api schema for a database whose Data API is already enabled; table grants are kept, default privileges for new tables are removed",
       )
       .option("-y, --yes", "do not ask for confirmation for --repair"),
   ).action(async (opts: any) => dataEnableCmd(json(opts)));
