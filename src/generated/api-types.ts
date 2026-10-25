@@ -6490,6 +6490,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/speed/quota": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Speed Quota
+         * @description Замеры организации в этом месяце (по Москве) и лимит тарифа.
+         */
+        get: operations["get_speed_quota_projects__project_id__speed_quota_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/speed/runs": {
         parameters: {
             query?: never;
@@ -6500,12 +6520,59 @@ export interface paths {
         /** List Speed Runs */
         get: operations["list_speed_runs_projects__project_id__speed_runs_get"];
         put?: never;
-        /** Create Speed Run */
+        /**
+         * Create Speed Run
+         * @description Заказать замер. Повтор того же адреса за 10 минут отдаёт уже идущий или
+         *     готовый замер с `reused: true` и квоту не тратит.
+         */
         post: operations["create_speed_run_projects__project_id__speed_runs_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/speed/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Speed Schedules */
+        get: operations["list_speed_schedules_projects__project_id__speed_schedules_get"];
+        put?: never;
+        /**
+         * Create Speed Schedule
+         * @description Расписание замера. Время не выбирается: день и неделя — ночью
+         *     00–07 МСК, 3 и 6 часов — по сетке от 00:00 UTC.
+         */
+        post: operations["create_speed_schedule_projects__project_id__speed_schedules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/speed/schedules/{schedule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Speed Schedule
+         * @description Удалить расписание. Прошлые замеры остаются и сохраняют его имя.
+         */
+        delete: operations["delete_speed_schedule_projects__project_id__speed_schedules__schedule_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Speed Schedule */
+        patch: operations["update_speed_schedule_projects__project_id__speed_schedules__schedule_id__patch"];
         trace?: never;
     };
     "/projects/{project_id}/suspend": {
@@ -10680,20 +10747,35 @@ export interface components {
              */
             version: number;
         };
+        /** SpeedQuotaOut */
+        SpeedQuotaOut: {
+            /** Limit */
+            limit: number;
+            /** Resets At */
+            resets_at: string;
+            /** Used */
+            used: number;
+        };
         /** SpeedRunCreateIn */
         SpeedRunCreateIn: {
-            /**
-             * Deploy Id
-             * Format: uuid
-             */
-            deploy_id: string;
+            /** Deploy Id */
+            deploy_id?: string | null;
             /**
              * Device
              * @default desktop
              */
             device: string;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** Free Retry Of */
+            free_retry_of?: string | null;
             /** Path */
             path?: string | null;
+            /** Url */
+            url?: string | null;
         };
         /** SpeedRunOut */
         SpeedRunOut: {
@@ -10711,8 +10793,16 @@ export interface components {
             coach_privacy_score?: number | null;
             /** Coach Score */
             coach_score?: number | null;
+            /** Comparison */
+            comparison?: {
+                [key: string]: unknown;
+            } | null;
             /** Created At */
             created_at: string;
+            /** Deploy */
+            deploy?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Deploy Id
              * Format: uuid
@@ -10729,6 +10819,10 @@ export interface components {
             environment_id: string;
             /** Error Message */
             error_message?: string | null;
+            /** Failure */
+            failure?: {
+                [key: string]: unknown;
+            } | null;
             /** Fcp Ms */
             fcp_ms?: number | null;
             /** Finished At */
@@ -10740,10 +10834,17 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Iteration */
+            iteration?: number | null;
             /** Iterations */
             iterations: number;
             /** Lcp Ms */
             lcp_ms?: number | null;
+            /**
+             * Noisy
+             * @default false
+             */
+            noisy: boolean;
             /** Page Load Ms */
             page_load_ms?: number | null;
             /** Perf Score */
@@ -10753,6 +10854,8 @@ export interface components {
              * Format: uuid
              */
             project_id: string;
+            /** Queue Position */
+            queue_position?: number | null;
             /** Raw Report S3 Path */
             raw_report_s3_path?: string | null;
             /** Raw Report Url */
@@ -10763,10 +10866,20 @@ export interface components {
             report_url?: string | null;
             /** Requests */
             requests?: number | null;
+            /** Reused */
+            reused?: boolean | null;
+            /** Schedule */
+            schedule?: {
+                [key: string]: unknown;
+            } | null;
             /** Seo Score */
             seo_score?: number | null;
             /** Speed Index Ms */
             speed_index_ms?: number | null;
+            /** Stage */
+            stage?: ("queue" | "run" | "report") | null;
+            /** Started At */
+            started_at?: string | null;
             /** Status */
             status: string;
             /** Tbt Ms */
@@ -10779,6 +10892,75 @@ export interface components {
             tti_ms?: number | null;
             /** Url */
             url: string;
+        };
+        /** SpeedScheduleIn */
+        SpeedScheduleIn: {
+            /**
+             * Device
+             * @default mobile
+             * @enum {string}
+             */
+            device: "desktop" | "mobile";
+            /** Environment Id */
+            environment_id?: string | null;
+            /**
+             * Every
+             * @enum {string}
+             */
+            every: "3h" | "6h" | "day" | "week";
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /** Path */
+            path: string;
+        };
+        /** SpeedScheduleOut */
+        SpeedScheduleOut: {
+            /** Device */
+            device: string;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Environment Id
+             * Format: uuid
+             */
+            environment_id: string;
+            /** Every */
+            every: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Skip At */
+            last_skip_at?: string | null;
+            /** Last Skip Reason */
+            last_skip_reason?: string | null;
+            /** Name */
+            name: string;
+            /** Next Run At */
+            next_run_at?: string | null;
+            /** Path */
+            path: string;
+            /** Paused Reason */
+            paused_reason?: string | null;
+        };
+        /** SpeedSchedulePatch */
+        SpeedSchedulePatch: {
+            /** Device */
+            device?: ("desktop" | "mobile") | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Environment Id */
+            environment_id?: string | null;
+            /** Every */
+            every?: ("3h" | "6h" | "day" | "week") | null;
+            /** Name */
+            name?: string | null;
+            /** Path */
+            path?: string | null;
         };
         /** StoragePolicyDropIn */
         StoragePolicyDropIn: {
@@ -22773,6 +22955,39 @@ export interface operations {
             };
         };
     };
+    get_speed_quota_projects__project_id__speed_quota_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeedQuotaOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_speed_runs_projects__project_id__speed_runs_get: {
         parameters: {
             query?: {
@@ -22833,6 +23048,146 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SpeedRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_speed_schedules_projects__project_id__speed_schedules_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeedScheduleOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_speed_schedule_projects__project_id__speed_schedules_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpeedScheduleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeedScheduleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_speed_schedule_projects__project_id__speed_schedules__schedule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                schedule_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_speed_schedule_projects__project_id__speed_schedules__schedule_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                schedule_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpeedSchedulePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeedScheduleOut"];
                 };
             };
             /** @description Validation Error */
