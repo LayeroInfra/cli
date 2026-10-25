@@ -170,6 +170,15 @@ export interface DataApiProbe {
 // а не «сборка идёт долго»: длительность сборки на ответ этой ручки не влияет.
 export const POLL_TIMEOUT_MS = 30_000;
 
+/** Устройство и страница замера — одинаковые у запуска и у результата. */
+function perfQuery(opts: { device?: string; path?: string }): string {
+  const q = new URLSearchParams();
+  if (opts.device) q.set("device", opts.device);
+  if (opts.path) q.set("path", opts.path);
+  const s = q.toString();
+  return s ? `?${s}` : "";
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -759,13 +768,13 @@ export class ApiClient {
   // --- Замеры (AGENT-11) ----------------------------------------------
 
   /** Запустить замер активного деплоя. Не ждёт: прогон асинхронный. */
-  startPerfCheck(projectId: string): Promise<PerfCheckOut> {
-    return this.request<PerfCheckOut>("POST", `/projects/${projectId}/perf-check`);
+  startPerfCheck(projectId: string, opts: { device?: string; path?: string } = {}): Promise<PerfCheckOut> {
+    return this.request<PerfCheckOut>("POST", `/projects/${projectId}/perf-check${perfQuery(opts)}`);
   }
 
   /** Результат последнего замера со сравнением с предыдущим деплоем. */
-  getPerfCheck(projectId: string): Promise<PerfCheckOut> {
-    return this.request<PerfCheckOut>("GET", `/projects/${projectId}/perf-check`);
+  getPerfCheck(projectId: string, opts: { device?: string; path?: string } = {}): Promise<PerfCheckOut> {
+    return this.request<PerfCheckOut>("GET", `/projects/${projectId}/perf-check${perfQuery(opts)}`);
   }
 
   // --- Домены (AGENT-09) ---------------------------------------------

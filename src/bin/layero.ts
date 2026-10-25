@@ -476,14 +476,18 @@ async function main(): Promise<void> {
     .description("Measure site performance and compare it with the previous deploy.");
   perf
     .command("check")
-    .description("Start a measurement of the active deploy. The run is asynchronous — with --wait the command waits for the result.")
+    .description("Measure the main branch (Lighthouse score, verdict as in the dashboard). The run is asynchronous — with --wait the command waits for the result.")
     .option("--project <id_or_slug>", "project (default: the linked project)")
     .option("--wait", "wait for the result (up to 4 minutes)")
+    .option("--device <desktop|mobile>", "device profile (default: desktop)")
+    .option("--path <path>", "page on the main branch, e.g. /pricing (default: /)")
     .action(async (opts) => perfCheckCmd({ ...opts, json: program.opts().json }));
   perf
     .command("show")
     .description("Show the latest measurement and the comparison with the previous deploy.")
     .option("--project <id_or_slug>", "project (default: the linked project)")
+    .option("--device <desktop|mobile>", "device profile (default: desktop)")
+    .option("--path <path>", "page on the main branch, e.g. /pricing (default: /)")
     .action(async (opts) => perfShowCmd({ ...opts, json: program.opts().json }));
 
   const domains = program
@@ -715,7 +719,7 @@ function asAccountStateError(err: unknown): LayeroError | null {
   }
 
   if (err.status === 402) {
-    let detail: { feature?: string; limit?: number; observed?: number } = {};
+    let detail: { feature?: string; limit?: number; observed?: number; message?: string } = {};
     try {
       const parsed = JSON.parse(err.body) as { detail?: typeof detail };
       detail = parsed.detail ?? {};
@@ -736,7 +740,11 @@ function asAccountStateError(err: unknown): LayeroError | null {
       "plan_limit",
       what
         ? `Тариф не позволяет больше ${what}${counts}.`
-        : "Действие недоступно на текущем тарифе.",
+        // Сервер прислал готовую причину («Замер скорости доступен на тарифе
+        // Pro.») — она точнее общего текста.
+        : typeof detail.message === "string" && detail.message
+          ? detail.message
+          : "Действие недоступно на текущем тарифе.",
       "смените тариф на app.layero.ru/billing или освободите место, удалив ненужное",
     );
   }

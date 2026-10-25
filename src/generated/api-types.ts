@@ -6003,18 +6003,19 @@ export interface paths {
         };
         /**
          * Get Perf Check
-         * @description Результат последнего замера + сравнение с предыдущим деплоем.
+         * @description Последний замер этой страницы прод-ветки на этом устройстве и вердикт:
+         *     сравнение с прошлым деплоем того же адреса и устройства.
          */
         get: operations["get_perf_check_projects__project_id__perf_check_get"];
         put?: never;
         /**
          * Start Perf Check
-         * @description Замерить производительность активного деплоя.
+         * @description Замерить прод-ветку проекта (страницу `path` на устройстве `device`).
          *
-         *     Прогон асинхронный и занимает десятки секунд, поэтому ручка НЕ ждёт:
-         *     возвращает handle, а результат со сравнением забирается тем же путём
-         *     через GET. Держать соединение открытым ради ожидания значило бы
-         *     занимать и клиента, и наш воркер там, где достаточно вернуться позже.
+         *     Прогон асинхронный и занимает минуту-две, поэтому ручка НЕ ждёт:
+         *     результат со сравнением забирается тем же путём через GET с теми же
+         *     `device` и `path`. Повторный вызов, пока замер идёт или он свежее 10
+         *     минут, отдаёт его же (`reused: true`) и квоту не тратит.
          */
         post: operations["start_perf_check_projects__project_id__perf_check_post"];
         delete?: never;
@@ -9111,17 +9112,22 @@ export interface components {
         };
         /**
          * PerfCheckOut
-         * @description Замер со сравнением (AGENT-11).
+         * @description Замер со сравнением для агентов (AGENT-11): балл Lighthouse и тот же
+         *     вердикт, что в панели.
          */
         PerfCheckOut: {
             /** Delta */
             delta: number | null;
+            /** Device */
+            device?: string | null;
             /** Message */
             message: string;
             /** Next Action */
             next_action: string;
             /** Previous Score */
             previous_score: number | null;
+            /** Reused */
+            reused?: boolean | null;
             /** Run Id */
             run_id: string;
             /** Score */
@@ -22158,7 +22164,10 @@ export interface operations {
     };
     get_perf_check_projects__project_id__perf_check_get: {
         parameters: {
-            query?: never;
+            query?: {
+                device?: "desktop" | "mobile";
+                path?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -22191,7 +22200,10 @@ export interface operations {
     };
     start_perf_check_projects__project_id__perf_check_post: {
         parameters: {
-            query?: never;
+            query?: {
+                device?: "desktop" | "mobile";
+                path?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };

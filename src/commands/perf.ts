@@ -8,16 +8,20 @@ import { LayeroError, detectMode, emit } from "../agent.js";
  * `layero perf` (AGENT-11).
  *
  * Ценность не в «запусти прогон» — это один вызов и без нас, — а в связке
- * «задеплоил и знаешь, не стало ли хуже». Вердикт выносится по баллу с
- * порогом в 3 пункта: разброс повторных прогонов одного и того же деплоя в
- * проде оказался ≤1 пункта, тогда как тайминги на том же коде гуляли на
- * 37-40%. Судить о регрессии по таймингам значит ошибаться через раз.
+ * «задеплоил и знаешь, не стало ли хуже». Вердикт — тот же, что в панели:
+ * балл Lighthouse Performance, «стало хуже» — от −10 баллов (повторные замеры
+ * одного деплоя на проде гуляли на 9–19 баллов), по LCP — только в 1,5 раза
+ * и не меньше чем на 500 мс. Меряется основная ветка проекта; --device и
+ * --path выбирают устройство и страницу, и сравнение идёт с прошлым деплоем
+ * той же страницы на том же устройстве. Сервер считает вердикт сам.
  */
 
 interface PerfOptions {
   project?: string;
   json?: boolean;
   wait?: boolean;
+  device?: "desktop" | "mobile";
+  path?: string;
 }
 
 async function projectId(api: ApiClient, opts: PerfOptions): Promise<string> {
@@ -41,7 +45,7 @@ function render(d: { verdict: string; message: string; score: number | null; tim
   if (d.score !== null && d.score !== undefined) {
     const t = d.timings ?? {};
     const bits = [
-      `балл ${d.score}`,
+      `балл Lighthouse ${d.score}`,
       t.lcp_ms ? `LCP ${t.lcp_ms} мс` : null,
       t.ttfb_ms ? `TTFB ${t.ttfb_ms} мс` : null,
     ].filter(Boolean);
@@ -59,11 +63,11 @@ export async function perfCheckCmd(opts: PerfOptions): Promise<void> {
 
   let started;
   try {
-    started = await api.startPerfCheck(id);
+    started = await api.startPerfCheck(id, opts);
   } catch (err) {
     if (err instanceof ApiError && err.status === 429) {
       // Замер уже идёт — это не ошибка, а ответ на вопрос «когда будет».
-      const current = await api.getPerfCheck(id).catch(() => null);
+      const current = await api.getPerfCheck(id, opts).catch(() => null);
       if (current) {
         if (mode.json) {
           emit({ event: "perf_check", ...current });
@@ -99,7 +103,7 @@ export async function perfCheckCmd(opts: PerfOptions): Promise<void> {
   let last = started;
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 8000));
-    last = await api.getPerfCheck(id);
+    last = await api.getPerfCheck(id, opts);
     if (last.verdict !== "pending") break;
   }
   if (mode.json) {
@@ -115,7 +119,7 @@ export async function perfShowCmd(opts: PerfOptions): Promise<void> {
   const id = await projectId(api, opts);
   let out;
   try {
-    out = await api.getPerfCheck(id);
+    out = await api.getPerfCheck(id, opts);
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) {
       throw new LayeroError(
