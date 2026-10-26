@@ -276,6 +276,17 @@ export type Event =
     } & EventCommon)
   | ({ event: "data_origin_added"; org: string; database: string; origin: string } & EventCommon)
   | ({ event: "data_origin_removed"; org: string; database: string; origin: string } & EventCommon)
+  // Исходящие вызовы (G-12): хосты, секреты (только имена), описания и журнал.
+  | ({ event: "data_hosts"; org: string; database: string; hosts: string[] } & EventCommon)
+  | ({ event: "data_host_added"; org: string; database: string; host: string } & EventCommon)
+  | ({ event: "data_host_removed"; org: string; database: string; host: string } & EventCommon)
+  | ({ event: "data_secrets"; org: string; database: string; secrets: string[] } & EventCommon)
+  | ({ event: "data_secret_set"; org: string; database: string; name: string } & EventCommon)
+  | ({ event: "data_secret_removed"; org: string; database: string; name: string } & EventCommon)
+  | ({ event: "data_calls"; org: string; database: string; calls: unknown[] } & EventCommon)
+  | ({ event: "data_call_saved"; org: string; database: string; name: string } & EventCommon)
+  | ({ event: "data_call_removed"; org: string; database: string; name: string } & EventCommon)
+  | ({ event: "data_call_log"; org: string; database: string; calls: unknown[] } & EventCommon)
   // `warnings` — почему у роли не работает ни одна таблица (право в схеме без USAGE на неё).
   | ({ event: "data_methods"; org: string; database: string; warnings: string[]; tables: unknown[]; functions: unknown[] } & EventCommon)
   // `applied: false` — показ: ничего не изменено. Без `--yes` вне терминала CLI
