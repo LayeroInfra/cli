@@ -21,7 +21,7 @@ import { loadConfig } from "../config.js";
 import { LayeroError, detectMode, emit } from "../agent.js";
 import { orgOf, pick } from "./db.js";
 import { registerDataProbeCommand } from "./data-probe.js";
-import { registerDataCallsCommands } from "./data-calls.js";
+import { registerDataSecretsCommands } from "./data-secrets.js";
 
 export interface DataApiOptions {
   org?: string;
@@ -802,5 +802,5 @@ export function registerDataApiCommands(data: Command, program: Command): void {
   ).action(async (opts: any) => dataEnableCmd(json(opts)));
 
   registerDataProbeCommand(data, withDb, json);
-  registerDataCallsCommands(data, withDb, json);
+  registerDataSecretsCommands(data, withDb, json);
 }

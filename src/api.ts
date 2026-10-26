@@ -30,26 +30,6 @@ export type RuntimeKind =
 export type MeOut = Schemas["MeOut"];
 
 /** Ключ Data API в списке. Значения здесь нет и быть не может — только префикс. */
-export interface DataApiCall {
-  name: string;
-  method: string;
-  url_template: string;
-  headers?: Record<string, string> | null;
-  body_template?: unknown;
-  allow_anon: boolean;
-  hourly_limit: number;
-  updated_at?: string;
-}
-
-export interface DataApiCallLogRow {
-  call_name: string;
-  mode: string;
-  status_code: number | null;
-  error: string | null;
-  elapsed_ms: number;
-  at: string;
-}
-
 export interface DataApiKey {
   id: string;
   key_prefix: string;
@@ -735,7 +715,7 @@ export class ApiClient {
     );
   }
 
-  // ── исходящие вызовы (G-12): секреты, хосты, описания ──────────────────
+  // ── секреты (HTTP из SQL и вход) и журнал запросов ─────────────────────
   listDataSecrets(org: string, dbId: string): Promise<Array<{ name: string; created_at: string }>> {
     return this.request("GET", `/organizations/${org}/databases/${dbId}/api/secrets`);
   }
@@ -747,35 +727,6 @@ export class ApiClient {
 
   deleteDataSecret(org: string, dbId: string, name: string): Promise<unknown> {
     return this.request("DELETE", `/organizations/${org}/databases/${dbId}/api/secrets/${encodeURIComponent(name)}`);
-  }
-
-  listDataHosts(org: string, dbId: string): Promise<Array<{ host: string; created_at: string }>> {
-    return this.request("GET", `/organizations/${org}/databases/${dbId}/api/hosts`);
-  }
-
-  addDataHost(org: string, dbId: string, host: string): Promise<unknown> {
-    const body: Schemas["HostIn"] = { host };
-    return this.request("POST", `/organizations/${org}/databases/${dbId}/api/hosts`, body);
-  }
-
-  deleteDataHost(org: string, dbId: string, host: string): Promise<unknown> {
-    return this.request("DELETE", `/organizations/${org}/databases/${dbId}/api/hosts/${encodeURIComponent(host)}`);
-  }
-
-  listDataCalls(org: string, dbId: string): Promise<DataApiCall[]> {
-    return this.request("GET", `/organizations/${org}/databases/${dbId}/api/calls`);
-  }
-
-  saveDataCall(org: string, dbId: string, call: Schemas["CallIn"]): Promise<unknown> {
-    return this.request("PUT", `/organizations/${org}/databases/${dbId}/api/calls`, call);
-  }
-
-  deleteDataCall(org: string, dbId: string, name: string): Promise<unknown> {
-    return this.request("DELETE", `/organizations/${org}/databases/${dbId}/api/calls/${encodeURIComponent(name)}`);
-  }
-
-  listDataCallLog(org: string, dbId: string, limit = 20): Promise<DataApiCallLogRow[]> {
-    return this.request("GET", `/organizations/${org}/databases/${dbId}/api/call-log?limit=${limit}`);
   }
 
   listDataMethods(org: string, dbId: string): Promise<DataApiMethods> {
