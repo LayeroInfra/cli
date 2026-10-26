@@ -613,6 +613,12 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
       public_key: publicKey,
       secret_key: secretKey,
       reapplied,
+      ...(publicKey || secretKey
+        ? { next_action:
+              "ключи показаны один раз — сохраните их сейчас. Публичный потом: layero data env " +
+              `(у подключённого проекта) или новый: layero data keys issue --db ${shellArg(ref)}; ` +
+              "секретный больше не покажут — только выпуск нового" }
+        : {}),
     });
     return;
   }

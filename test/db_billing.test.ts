@@ -69,6 +69,7 @@ describe("платный заказ из терминала", () => {
 
   it("обычное создание не задето", async () => {
     createDatabase.mockResolvedValue({ id: "db-1", connection_string: "postgres://…" });
+    listDatabases.mockResolvedValue([{ name: "shop", status: "active" }]);
     await dbCreateCmd("shop", { org: "acme" });
     expect(createDatabase).toHaveBeenCalledOnce();
   });

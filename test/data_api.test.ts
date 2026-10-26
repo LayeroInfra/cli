@@ -506,6 +506,9 @@ describe("включение", () => {
     const out = await events(() => dataEnableCmd({ withSecret: true }));
     expect(api.enableDataApi).toHaveBeenCalledWith("acme", "db-2", true);
     expect(out[0]).toMatchObject({ event: "data_api_enabled", public_key: "pk_live_new", secret_key: SECRET, reapplied: false });
+    // Ключи показываются один раз — событие говорит, где взять их потом (T-20261025-33, п. 7).
+    expect(out[0].next_action).toContain("layero data keys issue");
+    expect(out[0].next_action).toContain("layero data env");
   });
 
   it("у базы с включённым Data API — отказ без вызова включения", async () => {

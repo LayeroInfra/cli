@@ -156,25 +156,26 @@ export async function dbListCmd(opts: DbOptions): Promise<void> {
  * не надоест»: выделенный кластер поднимается 7–13 минут, и повесить терминал
  * на всё это время нельзя. Не дождались — говорим об этом прямо.
  */
-async function waitUntilReady(
+export async function waitUntilReady(
   api: ApiClient,
   org: string,
   name: string,
   timeoutMs = 90_000,
-): Promise<boolean> {
+  pollMs = 2000,
+): Promise<"active" | "creating" | "failed"> {
   const until = Date.now() + timeoutMs;
   while (Date.now() < until) {
-    await new Promise((r) => setTimeout(r, 2000));
     try {
       const all = await api.listDatabases(org);
       const mine = all.find((d) => d.name === name);
-      if (mine && mine.status === "active") return true;
-      if (mine && mine.status === "failed") return false;
+      if (mine && mine.status === "active") return "active";
+      if (mine && mine.status === "failed") return "failed";
     } catch {
       // Сеть моргнула — это не повод объявлять базу несозданной.
     }
+    await new Promise((r) => setTimeout(r, pollMs));
   }
-  return false;
+  return "creating";
 }
 
 
@@ -229,25 +230,39 @@ export async function dbCreateCmd(name: string, opts: DbOptions): Promise<void> 
     throw err;
   });
 
+  // 🚨 ЖДЁМ ГОТОВНОСТИ И В JSON (T-20261025-33, п. 1). Раньше событие уходило
+  // сразу, пока база `creating`, и следующая команда агента (`data enable`,
+  // `db sql`) получала 404 «база не найдена или не активна» — агент искал
+  // ошибку в имени. Теперь событие несёт `status`, а `creating` после 90 с —
+  // с подсказкой, что делать.
+  const json = mode.json || opts.json;
+  if (!json) process.stdout.write(`${chalk.dim("…")} готовим базу «${name}» в организации ${org}`);
+  const state = await waitUntilReady(api, org, name);
+  if (!json) process.stdout.write("\r\u001b[2K");
+
   // Пароль отдаётся ОДИН РАЗ — второй раз его не покажет никто, только
   // ротация. Поэтому он и в JSON-режиме, и в терминале.
-  if (mode.json || opts.json) {
+  if (json) {
     // 🚨 Пароль — в ОДНОМ поле (T-20261025-12). Раньше он шёл ещё и отдельным
     // `password`: агент маскировал строку подключения и не замечал второе
     // поле, и пароль уезжал в вывод инструмента. `secrets` называет, что
     // маскировать.
     emit({ event: "database_created", org, name, connection_string: created.connection_string,
-           secrets: ["connection_string"] });
+           secrets: ["connection_string"], status: state,
+           ...(state === "creating"
+             ? { next_action: `база ещё готовится — дождитесь status active в layero db list --org ${org} ` +
+                 "(обычно до 2 минут), затем data enable / db sql" }
+             : state === "failed"
+               ? { next_action: "подготовка базы не удалась — удалите её в панели и создайте заново; " +
+                   "повторится — напишите в поддержку" }
+               : {}) });
     return;
   }
   // 🚨 БАЗА ЕЩЁ НЕ ГОТОВА В ЭТОТ МОМЕНТ. Ручка стала асинхронной: она пишет
   // намерение и возвращается, подготовка идёт минуты. Печатать «заведена» и
   // строку подключения сразу значит отправить человека к `psql`, который
   // ответит «database does not exist», — и он пойдёт искать причину в пароле.
-  process.stdout.write(`${chalk.dim("…")} готовим базу «${name}» в организации ${org}`);
-  const ready = await waitUntilReady(api, org, name);
-  process.stdout.write("\r\u001b[2K");
-  if (ready) {
+  if (state === "active") {
     console.log(`${chalk.green("✓")} база «${name}» готова в организации ${org}`);
   } else {
     console.log(

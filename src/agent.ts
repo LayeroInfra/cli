@@ -298,6 +298,8 @@ export type Event =
       secret_key: string | null;
       // `true` — переприменение у базы с включённым API (`--repair`): сняты умолчания для новых таблиц.
       reapplied: boolean;
+      // Ключи в событии показываются ОДИН раз — где взять их потом (T-20261025-33, п. 7).
+      next_action?: string;
     } & EventCommon)
   // Базы организации (DX-03). `database_created` несёт строку подключения:
   // пароль показывается ОДИН раз, и агенту он нужен ровно так же, как человеку.
@@ -313,6 +315,10 @@ export type Event =
       /** Поля события, которые нельзя печатать и класть в журнал (T-20261025-12):
        *  пароль приходит ОДИН раз и только внутри `connection_string`. */
       secrets: string[];
+      /** `active` — можно сразу `data enable` и `db sql`; `creating` — ещё готовится
+       *  (дождались 90 с и не дождались), тогда `next_action` говорит, что делать. */
+      status: "active" | "creating" | "failed";
+      next_action?: string;
     } & EventCommon)
   | ({ event: "database_connected"; org: string; database: string; project: string } & EventCommon)
   | ({ event: "database_disconnected"; org: string; database: string; project: string } & EventCommon)

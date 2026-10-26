@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { whoamiCmd } from "../commands/whoami.js";
+import { nextActionFor } from "../next-action.js";
 import { logoutCmd } from "../commands/logout.js";
 import { projectsCreateCmd, projectsDeleteCmd, projectsListCmd } from "../commands/projects.js";
 import { sourcesConnectCmd, sourcesListCmd, sourcesReposCmd } from "../commands/sources.js";
@@ -766,7 +767,8 @@ function asAccountStateError(err: unknown): LayeroError | null {
         // Общий совет — последний: причина и лекарство чаще всего уже в тексте
         // отказа (подсказки SQL про роли и Авторизацию, T-20261025-9), и
         // «исправьте запрос» уводил агента от них.
-        detail.next_action ?? "причина и что сделать — в тексте отказа; исправьте и повторите",
+        detail.next_action ?? detail.hint ?? nextActionFor(err.status, detail.message) ??
+          "прочитайте message: в нём причина отказа сервера; поправьте команду и повторите",
       );
     }
   }
@@ -782,7 +784,7 @@ function asAccountStateError(err: unknown): LayeroError | null {
  */
 function detailOf(
   body: string,
-): { code?: string; message: string; next_action?: string } | null {
+): { code?: string; message: string; next_action?: string; hint?: string } | null {
   let parsed: any;
   try {
     parsed = JSON.parse(body);
@@ -798,6 +800,8 @@ function detailOf(
         code: typeof detail.code === "string" ? detail.code : undefined,
         message,
         next_action: typeof detail.next_action === "string" ? detail.next_action : undefined,
+        // Шлюз данных кладёт подсказку в `hint` (формат PostgREST).
+        hint: typeof detail.hint === "string" && detail.hint ? detail.hint : undefined,
       };
     }
   }
