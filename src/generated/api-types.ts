@@ -7853,6 +7853,10 @@ export interface components {
             deploy_id: string;
             /** Next Actions */
             next_actions: string[];
+            /** Queue */
+            queue?: {
+                [key: string]: unknown;
+            } | null;
             /** Runtime Error Found */
             runtime_error_found: boolean;
             /** Runtime Log Excerpt */
