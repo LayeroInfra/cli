@@ -260,6 +260,8 @@ export type Event =
       prefix: string;
       key: string;
       expires_at: string | null;
+      /** `["key"]` у секретного ключа — что маскировать (T-20261026-6). */
+      secrets: string[];
     } & EventCommon)
   | ({ event: "data_key_revoked"; org: string; database: string; id: string } & EventCommon)
   | ({
@@ -300,6 +302,8 @@ export type Event =
       reapplied: boolean;
       // Итог включения словами (T-20261025-32): открытые таблицы с RLS, закрытые без RLS.
       warnings: string[];
+      /** Поля, которые нельзя печатать и класть в журнал (T-20261026-6). */
+      secrets: string[];
       // Ключи в событии показываются ОДИН раз — где взять их потом (T-20261025-33, п. 7).
       next_action?: string;
     } & EventCommon)

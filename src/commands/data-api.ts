@@ -237,6 +237,9 @@ export async function dataKeysIssueCmd(opts: DataApiOptions): Promise<void> {
       prefix: issued.prefix,
       key: issued.key,
       expires_at: issued.expires_at ?? null,
+      // Что маскировать (T-20261026-6), как у database_created: секретный ключ
+      // платформа не хранит и больше не покажет — в журнал агента он попасть не должен.
+      secrets: kind === "secret" ? ["key"] : [],
     });
     return;
   }
@@ -612,6 +615,8 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
       slug: res.slug,
       public_key: publicKey,
       secret_key: secretKey,
+      // Что маскировать (T-20261026-6): секретный ключ показывается один раз.
+      secrets: secretKey ? ["secret_key"] : [],
       reapplied,
       // Итог включения словами: какие таблицы открыты, какие без RLS закрыты.
       warnings: res.warnings ?? [],

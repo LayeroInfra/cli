@@ -147,7 +147,8 @@ describe("ключи", () => {
     api.issueDataKey.mockResolvedValue({ id: "k3", key: SECRET, prefix: "sk_live_ef56", is_public: false });
     const out = await events(() => dataKeysIssueCmd({ db: "kofeinya", kind: "secret", expiresIn: "90", label: "CRM" }));
     expect(api.issueDataKey).toHaveBeenCalledWith("acme", "db-1", { kind: "secret", label: "CRM", expires_in_days: 90 });
-    expect(out).toEqual([expect.objectContaining({ event: "data_key_issued", key: SECRET, kind: "secret" })]);
+    expect(out).toEqual([expect.objectContaining({ event: "data_key_issued", key: SECRET, kind: "secret",
+                                                    secrets: ["key"] })]);
   });
 
   it("неподдерживаемый срок — отказ до запроса", async () => {
@@ -509,6 +510,8 @@ describe("включение", () => {
     // Ключи показываются один раз — событие говорит, где взять их потом (T-20261025-33, п. 7).
     expect(out[0].next_action).toContain("layero data keys issue");
     expect(out[0].next_action).toContain("layero data env");
+    // Секретный ключ назван в `secrets` — агент его маскирует (T-20261026-6).
+    expect(out[0].secrets).toEqual(["secret_key"]);
   });
 
   it("у базы с включённым Data API — отказ без вызова включения", async () => {
