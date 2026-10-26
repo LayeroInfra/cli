@@ -169,6 +169,9 @@ function keyRow(k: DataApiKey) {
     expires_at: k.expires_at ?? null,
     in_build: Boolean(k.in_build),
     service: Boolean(k.is_service),
+    // Публичный ключ не секрет (он в бандле сайта) — отдаём значением, чтобы не
+    // выпускать новый ради уже существующего (T-20261026-9, п. 5).
+    value: k.is_public ? (k.value ?? null) : null,
   };
 }
 
@@ -195,7 +198,8 @@ export async function dataKeysListCmd(opts: DataApiOptions): Promise<void> {
           `  срок: ${k.expires_at ? `до ${day(k.expires_at)}` : "без срока"}` +
             `  ·  последний вызов: ${k.last_used_at ? day(k.last_used_at) : "не было"}` +
             `  ·  ${k.id}`,
-        ),
+        ) +
+        (k.value ? `\n  ${k.value}` : ""),
     );
   }
 }
@@ -613,6 +617,8 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
       org,
       database: ref,
       slug: res.slug,
+      url: res.url ?? null,
+      url_note: res.url_note ?? null,
       public_key: publicKey,
       secret_key: secretKey,
       // Что маскировать (T-20261026-6): секретный ключ показывается один раз.
@@ -622,9 +628,10 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
       warnings: res.warnings ?? [],
       ...(publicKey || secretKey
         ? { next_action:
-              "ключи показаны один раз — сохраните их сейчас. Публичный потом: layero data env " +
-              `(у подключённого проекта) или новый: layero data keys issue --db ${shellArg(ref)}; ` +
-              "секретный больше не покажут — только выпуск нового" }
+              (secretKey
+                ? "секретный ключ показан один раз — сохраните его сейчас, платформа его не хранит. "
+                : "") +
+              `Публичный ключ можно получить снова: layero data keys list --db ${shellArg(ref)}` }
         : {}),
     });
     return;
@@ -639,6 +646,10 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
           )
       : `${chalk.green("✓")} Data API включён у базы «${db.name}»`,
   );
+  if (res.url) {
+    console.log(`\n  адрес API:       ${res.url}`);
+    if (res.url_note) console.log(chalk.dim(`  ${res.url_note}`));
+  }
   for (const w of res.warnings ?? []) console.log(chalk.yellow(`\n  ⚠ ${w}`));
   if (publicKey) console.log(`\n  публичный ключ:  ${publicKey}`);
   if (secretKey) {
@@ -671,7 +682,11 @@ export function registerDataApiCommands(data: Command, program: Command): void {
   const json = (opts: any) => ({ ...opts, json: program.opts().json });
 
   const keys = data.command("keys").description("Data API keys: list, issue, revoke.");
-  withDb(keys.command("list").description("The database's keys: prefix, expiry, last call. No key values."))
+  withDb(
+    keys
+      .command("list")
+      .description("The database's keys: prefix, expiry, last call; the public key's value too (it is not a secret)."),
+  )
     .action(async (opts: any) => dataKeysListCmd(json(opts)));
   withDb(
     keys
@@ -733,7 +748,10 @@ export function registerDataApiCommands(data: Command, program: Command): void {
   withDb(
     data
       .command("enable")
-      .description("Enable the Data API for a database: sets up the api schema and roles, issues a public key. All methods start closed.")
+      .description(
+        "Enable the Data API for a database: sets up the api schema and roles, issues a public key. " +
+          "As in Supabase, new tables, sequences and functions in public are open to the API roles; rows are decided by RLS.",
+      )
       .option("--with-secret", "also issue a secret key for the server")
       .option(
         "--repair",

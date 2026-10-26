@@ -110,17 +110,18 @@ beforeEach(() => {
   // Поле, которого в фикстуре нет, утечь в тесте не может.
   api.listDataKeys.mockResolvedValue([
     { id: "k1", key_prefix: "pk_live_ab12", is_public: true, label: "по умолчанию", in_build: true,
-      key: "pk_live_полное", key_value_enc: "enc", created_at: "2026-09-01T10:00:00Z",
+      key: "pk_live_полное", key_value_enc: "enc", value: "pk_live_ab12значение",
+      created_at: "2026-09-01T10:00:00Z",
       last_used_at: null, expires_at: null },
     { id: "k2", key_prefix: "sk_live_cd34", is_public: false, label: "сервер", key: SECRET,
-      is_service: false, expires_at: "2026-12-01T00:00:00Z" },
+      value: SECRET, is_service: false, expires_at: "2026-12-01T00:00:00Z" },
   ]);
   api.setDataLevels.mockImplementation(async (_o: string, _d: string, body: any) =>
     body.apply ? { ...PLAN, current: PLAN.next, applied: true } : PLAN);
 });
 
 describe("ключи", () => {
-  it("список не несёт значений ключей", async () => {
+  it("список несёт значение только публичного ключа", async () => {
     const out = await events(() => dataKeysListCmd({ db: "kofeinya" }));
     const text = JSON.stringify(out);
     expect(text).not.toContain(SECRET);
@@ -131,6 +132,9 @@ describe("ключи", () => {
       ["public", "pk_live_ab12", true],
       ["secret", "sk_live_cd34", false],
     ]);
+    // Публичный ключ не секрет — его значение отдаётся (T-20261026-9, п. 5); секретного —
+    // никогда, даже если сервер по ошибке его прислал.
+    expect(out[0].keys.map((k: any) => k.value)).toEqual(["pk_live_ab12значение", null]);
   });
 
   it("без --db берётся единственная база с Data API", async () => {
@@ -503,13 +507,18 @@ describe("связка команд", () => {
 
 describe("включение", () => {
   it("без --db — единственная база без Data API, с секретным ключом", async () => {
-    api.enableDataApi.mockResolvedValue({ slug: "draft", key: { key: "pk_live_new" }, secret_key: { key: SECRET } });
+    api.enableDataApi.mockResolvedValue({
+      slug: "draft", key: { key: "pk_live_new" }, secret_key: { key: SECRET },
+      url: "https://data.layero.ru/draft", url_note: "Адрес API собран из названия «dra-ft»",
+    });
     const out = await events(() => dataEnableCmd({ withSecret: true }));
     expect(api.enableDataApi).toHaveBeenCalledWith("acme", "db-2", true);
     expect(out[0]).toMatchObject({ event: "data_api_enabled", public_key: "pk_live_new", secret_key: SECRET, reapplied: false });
-    // Ключи показываются один раз — событие говорит, где взять их потом (T-20261025-33, п. 7).
-    expect(out[0].next_action).toContain("layero data keys issue");
-    expect(out[0].next_action).toContain("layero data env");
+    // Секретный показывается один раз, публичный можно получить снова (T-20261026-9, п. 5).
+    expect(out[0].next_action).toContain("секретный ключ показан один раз");
+    expect(out[0].next_action).toContain("layero data keys list");
+    // Адрес и почему он не совпадает с названием (T-20261026-9, п. 3).
+    expect(out[0]).toMatchObject({ url: "https://data.layero.ru/draft", url_note: expect.stringContaining("dra-ft") });
     // Секретный ключ назван в `secrets` — агент его маскирует (T-20261026-6).
     expect(out[0].secrets).toEqual(["secret_key"]);
   });

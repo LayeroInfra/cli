@@ -3184,8 +3184,9 @@ export interface paths {
         };
         /**
          * Api List Keys
-         * @description Список ключей: префикс, кем создан, когда использовался. Значений здесь
-         *     нет и быть не может — они не хранятся.
+         * @description Список ключей: префикс, кем создан, когда использовался. У публичного —
+         *     и значение (`value`): он не секрет, уезжает в бандл сайта. Значение
+         *     секретного не хранится и здесь пустое.
          */
         get: operations["api_list_keys_organizations__slug__databases__db_id__api_keys_get"];
         put?: never;

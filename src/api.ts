@@ -40,6 +40,8 @@ export interface DataApiKey {
   expires_at?: string | null;
   in_build?: boolean;
   is_service?: boolean;
+  /** Значение публичного ключа — он не секрет, уезжает в бандл сайта. У секретного пусто. */
+  value?: string | null;
 }
 
 export interface DataApiMethods {
@@ -714,7 +716,16 @@ export class ApiClient {
     org: string,
     dbId: string,
     withSecret: boolean,
-  ): Promise<{ slug: string; key: { key: string } | null; secret_key: { key: string } | null; warnings?: string[] }> {
+  ): Promise<{
+    slug: string;
+    key: { key: string } | null;
+    secret_key: { key: string } | null;
+    warnings?: string[];
+    /** Адрес API базы. */
+    url?: string;
+    /** Почему адрес не совпадает с названием базы; совпал — пусто. */
+    url_note?: string | null;
+  }> {
     return this.request(
       "POST",
       `/organizations/${org}/databases/${dbId}/api/enable?with_secret=${withSecret ? "true" : "false"}`,

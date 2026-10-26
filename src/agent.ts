@@ -249,6 +249,8 @@ export type Event =
         expires_at: string | null;
         in_build: boolean;
         service: boolean;
+        /** Значение публичного ключа (он не секрет); у секретного всегда null. */
+        value: string | null;
       }>;
     } & EventCommon)
   | ({
@@ -296,6 +298,10 @@ export type Event =
       org: string;
       database: string;
       slug: string;
+      /** Адрес API базы. */
+      url: string | null;
+      /** Почему адрес не совпадает с названием базы (T-20261026-9, п. 3); совпал — null. */
+      url_note: string | null;
       public_key: string | null;
       secret_key: string | null;
       // `true` — переприменение у базы с включённым API (`--repair`): сняты умолчания для новых таблиц.
