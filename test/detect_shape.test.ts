@@ -177,6 +177,8 @@ describe("статика", () => {
     }));
     expect(d.confident).toBe(true);
     expect(d.hint).toMatch(/script is not run/);
+    // G-20: и отдельным полем — его печатает заметное предупреждение.
+    expect(d.skipped_build_script).toBe("tailwindcss -o out.css");
   });
 
   it("пустая папка — не «уверенная статика»", async () => {

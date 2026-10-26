@@ -136,6 +136,8 @@ export type Event =
       candidates?: string[];
       ssr_warning?: string;
       layero_warnings?: string[];
+      // Статика с `build` в package.json: скрипт не запустится (G-20).
+      skipped_build_script?: string;
     } & EventCommon)
   // `deploy --dry-run`: как платформа соберёт папку, если выкатить сейчас.
   // Ничего не выгружено и не создано.
@@ -205,7 +207,16 @@ export type Event =
   | ({ event: "stage"; name: string } & EventCommon)
   // Сборка стоит в очереди сборщиков: до первого `stage` бывает минута тишины
   // (чистая комната 19.09.2026). Печатается раз в 15 с, пока не начнётся clone.
-  | ({ event: "queued"; waited_s: number } & EventCommon)
+  // Место в очереди и оценка — от сервера (G-14); без них — только `waited_s`.
+  | ({
+      event: "queued";
+      waited_s: number;
+      position?: number;
+      ahead?: number;
+      running?: number;
+      estimated_wait_s?: number | null;
+      message?: string;
+    } & EventCommon)
   // Диагностика (AGENT-08). `build_log_excerpt` — ВЫЖИМКА вокруг фатальной
   // строки, а не хвост: платформа уже выбрала из лога значимое, и агенту не
   // нужно тянуть в контекст две тысячи строк ради одной.
@@ -276,6 +287,8 @@ export type Event =
     } & EventCommon)
   | ({ event: "data_origin_added"; org: string; database: string; origin: string } & EventCommon)
   | ({ event: "data_origin_removed"; org: string; database: string; origin: string } & EventCommon)
+  // `data enable --auth --storage` (G-05): что из входа и файлов включено этим вызовом.
+  | ({ event: "data_services_enabled"; org: string; database: string; auth: boolean; storage: boolean } & EventCommon)
   // Исходящие вызовы (G-12): хосты, секреты (только имена), описания и журнал.
   | ({ event: "data_hosts"; org: string; database: string; hosts: string[] } & EventCommon)
   | ({ event: "data_host_added"; org: string; database: string; host: string } & EventCommon)
@@ -610,6 +623,13 @@ function renderHuman(event: Event): void {
       if (event.hint) process.stdout.write(`  ${event.hint}\n`);
       if (event.next_action) process.stdout.write(`  → ${event.next_action}\n`);
       for (const w of event.layero_warnings ?? []) process.stdout.write(`! ${w}\n`);
+      if (event.skipped_build_script) {
+        process.stderr.write(
+          `\n⚠ Это статика: скрипт сборки «${event.skipped_build_script}» из package.json НЕ запустится,\n` +
+            "  файлы уйдут как есть. Если сайт надо собрать, добавьте layero.json:\n" +
+            '  {"framework":"generic","buildCommand":"npm run build","outputDirectory":"<папка с index.html после сборки>"}\n\n',
+        );
+      }
       break;
     case "plan": {
       const src = event.sources;

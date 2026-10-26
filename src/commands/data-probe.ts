@@ -667,7 +667,9 @@ export function registerDataProbeCommand(
       .option("--expect <status>", "expected status: 200, 2xx or a comma-separated list; a mismatch is an error")
       .addHelpText(
         "after",
-        "\nPaths: /rest/v1/<table>, /rest/v1/rpc/<function> (GET or POST), /whoami (GET only).\n" +
+        "\nPaths: /rest/v1/<table>, /rest/v1/rpc/<function> (GET or POST), /whoami (GET only),\n" +
+          "files without writing: POST /storage/v1/object/list/<bucket>, GET /storage/v1/object/info/<bucket>/<path>,\n" +
+          "POST /storage/v1/object/sign/<bucket>/<path> (read), POST /storage/v1/object/upload/sign/<bucket>/<path> (may upload?).\n" +
           "Pass parameters as --query flags, not with a \"?\" in the path.\n" +
           "\nExamples:\n" +
           "  $ layero data probe GET /rest/v1/products --query select=id,title --query limit=5\n" +
@@ -675,6 +677,7 @@ export function registerDataProbeCommand(
           "  $ layero data probe POST /rest/v1/rpc/order_create --body-file order.json --as server\n" +
           "  $ layero data probe GET /rest/v1/orders --expect 401,403   # is it closed to visitors?\n" +
           "  $ layero data probe GET /whoami\n" +
+          "  $ layero data probe POST /storage/v1/object/list/avatars --as user --user <id>   # whose files are visible\n" +
           `\nWrites are rolled back. Not rolled back: ${NOT_UNDONE_HELP}.\n` +
           "\nExit code, decided in this order:\n" +
           "  1. the write rollback was not confirmed — error data_probe_not_rolled_back;\n" +

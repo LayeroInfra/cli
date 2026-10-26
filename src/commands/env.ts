@@ -52,7 +52,14 @@ export async function envListCmd(opts: EnvOptions): Promise<void> {
     emit({
       event: "env_vars",
       project: project.slug,
-      vars: rows.map((r) => ({ key: r.key, length: r.length, managed: !!r.managed })),
+      vars: rows.map((r) => ({
+        key: r.key,
+        length: r.length,
+        managed: !!r.managed,
+        // Куда платформа кладёт свою переменную (G-11): `runtime` — только в
+        // контейнер сервера, в сборку не попадает; `build` — в сборку сайта.
+        ...(r.managed ? { scope: r.scope ?? null } : {}),
+      })),
     });
     return;
   }
@@ -66,8 +73,10 @@ export async function envListCmd(opts: EnvOptions): Promise<void> {
   // базе — часть ответа. Но менять её нельзя: она пересобирается из связи
   // проекта с базой, и предложить правку значило бы пообещать несбыточное.
   for (const r of rows) {
+    const where =
+      r.scope === "build" ? ", в сборку сайта" : r.scope === "runtime" ? ", только серверу — в сборку не попадает" : "";
     const tail = r.managed
-      ? chalk.dim(`  (${r.length} симв., ставит платформа)`)
+      ? chalk.dim(`  (${r.length} симв., ставит платформа${where})`)
       : chalk.dim(`  (${r.length} симв.)`);
     console.log(`${r.key}${tail}`);
   }

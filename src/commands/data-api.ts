@@ -39,6 +39,8 @@ export interface DataApiOptions {
   patch?: string;
   delete?: string;
   call?: string;
+  auth?: boolean;
+  storage?: boolean;
 }
 
 const LEVELS = ["closed", "visitor", "user", "server"];
@@ -384,8 +386,12 @@ export async function dataMethodsCmd(opts: DataApiOptions): Promise<void> {
   }
   if (res.tables.length) console.log(chalk.bold("REST"));
   for (const t of res.tables) {
+    // Право на часть колонок — рядом с уровнем (G-09): уровень честный, но
+    // писать можно не всё; панель зовёт это «частичный доступ».
+    const partly = new Set(t.column_only ?? []);
     const levels = Object.entries(t.levels)
-      .map(([m, l]) => `${m} ${l === "closed" ? chalk.dim(LEVEL_WORD[l]) : LEVEL_WORD[l] ?? l}`)
+      .map(([m, l]) => `${m} ${l === "closed" ? chalk.dim(LEVEL_WORD[l]) : LEVEL_WORD[l] ?? l}` +
+        (partly.has(m) ? chalk.dim(" (часть колонок)") : ""))
       .join(" · ");
     const view = t.kind === "view" ? chalk.dim(" (представление)") : "";
     const profile = t.shadowed_by
@@ -568,6 +574,30 @@ const REPAIR_LOSS =
  * именно его советуют отказы «роли Data API в базе нет — включите API заново». Он
  * требует явного `--db` и подтверждения с предупреждением о `public`.
  */
+/** Вход и файлы базы — ручками панели. `quiet` — итог печатает включение API. */
+async function enableExtras(
+  api: ApiClient,
+  org: string,
+  db: DatabaseSummary,
+  ref: string,
+  opts: DataApiOptions,
+  quiet = false,
+): Promise<void> {
+  if (opts.auth) await api.enableDataAuth(org, db.id);
+  if (opts.storage) await api.enableDataStorage(org, db.id);
+  if (asJson(opts)) {
+    emit({ event: "data_services_enabled", org, database: ref, auth: Boolean(opts.auth), storage: Boolean(opts.storage) });
+    return;
+  }
+  if (quiet && !opts.auth && !opts.storage) return;
+  if (opts.auth) {
+    console.log(`${chalk.green("✓")} вход включён у базы «${db.name}»: схема auth и auth.uid() появились — миграции с политиками можно гнать`);
+  }
+  if (opts.storage) {
+    console.log(`${chalk.green("✓")} файлы включены у базы «${db.name}»: схема storage, бакеты — в панели или SQL (storage.buckets)`);
+  }
+}
+
 export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
   if (opts.repair && !opts.db) {
     throw new LayeroError(
@@ -577,6 +607,12 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
     );
   }
   const { api, org, db, ref } = await target(opts, "enable");
+  // Вход и файлы — тем же шагом (G-05, 26.10): миграция с `auth.uid()` в
+  // политиках иначе требовала кликов в панели, и стенд не описывался кодом.
+  if (db.api_enabled && !opts.repair && (opts.auth || opts.storage)) {
+    await enableExtras(api, org, db, ref, opts);
+    return;
+  }
   if (db.api_enabled && !opts.repair) {
     throw new LayeroError(
       "data_api_already_enabled",
@@ -609,6 +645,7 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
     }
   }
   const res = await api.enableDataApi(org, db.id, Boolean(opts.withSecret));
+  if (opts.auth || opts.storage) await enableExtras(api, org, db, ref, opts, true);
   const publicKey = res.key?.key ?? null;
   const secretKey = res.secret_key?.key ?? null;
   const reapplied = Boolean(opts.repair);
@@ -664,7 +701,8 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
     console.log(
       chalk.dim(
         "\n  Как в Supabase: новые таблицы public открыты ролям, строки решает RLS — включайте его у " +
-          "каждой таблицы. Что открыто: layero data methods",
+          "каждой таблицы. Что открыто: layero data methods\n" +
+          `  Вход (auth.uid() в политиках) и файлы: layero data enable --db ${shellArg(ref)} --auth --storage`,
       ),
     );
   }
@@ -754,6 +792,8 @@ export function registerDataApiCommands(data: Command, program: Command): void {
           "As in Supabase, new tables, sequences and functions in public are open to the API roles; rows are decided by RLS.",
       )
       .option("--with-secret", "also issue a secret key for the server")
+      .option("--auth", "also enable sign-in: the auth schema and auth.uid() for RLS policies")
+      .option("--storage", "also enable files: the storage schema (buckets, storage.objects)")
       .option(
         "--repair",
         "re-apply the roles and the api schema for a database whose Data API is already enabled; table grants are kept, default privileges for new tables are removed",

@@ -7878,6 +7878,12 @@ export interface components {
             last_id: number | null;
             /** Lines */
             lines: components["schemas"]["LogLineOut"][];
+            /** Queue */
+            queue?: {
+                [key: string]: unknown;
+            } | null;
+            /** Queue Message */
+            queue_message?: string | null;
             /** S3 Path */
             s3_path: string | null;
             /** Stage Started At */
@@ -8304,6 +8310,8 @@ export interface components {
             masked: string;
             /** Preview */
             preview: string | null;
+            /** Scope */
+            scope?: ("runtime" | "build") | null;
         };
         /** EnvVarsReplace */
         EnvVarsReplace: {

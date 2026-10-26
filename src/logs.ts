@@ -70,6 +70,7 @@ export async function streamDeployLogs(
   const announced = new Set<string>();
   const startedAt = Date.now();
   let lastQueuedAt = startedAt;
+  let queueShown = false;
   const sleep = (ms: number): Promise<void> =>
     new Promise((res) => setTimeout(res, retryDelayScale() * ms));
   const announce = (name: string): void => {
@@ -129,13 +130,34 @@ export async function streamDeployLogs(
     }
     if (poll.current_stage) announce(poll.current_stage);
     if (
-      json &&
       poll.status === "queued" &&
       announced.size === 0 &&
-      Date.now() - lastQueuedAt >= QUEUED_EVERY_MS
+      (Date.now() - lastQueuedAt >= QUEUED_EVERY_MS || (!queueShown && poll.queue_message))
     ) {
       lastQueuedAt = Date.now();
-      emit({ event: "queued", waited_s: Math.round((Date.now() - startedAt) / 1000) });
+      // 🚨 Место и оценка — от сервера (G-14, 26.10). Раньше человек видел
+      // тишину, а агент — один `waited_s`: восемь минут без причины читались
+      // как зависание, и деплой запускали ещё раз.
+      const q = (poll.queue ?? null) as
+        | { position?: number; ahead?: number; running?: number; estimated_wait_s?: number | null }
+        | null;
+      const waited = Math.round((Date.now() - startedAt) / 1000);
+      if (json) {
+        emit({
+          event: "queued",
+          waited_s: waited,
+          ...(q ? {
+            position: q.position,
+            ahead: q.ahead,
+            running: q.running,
+            estimated_wait_s: q.estimated_wait_s ?? null,
+          } : {}),
+          ...(poll.queue_message ? { message: poll.queue_message } : {}),
+        });
+      } else if (poll.queue_message) {
+        process.stderr.write(chalk.dim(`… ${poll.queue_message}\n`));
+      }
+      queueShown = true;
     }
     if (poll.terminal) {
       return poll;

@@ -62,3 +62,20 @@ describe("адреса ручек Data API", () => {
     expect(calls[4]!.body).toEqual({ origin: "https://shop.example", note: "витрина" });
   });
 });
+
+describe("проект по слагу (G-10)", () => {
+  it("getProject со слагом не уходит в /projects/<слаг>, а ищет по списку", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      calls.push(url);
+      if (url.endsWith("/projects")) {
+        return new Response(JSON.stringify([{ id: "7c8aa53d-3b61-40a7-bd2e-695058acd72f", slug: "zamecheno-widget" }]), { status: 200 });
+      }
+      return new Response("{}", { status: 422 });
+    }));
+    const api = new ApiClient({ apiUrl: "https://api.test/", token: "t" } as any);
+    const p = await api.getProject("zamecheno-widget");
+    expect(p.id).toBe("7c8aa53d-3b61-40a7-bd2e-695058acd72f");
+    expect(calls.some((u) => u.includes("/projects/zamecheno-widget"))).toBe(false);
+  });
+});

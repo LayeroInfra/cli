@@ -51,6 +51,10 @@ export interface Detected {
   candidates?: string[];
   // Keys of layero.json the platform will NOT apply, with the right name.
   layero_warnings?: string[];
+  // Статика с `build` в package.json: скрипт НЕ запустится (G-20, 26.10).
+  // Отдельным полем, а не только в `hint`: на проде у клиента ушла страница с
+  // `%APP_URL%`, хотя подсказка была — её не заметили среди прочего текста.
+  skipped_build_script?: string;
 }
 
 export interface DetectOptions {
@@ -786,6 +790,7 @@ async function detectFromSnapshot(cwd: string, snap: dc.Snapshot, opts: DetectOp
   let confident = declared || plan.confident;
   let shape: Shape | null = null;
   const notes: string[] = [];
+  let skippedBuild: string | null = null;
   let flagNextAction: string | undefined;
 
   if (framework === "static") {
@@ -800,6 +805,7 @@ async function detectFromSnapshot(cwd: string, snap: dc.Snapshot, opts: DetectOp
     if (await rootHasIndexHtml(cwd)) {
       confident = true;
       if (buildScript && !declared) {
+        skippedBuild = buildScript;
         notes.push(
           `package.json has a build script (\`${buildScript}\`), but a static site is served as it is and the script is not run. ` +
             'If it must run: layero.json {"framework":"generic","buildCommand":"npm run build","outputDirectory":"<folder>"}.',
@@ -890,6 +896,7 @@ async function detectFromSnapshot(cwd: string, snap: dc.Snapshot, opts: DetectOp
     ...(shape?.next_action ?? flagNextAction ? { next_action: shape?.next_action ?? flagNextAction } : {}),
     ...(shape?.candidates?.length ? { candidates: shape.candidates } : {}),
     ...(warning ? { ssr_warning: warning } : {}),
+    ...(skippedBuild ? { skipped_build_script: skippedBuild } : {}),
   };
 }
 
@@ -908,5 +915,6 @@ export function detectedEvent(d: Detected): Extract<Event, { event: "detected" }
     ...(d.candidates?.length ? { candidates: d.candidates } : {}),
     ...(d.ssr_warning ? { ssr_warning: d.ssr_warning } : {}),
     ...(d.layero_warnings?.length ? { layero_warnings: d.layero_warnings } : {}),
+    ...(d.skipped_build_script ? { skipped_build_script: d.skipped_build_script } : {}),
   };
 }

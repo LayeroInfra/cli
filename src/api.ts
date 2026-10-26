@@ -78,6 +78,8 @@ export interface DataApiMethods {
     profile?: string | null;
     shadowed_by?: string | null;
     levels: Record<string, string>;
+    /** Методы, открытые только правом на часть колонок (`UPDATE (status)`, G-09). */
+    column_only?: string[];
     writable: string[];
   }>;
   functions: Array<{
@@ -335,7 +337,16 @@ export class ApiClient {
     return this.request("GET", "/organizations");
   }
 
+  /**
+   * Проект по идентификатору; слаг уходит в `resolveProject`.
+   *
+   * 🚨 Справки `env`, `domains`, `perf`, `analytics`, `db` обещают
+   * `--project <id|slug>`, а слаг уезжал в путь как есть: сырой 422 «Input
+   * should be a valid UUID», и деплой следом собирался без переменных (G-10,
+   * 26.10). Резолв по форме — здесь, один раз для всех команд.
+   */
   getProject(idOrSlug: string): Promise<ProjectSummary> {
+    if (!looksLikeId(idOrSlug)) return this.resolveProject(idOrSlug);
     return this.request<ProjectSummary>("GET", `/projects/${idOrSlug}`);
   }
 
@@ -773,6 +784,16 @@ export class ApiClient {
 
   setDataLevels(org: string, dbId: string, input: Schemas["ApiLevelsIn"]): Promise<DataApiLevelsPlan> {
     return this.request("POST", `/organizations/${org}/databases/${dbId}/api/levels`, input);
+  }
+
+  /** Вход (схема `auth`, `auth.uid()`) — та же ручка, что у кнопки панели (G-05). */
+  enableDataAuth(org: string, dbId: string): Promise<{ ok: boolean; schema?: string }> {
+    return this.request("POST", `/organizations/${org}/databases/${dbId}/api/auth/enable`, {});
+  }
+
+  /** Файлы (схема `storage`) — та же ручка, что у кнопки панели (G-05). */
+  enableDataStorage(org: string, dbId: string): Promise<{ ok: boolean }> {
+    return this.request("POST", `/organizations/${org}/databases/${dbId}/api/storage/enable`);
   }
 
   enableDataApi(
