@@ -19,6 +19,14 @@ export function nextActionFor(status: number, message: string): string | undefin
     [/relation .* does not exist|таблиц[аы] .* не найден/,
       "таблицы нет: проверьте имя и схему — SELECT schemaname, tablename FROM pg_tables " +
         "WHERE schemaname NOT IN ('pg_catalog', 'information_schema')"],
+    // 🚨 Схемы входа и файлов раскладывает платформа (T-20261026-16, п. 1): созданная
+    // руками `auth` помешает включению входа. Эти правила — раньше общего про схему.
+    [/schema "auth" does not exist|function auth\.\w+\(.*\) does not exist|схема auth .*после включения входа/,
+      "схему auth создаёт включение входа — попросите владельца базы включить его в панели: " +
+        "Базы данных → эта база → Авторизация. Не создавайте схему auth руками: это помешает включению"],
+    [/schema "storage" does not exist|function storage\.\w+\(.*\) does not exist/,
+      "схему storage создаёт включение файлов — попросите владельца базы включить их в панели: " +
+        "Базы данных → эта база → Файлы. Не создавайте схему storage руками"],
     [/schema .* does not exist/,
       "схемы нет: создайте её (CREATE SCHEMA …) или уберите имя схемы из запроса"],
     [/permission denied/,

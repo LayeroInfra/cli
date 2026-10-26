@@ -36,6 +36,17 @@ describe("nextActionFor — подсказка вместо общего сов�
     expect(nextActionFor(400, "syntax error at or near \"SELEC\"")).toContain("синтаксическая");
     expect(nextActionFor(400, "permission denied for table x")).toContain("GRANT");
   });
+  it("auth и storage — включение в панели, а не CREATE SCHEMA (T-20261026-16)", () => {
+    const hint = "схема auth и функция auth.uid() появляются после включения входа: " +
+      "Базы данных → эта база → Авторизация → «Включить авторизацию»";
+    for (const msg of [hint, 'schema "auth" does not exist', "function auth.uid() does not exist"]) {
+      const action = nextActionFor(400, msg)!;
+      expect(action).toContain("Авторизация");
+      expect(action).not.toContain("CREATE SCHEMA");
+    }
+    expect(nextActionFor(400, 'schema "storage" does not exist')).toContain("Файлы");
+    expect(nextActionFor(400, 'schema "shop" does not exist')).toContain("CREATE SCHEMA");
+  });
   it("неизвестный отказ — без выдуманной подсказки", () => {
     expect(nextActionFor(400, "что-то совсем другое")).toBeUndefined();
   });
