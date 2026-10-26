@@ -4470,6 +4470,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/databases/{db_id}/triggers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Triggers
+         * @description Триггеры таблиц базы (`pg_trigger` без внутренних), а для окна создания —
+         *     схемы, таблицы и функции, возвращающие `trigger`.
+         */
+        get: operations["list_triggers_organizations__slug__databases__db_id__triggers_get"];
+        put?: never;
+        /**
+         * Create Trigger
+         * @description Создать триггер; с `dry_run` — только вернуть запрос, который выполнится.
+         */
+        post: operations["create_trigger_organizations__slug__databases__db_id__triggers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/triggers/drop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Drop Trigger
+         * @description Удалить триггер: `DROP TRIGGER … ON …`. Функция остаётся.
+         */
+        post: operations["drop_trigger_organizations__slug__databases__db_id__triggers_drop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/databases/{db_id}/triggers/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Trigger State
+         * @description Включить или выключить триггер: `ALTER TABLE … ENABLE/DISABLE TRIGGER`.
+         */
+        post: operations["set_trigger_state_organizations__slug__databases__db_id__triggers_state_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/import/accounts": {
         parameters: {
             query?: never;
@@ -11054,6 +11119,70 @@ export interface components {
             status: string;
             /** Target Organization Slug */
             target_organization_slug: string;
+        };
+        /** TriggerCreateIn */
+        TriggerCreateIn: {
+            /** Condition */
+            condition?: string | null;
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run: boolean;
+            /** Events */
+            events: ("INSERT" | "UPDATE" | "DELETE" | "TRUNCATE")[];
+            /** Function Name */
+            function_name: string;
+            /** Function Schema */
+            function_schema: string;
+            /**
+             * Level
+             * @default ROW
+             * @enum {string}
+             */
+            level: "ROW" | "STATEMENT";
+            /** Name */
+            name: string;
+            /** Schema */
+            schema: string;
+            /** Table */
+            table: string;
+            /**
+             * Timing
+             * @default AFTER
+             * @enum {string}
+             */
+            timing: "BEFORE" | "AFTER";
+        };
+        /** TriggerRef */
+        TriggerRef: {
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run: boolean;
+            /** Name */
+            name: string;
+            /** Schema */
+            schema: string;
+            /** Table */
+            table: string;
+        };
+        /** TriggerStateIn */
+        TriggerStateIn: {
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /** Name */
+            name: string;
+            /** Schema */
+            schema: string;
+            /** Table */
+            table: string;
         };
         /** UpdateRoleIn */
         UpdateRoleIn: {
@@ -19141,6 +19270,154 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_triggers_organizations__slug__databases__db_id__triggers_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_trigger_organizations__slug__databases__db_id__triggers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriggerCreateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    drop_trigger_organizations__slug__databases__db_id__triggers_drop_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriggerRef"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_trigger_state_organizations__slug__databases__db_id__triggers_state_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                db_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriggerStateIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
