@@ -539,13 +539,13 @@ export async function dataGrantCmd(object: string, opts: DataApiOptions): Promis
   console.log(`\n${chalk.green("✓")} доступ изменён`);
 }
 
-// Что снимает переприменение (сверено с агентом узла 25.10.2026,
-// `runtime/userdb-agent/agent.py`, `api_enable`): права на таблицы и USAGE на
-// `public` у существующих ролей СОХРАНЯЮТСЯ (с T-20260914-3 снимается только у
-// роли, созданной этим же включением; USAGE на `public` выдаётся с 25.10).
-// Снимаются только умолчания, которые сами открывали ролям НОВЫЕ таблицы.
+// Что делает переприменение (сверено с агентом узла 26.10.2026,
+// `runtime/userdb-agent/agent.py`, `api_enable` и `supabase_parity`): роли
+// Data API и их пароли заводятся заново, права по умолчанию на `public` — как у
+// Supabase (T-20261025-32). Выданные и закрытые владельцем права на таблицы
+// СОХРАНЯЮТСЯ: разовые шаги перехода повторно не выполняются.
 const REPAIR_LOSS =
-  "умолчания, которые сами открывали ролям Data API новые таблицы, будут сняты; уже выданные права на таблицы сохранятся";
+  "роли Data API и права по умолчанию будут переприменены (как в Supabase); выданные и закрытые вами права на таблицы сохранятся";
 
 /**
  * Включение Data API.
@@ -613,6 +613,8 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
       public_key: publicKey,
       secret_key: secretKey,
       reapplied,
+      // Итог включения словами: какие таблицы открыты, какие без RLS закрыты.
+      warnings: res.warnings ?? [],
       ...(publicKey || secretKey
         ? { next_action:
               "ключи показаны один раз — сохраните их сейчас. Публичный потом: layero data env " +
@@ -628,11 +630,11 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
     reapplied
       ? `${chalk.green("✓")} Data API переприменён у базы «${db.name}»\n` +
           chalk.yellow(
-            "  Выданные права на таблицы сохранились. Сняты только умолчания, которые сами открывали " +
-              "новые таблицы ролям Data API: новые таблицы открывайте явно — layero data grant",
+            "  Выданные права на таблицы сохранились, права по умолчанию — как в Supabase",
           )
       : `${chalk.green("✓")} Data API включён у базы «${db.name}»`,
   );
+  for (const w of res.warnings ?? []) console.log(chalk.yellow(`\n  ⚠ ${w}`));
   if (publicKey) console.log(`\n  публичный ключ:  ${publicKey}`);
   if (secretKey) {
     console.log(
@@ -644,7 +646,8 @@ export async function dataEnableCmd(opts: DataApiOptions): Promise<void> {
   if (!reapplied) {
     console.log(
       chalk.dim(
-        "\n  Все методы закрыты, пока вы их не откроете: layero data methods, затем layero data grant",
+        "\n  Как в Supabase: новые таблицы public открыты ролям, строки решает RLS — включайте его у " +
+          "каждой таблицы. Что открыто: layero data methods",
       ),
     );
   }

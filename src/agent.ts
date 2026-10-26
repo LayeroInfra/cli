@@ -298,6 +298,8 @@ export type Event =
       secret_key: string | null;
       // `true` — переприменение у базы с включённым API (`--repair`): сняты умолчания для новых таблиц.
       reapplied: boolean;
+      // Итог включения словами (T-20261025-32): открытые таблицы с RLS, закрытые без RLS.
+      warnings: string[];
       // Ключи в событии показываются ОДИН раз — где взять их потом (T-20261025-33, п. 7).
       next_action?: string;
     } & EventCommon)

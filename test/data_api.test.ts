@@ -572,8 +572,10 @@ describe("включение", () => {
     expect(repaired).toContain("переприменён");
     expect(repaired).toContain("Выданные права на таблицы сохранились");
     expect(repaired).not.toContain("потеряют");
-    expect(repaired).not.toContain("Все методы закрыты");
-    expect(enabled).toContain("Все методы закрыты");
+    expect(repaired).not.toContain("строки решает RLS");
+    // Как в Supabase (T-20261025-32): новые таблицы открыты, строки решает RLS.
+    expect(enabled).toContain("строки решает RLS");
+    expect(enabled).not.toContain("Все методы закрыты");
   });
 });
 

@@ -714,7 +714,7 @@ export class ApiClient {
     org: string,
     dbId: string,
     withSecret: boolean,
-  ): Promise<{ slug: string; key: { key: string } | null; secret_key: { key: string } | null }> {
+  ): Promise<{ slug: string; key: { key: string } | null; secret_key: { key: string } | null; warnings?: string[] }> {
     return this.request(
       "POST",
       `/organizations/${org}/databases/${dbId}/api/enable?with_secret=${withSecret ? "true" : "false"}`,
