@@ -293,6 +293,13 @@ export type Event =
   | ({ event: "data_secrets"; org: string; database: string; secrets: string[] } & EventCommon)
   | ({ event: "data_secret_set"; org: string; database: string; name: string } & EventCommon)
   | ({ event: "data_secret_removed"; org: string; database: string; name: string } & EventCommon)
+  // Бакеты и имя отправителя писем входа — раньше только в панели (R2-04, R2-08).
+  | ({ event: "data_buckets"; org: string; database: string; buckets: unknown[] } & EventCommon)
+  | ({ event: "data_bucket_created"; org: string; database: string; bucket: string; public: boolean;
+      file_size_limit: number | null; allowed_mime_types: string[] | null } & EventCommon)
+  | ({ event: "data_auth_sender_set"; org: string; database: string; sender_name: string; reply_to: string | null } & EventCommon)
+  // `db delete` (R2-03): база снесена, имя и адрес API свободны.
+  | ({ event: "database_deleted"; org: string; database: string } & EventCommon)
   // `warnings` — почему у роли не работает ни одна таблица (право в схеме без USAGE на неё).
   | ({ event: "data_methods"; org: string; database: string; warnings: string[]; tables: unknown[]; functions: unknown[] } & EventCommon)
   // `applied: false` — показ: ничего не изменено. Без `--yes` вне терминала CLI

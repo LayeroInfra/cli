@@ -24,6 +24,7 @@ import { Detected, detectProject, detectedEvent, type ValueSource } from "../det
 import { runDeviceLogin } from "../auth.js";
 import { LayeroError, detectMode, emit, isCiEnv } from "../agent.js";
 import { ensureUsername } from "../username.js";
+import { pick } from "./db.js";
 import { assertSandboxAlive, claimFor, claimTokenFor, createClaimable, keepLegacyClaim } from "./claim.js";
 
 interface DeployOptions {
@@ -64,6 +65,8 @@ interface DeployOptions {
   // --dry-run: показать, как платформа соберёт папку, и ничего не выгружать.
   // Входа не требует: читает только диск (и настройки проекта, если вход есть).
   dryRun?: boolean;
+  /** База организации, которую подключить до первой сборки (R2-06). */
+  db?: string;
 }
 
 const VALID_TYPES = new Set([
@@ -1071,6 +1074,18 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     // обещано документацией, и без него агент не узнаёт, что приложение будут
     // ЗАПУСКАТЬ, а не раздавать файлами (симуляция 18.09.2026, `--type node_web`).
     emit({ event: "runtime_type_applied", project_type: setup.runtime_kind });
+  }
+
+  // 🚨 БАЗА — ДО СБОРКИ (R2-06, 27.10). Проект появляется только с сессией, а
+  // ключи Data API платформа кладёт в сборку из связи проект↔база. Пока
+  // подключать можно было лишь отдельной командой после первого деплоя, каждый
+  // новый проект выкладывался дважды — сначала без ключей (лендинг ещё и падал),
+  // потом с ними. Здесь сессия уже есть, а сборка ещё не запущена.
+  if (opts.db) {
+    const org = project.organization.slug;
+    const db = await pick(api, org, opts.db);
+    await api.connectDatabaseToProject(org, db.id, project.id);
+    emit({ event: "database_connected", org, database: db.name, project: project.slug });
   }
 
   // Только связка папки с проектом. Фреймворк сюда больше не пишется: поле

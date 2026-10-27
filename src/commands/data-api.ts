@@ -22,6 +22,7 @@ import { LayeroError, detectMode, emit } from "../agent.js";
 import { orgOf, pick } from "./db.js";
 import { registerDataProbeCommand } from "./data-probe.js";
 import { registerDataSecretsCommands } from "./data-secrets.js";
+import { registerDataFilesCommands } from "./data-files.js";
 
 export interface DataApiOptions {
   org?: string;
@@ -803,4 +804,5 @@ export function registerDataApiCommands(data: Command, program: Command): void {
 
   registerDataProbeCommand(data, withDb, json);
   registerDataSecretsCommands(data, withDb, json);
+  registerDataFilesCommands(data, withDb, json);
 }

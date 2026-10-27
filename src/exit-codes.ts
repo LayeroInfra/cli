@@ -85,6 +85,7 @@ const REMOTE = new Set([
   "oauth_unavailable",
   "claimable_unavailable",
   "data_probe_gateway_failed",
+  "storage_refused",
 ]);
 
 export const EXIT_OK = 0;

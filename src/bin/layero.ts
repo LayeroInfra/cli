@@ -28,6 +28,7 @@ import {
   dbDisconnectCmd,
   dbListCmd,
   dbSqlCmd,
+  dbDeleteCmd,
 } from "../commands/db.js";
 import { envListCmd, envSetCmd, envUnsetCmd } from "../commands/env.js";
 import {
@@ -162,7 +163,7 @@ async function main(): Promise<void> {
     .action(async (opts) => projectsCreateCmd({ ...opts, json: program.opts().json }));
   projects
     .command("delete <id_or_slug>")
-    .description("Delete a project. IRREVERSIBLE; requires a token with the admin scope (`layero token create <name> --scope admin`).")
+    .description("Delete a project. IRREVERSIBLE. Works with your `layero login` session; an API token needs the admin scope (`layero token create <name> --scope admin`).")
     .option("-y, --yes", "do not ask for confirmation (required outside a terminal)")
     .action(async (ref: string, opts) => projectsDeleteCmd(ref, { ...opts, json: program.opts().json }));
 
@@ -435,7 +436,9 @@ async function main(): Promise<void> {
       // (C6), и так её пишет всякий, кто помнит psql.
       .command("sql <database> [sql]")
       .description("Run SQL in a database. A script of several statements runs as one transaction.")
-      .option("-c, --command <sql>", "query or script"),
+      .option("-c, --command <sql>", "query or script")
+      .option("-f, --file <path>", "read the script from a file; - reads stdin (also read when stdin is piped)")
+      .addHelpText("after", "\nExamples:\n  $ layero db sql shop \"select 1\"\n  $ layero db sql shop --file migrations/0001.sql\n  $ cat migrations/*.sql | layero db sql shop"),
   ).action(async (database: string, sql: string | undefined, opts: any) =>
     dbSqlCmd(database, {
       ...opts,
@@ -444,6 +447,15 @@ async function main(): Promise<void> {
       command: opts.command ?? sql,
       json: program.opts().json,
     }),
+  );
+
+  withOrg(
+    db
+      .command("delete <database>")
+      .description("Delete a database with all its data and backups. IRREVERSIBLE. The name and the Data API address become free again.")
+      .option("-y, --yes", "do not ask for confirmation (required outside a terminal)"),
+  ).action(async (database: string, opts: any) =>
+    dbDeleteCmd(database, { ...opts, json: program.opts().json }),
   );
 
   const analytics = program
@@ -521,7 +533,7 @@ async function main(): Promise<void> {
   domainOpts(
     domains
       .command("remove <domain>")
-      .description("Remove the domain from the project. Irreversible and breaks live traffic; requires a token with the admin scope.")
+      .description("Remove the domain from the project. Irreversible and breaks live traffic. Works with your `layero login` session; an API token needs the admin scope.")
       .option("-y, --yes", "do not ask for confirmation"),
   ).action(async (domain: string, opts: any) =>
     domainsRemoveCmd(domain, { ...opts, json: program.opts().json }),
@@ -615,6 +627,7 @@ async function main(): Promise<void> {
         "(layero.json buildCommand or the package.json build script) and serves the folder with index.html",
     )
     .option("--name <name>", "project name (only used on first deploy)")
+    .option("--db <database>", "connect the organization's database before the build, so the first build already gets the Data API URL and key")
     .option("--project <id_or_slug>", "deploy into an existing project, ignoring local config")
     .option("-y, --yes", "non-interactive: accept defaults and skip the --prod confirmation")
     .option(

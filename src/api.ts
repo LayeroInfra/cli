@@ -715,6 +715,21 @@ export class ApiClient {
     );
   }
 
+  /** Удаление базы — та же ручка, что у кнопки панели: снос сразу, без окна (R2-03). */
+  deleteDatabase(org: string, dbId: string): Promise<unknown> {
+    return this.request("DELETE", `/organizations/${org}/databases/${dbId}`);
+  }
+
+  /** Короткий ключ хранилища — тот же, что берёт раздел «Файлы» панели (R2-04). */
+  openStorageSession(org: string, dbId: string): Promise<{ url: string; key: string; expires_at: string | null }> {
+    return this.request("POST", `/organizations/${org}/databases/${dbId}/api/storage/session`);
+  }
+
+  /** Настройки входа: незаданное не трогается (R2-08 — имя отправителя писем). */
+  setDataAuthSettings(org: string, dbId: string, input: Schemas["AuthSettingsIn"]): Promise<unknown> {
+    return this.request("PUT", `/organizations/${org}/databases/${dbId}/api/auth/settings`, input);
+  }
+
   // ── секреты (HTTP из SQL и вход) и журнал запросов ─────────────────────
   listDataSecrets(org: string, dbId: string): Promise<Array<{ name: string; created_at: string }>> {
     return this.request("GET", `/organizations/${org}/databases/${dbId}/api/secrets`);

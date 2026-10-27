@@ -9,6 +9,8 @@
 // ⚠️ Организация выбирается явно (`--org`) или единственная доступная. Угадывать
 // «первую попавшуюся» из нескольких нельзя: базы стоят денег и живут в разных
 // командах.
+import { readFile } from "node:fs/promises";
+import readline from "node:readline/promises";
 import chalk from "chalk";
 import { ApiClient, DatabaseSummary } from "../api.js";
 import { dashboardOrigin } from "../urls.js";
@@ -22,6 +24,9 @@ interface DbOptions {
   project?: string;
   gb?: number;
   command?: string;
+  /** Файл со скриптом; `-` — stdin (R2-05). */
+  file?: string;
+  yes?: boolean;
   /** Флаги платного заказа. Существуют РАДИ ОТКАЗА, а не ради работы — см.
    *  `dbCreateCmd`. */
   cpu?: number;
@@ -355,14 +360,38 @@ export async function dbDisconnectCmd(ref: string, opts: DbOptions): Promise<voi
   );
 }
 
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+/** Текст запроса: `-c`/аргумент, `--file <путь>` или stdin (R2-05, 27.10).
+ *  Миграции передавали как `-c "$(cat файл)"` — неудобно и упиралось в предел. */
+async function sqlText(opts: DbOptions): Promise<string> {
+  if (opts.file && opts.command) {
+    throw new LayeroError("bad_format", "запрос задан дважды", "оставьте либо --file, либо текст запроса");
+  }
+  if (opts.file === "-") return readStdin();
+  if (opts.file) {
+    try {
+      return await readFile(opts.file, "utf8");
+    } catch {
+      throw new LayeroError("bad_format", `не прочитать файл ${opts.file}`, "проверьте путь");
+    }
+  }
+  if (opts.command === undefined && !process.stdin.isTTY) return readStdin();
+  return opts.command ?? "";
+}
+
 export async function dbSqlCmd(ref: string, opts: DbOptions): Promise<void> {
   const mode = detectMode();
-  const sql = (opts.command ?? "").trim();
+  const sql = (await sqlText(opts)).trim();
   if (!sql) {
     throw new LayeroError(
       "sql_missing",
       "нечего выполнять",
-      'передайте запрос следом за именем базы: layero db sql моя-база "select 1"',
+      'передайте запрос следом за именем базы: layero db sql моя-база "select 1", или файл: --file migrations/0001.sql',
     );
   }
   const api = new ApiClient(await loadConfig());
@@ -388,4 +417,41 @@ export async function dbSqlCmd(ref: string, opts: DbOptions): Promise<void> {
   } else if (!result.statements?.length) {
     console.log(result.status ?? "выполнено");
   }
+}
+
+/** `layero db delete <база> --yes` — как у проектов (R2-03, 27.10). Снос сразу:
+ *  окна хранения нет, имя и адрес API освобождаются. */
+export async function dbDeleteCmd(ref: string, opts: DbOptions): Promise<void> {
+  const mode = detectMode();
+  const api = new ApiClient(await loadConfig());
+  const org = await orgOf(api, opts);
+  const db = await pick(api, org, ref);
+  if (!opts.yes) {
+    if (!mode.interactive || mode.json || opts.json) {
+      throw new LayeroError(
+        "confirmation_required",
+        `удаление базы «${db.name}» не подтверждено`,
+        `повторите с --yes: layero db delete ${ref} --yes`,
+      );
+    }
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    try {
+      const typed = (await rl.question(
+        `База «${db.name}» и все её данные будут удалены безвозвратно, копии тоже.\n` +
+          `Наберите имя базы, чтобы подтвердить: `,
+      )).trim();
+      if (typed !== db.name) {
+        console.log(chalk.yellow("имя не совпало — отменено."));
+        return;
+      }
+    } finally {
+      rl.close();
+    }
+  }
+  await api.deleteDatabase(org, db.id);
+  if (mode.json || opts.json) {
+    emit({ event: "database_deleted", org, database: db.name });
+    return;
+  }
+  console.log(`${chalk.green("✓")} база «${db.name}» удалена; имя и адрес API снова свободны`);
 }
