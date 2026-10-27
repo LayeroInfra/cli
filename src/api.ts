@@ -728,6 +728,25 @@ export class ApiClient {
   }
 
   /** Настройки входа: незаданное не трогается (R2-08 — имя отправителя писем). */
+  /** Всё о входе базы: провайдеры (без ключей), способы, адреса возврата (R2-18). */
+  getDataAuthState(org: string, dbId: string): Promise<any> {
+    return this.request("GET", `/organizations/${org}/databases/${dbId}/api/auth/providers`);
+  }
+
+  setDataAuthProvider(org: string, dbId: string, input: Schemas["AuthProviderIn"]): Promise<unknown> {
+    return this.request("PUT", `/organizations/${org}/databases/${dbId}/api/auth/providers`, input);
+  }
+
+  setDataAuthProviderOptions(
+    org: string, dbId: string, provider: string, input: Schemas["AuthProviderOptionsIn"],
+  ): Promise<unknown> {
+    return this.request("PUT", `/organizations/${org}/databases/${dbId}/api/auth/providers/${encodeURIComponent(provider)}/options`, input);
+  }
+
+  deleteDataAuthProvider(org: string, dbId: string, provider: string): Promise<unknown> {
+    return this.request("DELETE", `/organizations/${org}/databases/${dbId}/api/auth/providers/${encodeURIComponent(provider)}`);
+  }
+
   setDataAuthSettings(org: string, dbId: string, input: Schemas["AuthSettingsIn"]): Promise<unknown> {
     return this.request("PUT", `/organizations/${org}/databases/${dbId}/api/auth/settings`, input);
   }

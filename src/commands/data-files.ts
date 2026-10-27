@@ -7,6 +7,7 @@ import chalk from "chalk";
 import type { Command } from "commander";
 import { LayeroError, detectMode, emit } from "../agent.js";
 import { type DataApiOptions, target } from "./data-api.js";
+import { registerDataAuthCommands } from "./data-auth.js";
 
 interface BucketOptions extends DataApiOptions {
   public?: boolean;
@@ -144,7 +145,8 @@ export function registerDataFilesCommands(
       .addHelpText("after", "\nExample:\n  $ layero data buckets create screenshots --private --max 5MB --types image/jpeg,image/png"),
   ).action(async (name: string, opts: any) => dataBucketsCreateCmd(name, json(opts)));
 
-  const auth = data.command("auth").description("Sign-in settings that used to live only in the dashboard.");
+  const auth = data.command("auth").description("Sign-in of the app's users: status, providers (Yandex, VK ID, Sber ID), return addresses, methods, sender name.");
+  registerDataAuthCommands(auth, withDb, json);
   withDb(
     auth
       .command("sender <name>")

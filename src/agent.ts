@@ -298,6 +298,14 @@ export type Event =
   | ({ event: "data_bucket_created"; org: string; database: string; bucket: string; public: boolean;
       file_size_limit: number | null; allowed_mime_types: string[] | null } & EventCommon)
   | ({ event: "data_auth_sender_set"; org: string; database: string; sender_name: string; reply_to: string | null } & EventCommon)
+  // Вход пользователей приложения из терминала (R2-18): провайдеры, адреса возврата, способы.
+  | ({ event: "data_auth_status"; org: string; database: string; callback_url: string | null;
+      providers: unknown[]; methods: Record<string, boolean | null>; email_return_urls: string[] } & EventCommon)
+  | ({ event: "data_auth_provider_set"; org: string; database: string; provider: string; callback_url: string | null } & EventCommon)
+  | ({ event: "data_auth_provider_toggled"; org: string; database: string; provider: string; enabled: boolean } & EventCommon)
+  | ({ event: "data_auth_provider_removed"; org: string; database: string; provider: string } & EventCommon)
+  | ({ event: "data_auth_redirects"; org: string; database: string; method: string; urls: string[] } & EventCommon)
+  | ({ event: "data_auth_methods_set"; org: string; database: string; changed: Record<string, boolean> } & EventCommon)
   // `db delete` (R2-03): база снесена, имя и адрес API свободны.
   | ({ event: "database_deleted"; org: string; database: string } & EventCommon)
   // `warnings` — почему у роли не работает ни одна таблица (право в схеме без USAGE на неё).
