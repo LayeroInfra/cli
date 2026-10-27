@@ -74,6 +74,7 @@ const INVALID_INPUT = new Set([
   "data_probe_user_invalid",
   "data_probe_schema",
   "data_probe_expect",
+  "address_required",
 ]);
 
 const REMOTE = new Set([

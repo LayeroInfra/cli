@@ -67,6 +67,8 @@ interface DeployOptions {
   dryRun?: boolean;
   /** База организации, которую подключить до первой сборки (R2-06). */
   db?: string;
+  /** Адрес нового проекта: `inbox` → inbox.layero.app (R2-13). */
+  address?: string;
 }
 
 const VALID_TYPES = new Set([
@@ -962,6 +964,7 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
     runtime_kind_origin: setup.runtime_kind_origin,
     root_directory: opts.root ?? null,
     env_vars: existing?.env_vars ?? {},
+    ...(opts.address ? { address: opts.address } : {}),
     commit_message: prebuiltDir
       ? `CLI prebuilt deploy (${prebuiltDir})`
       : "CLI deploy",
@@ -979,6 +982,21 @@ export async function deployCmd(opts: DeployOptions): Promise<void> {
         "project_not_found",
         `no project with id/slug "${opts.project}"`,
         "run `layero projects list` to see available projects",
+      );
+    }
+    // «Адрес по умолчанию недоступен» — с кодом, а не голым 409, и с флагом,
+    // которым его задать: раньше совет «укажите вручную» указывал в никуда (R2-13).
+    if (err instanceof ApiError && err.status === 409 && err.body.includes("address_required")) {
+      let message = "адрес по умолчанию недоступен";
+      try {
+        message = JSON.parse(err.body)?.detail?.message ?? message;
+      } catch {
+        // тело не JSON — оставляем общий текст
+      }
+      throw new LayeroError(
+        "address_required",
+        message,
+        "задайте адрес сайта: layero deploy --address <имя> (станет <имя>.layero.app)",
       );
     }
     if (err instanceof ApiError && err.status === 403) {

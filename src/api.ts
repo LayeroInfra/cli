@@ -388,6 +388,8 @@ export class ApiClient {
     project_id?: string;
     name?: string;
     organization_slug?: string;
+    /** Адрес НОВОГО проекта (первая метка), R2-13. */
+    address?: string;
     reuse_existing?: boolean;
     create_if_missing?: boolean;
     target?: "preview" | "production";

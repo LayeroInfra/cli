@@ -7951,6 +7951,8 @@ export interface components {
          *     деплой), либо `name` (первый деплой из каталога). Одно из двух обязательно.
          */
         DeploySessionCreate: {
+            /** Address */
+            address?: string | null;
             /** Branch */
             branch?: string | null;
             /** Build Cmd */

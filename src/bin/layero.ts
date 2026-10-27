@@ -628,6 +628,7 @@ async function main(): Promise<void> {
     )
     .option("--name <name>", "project name (only used on first deploy)")
     .option("--db <database>", "connect the organization's database before the build, so the first build already gets the Data API URL and key")
+    .option("--address <label>", "site address of a NEW project: inbox → inbox.layero.app (ignored for an existing project)")
     .option("--project <id_or_slug>", "deploy into an existing project, ignoring local config")
     .option("-y, --yes", "non-interactive: accept defaults and skip the --prod confirmation")
     .option(

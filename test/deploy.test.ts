@@ -731,3 +731,30 @@ describe("T-20260918-8: отказ и готовность", () => {
     }
   });
 });
+
+describe("R2-13: адрес нового проекта", () => {
+  it("--address уходит в сессию", async () => {
+    loadProjectConfig.mockResolvedValue(null);
+    await deployCmd({ name: "inbox", address: "inbox", json: true });
+    const arg = createDeploySession.mock.calls[0]![0] as any;
+    expect(arg.address).toBe("inbox");
+  });
+
+  it("без адреса поля нет вовсе", async () => {
+    loadProjectConfig.mockResolvedValue(null);
+    await deployCmd({ name: "smoke", json: true });
+    expect("address" in (createDeploySession.mock.calls[0]![0] as any)).toBe(false);
+  });
+
+  it("«адрес по умолчанию недоступен» — код и флаг, а не голый 409", async () => {
+    loadProjectConfig.mockResolvedValue(null);
+    const { ApiError } = await import("../src/api.js");
+    createDeploySession.mockRejectedValueOnce(new (ApiError as any)("409", 409, JSON.stringify({
+      detail: { code: "address_required", message: "Адрес по умолчанию недоступен (имя зарезервировано платформой). Укажите адрес сайта вручную." },
+    })));
+    await expect(deployCmd({ name: "inbox", json: true })).rejects.toMatchObject({
+      code: "address_required",
+      next_action: expect.stringContaining("--address"),
+    });
+  });
+});
