@@ -45,9 +45,25 @@ async function gateway<T>(url: string, key: string, path: string, init: RequestI
   }
   if (!res.ok) {
     const message = body?.message || body?.error || `${res.status}`;
-    throw new LayeroError("storage_refused", `хранилище отказало: ${message}`, body?.hint ?? "проверьте, что файлы включены: layero data enable --storage");
+    throw new LayeroError("storage_refused", `хранилище отказало: ${message}`, body?.hint ?? refusalAdvice(res.status, body));
   }
   return body as T;
+}
+
+/** Совет по отказу — по его причине. Раньше на любой отказ советовали
+ *  включить файлы, и на «бакет уже есть» это был совет мимо (R2-04, 27.10). */
+function refusalAdvice(status: number, body: any): string {
+  const text = `${body?.error ?? ""} ${body?.message ?? ""} ${body?.statusCode ?? ""}`.toLowerCase();
+  if (status === 409 || text.includes("already exists") || text.includes("duplicate")) {
+    return "бакет с таким именем уже есть — посмотреть: layero data buckets list, или выберите другое имя";
+  }
+  if (status === 401 || status === 403) {
+    return "ключ хранилища не подошёл — повторите команду; не помогло — проверьте, что файлы включены: layero data enable --storage";
+  }
+  if (status === 400 && text.includes("name")) {
+    return "имя бакета — латиница, цифры, дефис и подчёркивание";
+  }
+  return "проверьте, что файлы включены: layero data enable --storage";
 }
 
 export async function dataBucketsListCmd(opts: DataApiOptions): Promise<void> {

@@ -100,6 +100,14 @@ describe("data buckets create", () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ message: "bucket exists" }), { status: 409 }));
     const { error } = await capture(() => dataBucketsCreateCmd("screenshots", { json: true }));
     expect(error?.message).toContain("bucket exists");
+    // На «уже есть» — совет про имя, а не про включение файлов (перепроверка R2-04).
+    expect(error?.next_action ?? "").toContain("уже есть");
+  });
+
+  it("на прочие отказы советует включить файлы", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ message: "schema storage missing" }), { status: 500 }));
+    const { error } = await capture(() => dataBucketsCreateCmd("screenshots", { json: true }));
+    expect(error?.next_action ?? "").toContain("data enable --storage");
   });
 
   it("размер понимается по-человечески", () => {
