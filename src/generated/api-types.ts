@@ -4848,6 +4848,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/speed/quota": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Organization Speed Quota
+         * @description Замеры организации в этом месяце (по Москве) и лимит тарифа: Free — 3,
+         *     Pro — 500. То же, что `/projects/{id}/speed/quota`, без проекта.
+         */
+        get: operations["get_organization_speed_quota_organizations__slug__speed_quota_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/speed/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Unbound Speed Runs
+         * @description Замеры организации без проекта — произвольные адреса, свежие сверху.
+         */
+        get: operations["list_unbound_speed_runs_organizations__slug__speed_runs_get"];
+        put?: never;
+        /**
+         * Create Unbound Speed Run
+         * @description Замерить любой публичный адрес без проекта. Квота — общая с замерами
+         *     проектов; адрес во внутреннюю сеть — 422 `url_not_public`.
+         */
+        post: operations["create_unbound_speed_run_organizations__slug__speed_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/usage": {
         parameters: {
             query?: never;
@@ -5992,7 +6038,8 @@ export interface paths {
         /**
          * Get Perf Check
          * @description Последний замер этой страницы прод-ветки на этом устройстве и вердикт:
-         *     сравнение с прошлым деплоем того же адреса и устройства.
+         *     сравнение с прошлым деплоем того же адреса и устройства. `brief=1` —
+         *     вместе с выжимкой отчёта для ИИ, когда замер готов.
          */
         get: operations["get_perf_check_projects__project_id__perf_check_get"];
         put?: never;
@@ -6778,6 +6825,27 @@ export interface paths {
         };
         /** Get Speed Run */
         get: operations["get_speed_run_speed_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/speed/runs/{run_id}/brief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Speed Run Brief
+         * @description Выжимка отчёта для ИИ-ассистента (markdown): то же, что «Скопировать
+         *     для ИИ» в панели и `brief` в perf-check. Доступ — как у самого замера.
+         */
+        get: operations["get_speed_run_brief_speed_runs__run_id__brief_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9083,6 +9151,8 @@ export interface components {
          *     вердикт, что в панели.
          */
         PerfCheckOut: {
+            /** Brief */
+            brief?: string | null;
             /** Delta */
             delta: number | null;
             /** Device */
@@ -10776,20 +10846,14 @@ export interface components {
             deploy?: {
                 [key: string]: unknown;
             } | null;
-            /**
-             * Deploy Id
-             * Format: uuid
-             */
-            deploy_id: string;
+            /** Deploy Id */
+            deploy_id?: string | null;
             /** Device */
             device: string;
             /** Dom Content Loaded Ms */
             dom_content_loaded_ms?: number | null;
-            /**
-             * Environment Id
-             * Format: uuid
-             */
-            environment_id: string;
+            /** Environment Id */
+            environment_id?: string | null;
             /** Error Message */
             error_message?: string | null;
             /** Failure */
@@ -10822,11 +10886,8 @@ export interface components {
             page_load_ms?: number | null;
             /** Perf Score */
             perf_score?: number | null;
-            /**
-             * Project Id
-             * Format: uuid
-             */
-            project_id: string;
+            /** Project Id */
+            project_id?: string | null;
             /** Queue Position */
             queue_position?: number | null;
             /** Raw Report S3 Path */
@@ -10886,6 +10947,12 @@ export interface components {
              * @default
              */
             name: string;
+            /**
+             * Notify
+             * @default off
+             * @enum {string}
+             */
+            notify: "off" | "every" | "worse";
             /** Path */
             path: string;
         };
@@ -10915,6 +10982,11 @@ export interface components {
             name: string;
             /** Next Run At */
             next_run_at?: string | null;
+            /**
+             * Notify
+             * @default off
+             */
+            notify: string;
             /** Path */
             path: string;
             /** Paused Reason */
@@ -10932,8 +11004,30 @@ export interface components {
             every?: ("3h" | "6h" | "day" | "week") | null;
             /** Name */
             name?: string | null;
+            /** Notify */
+            notify?: ("off" | "every" | "worse") | null;
             /** Path */
             path?: string | null;
+        };
+        /**
+         * SpeedUnboundRunIn
+         * @description Замер без проекта: полный публичный адрес.
+         */
+        SpeedUnboundRunIn: {
+            /**
+             * Device
+             * @default desktop
+             */
+            device: string;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** Free Retry Of */
+            free_retry_of?: string | null;
+            /** Url */
+            url: string;
         };
         /** StoragePolicyDropIn */
         StoragePolicyDropIn: {
@@ -20022,6 +20116,111 @@ export interface operations {
             };
         };
     };
+    get_organization_speed_quota_organizations__slug__speed_quota_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeedQuotaOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_unbound_speed_runs_organizations__slug__speed_runs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeedRunOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_unbound_speed_run_organizations__slug__speed_runs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpeedUnboundRunIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeedRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     organization_usage_organizations__slug__usage_get: {
         parameters: {
             query?: {
@@ -22132,6 +22331,7 @@ export interface operations {
             query?: {
                 device?: "desktop" | "mobile";
                 path?: string | null;
+                brief?: boolean;
             };
             header?: {
                 authorization?: string | null;
@@ -23567,6 +23767,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SpeedRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_speed_run_brief_speed_runs__run_id__brief_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
                 };
             };
             /** @description Validation Error */
