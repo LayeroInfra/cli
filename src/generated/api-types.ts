@@ -4848,6 +4848,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/speed/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Organization Speed Feed
+         * @description Все замеры организации одним запросом: до `limit` последних по каждому
+         *     проекту и столько же без проекта, свежие сверху.
+         */
+        get: operations["list_organization_speed_feed_organizations__slug__speed_feed_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/speed/quota": {
         parameters: {
             query?: never;
@@ -4888,6 +4909,26 @@ export interface paths {
          *     проектов; адрес во внутреннюю сеть — 422 `url_not_public`.
          */
         post: operations["create_unbound_speed_run_organizations__slug__speed_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{slug}/speed/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Organization Speed Schedules
+         * @description Расписания всех проектов организации; проект — в `project_id`.
+         */
+        get: operations["list_organization_speed_schedules_organizations__slug__speed_schedules_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -10991,6 +11032,8 @@ export interface components {
             path: string;
             /** Paused Reason */
             paused_reason?: string | null;
+            /** Project Id */
+            project_id?: string | null;
         };
         /** SpeedSchedulePatch */
         SpeedSchedulePatch: {
@@ -20116,6 +20159,41 @@ export interface operations {
             };
         };
     };
+    list_organization_speed_feed_organizations__slug__speed_feed_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeedRunOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_organization_speed_quota_organizations__slug__speed_quota_get: {
         parameters: {
             query?: never;
@@ -20208,6 +20286,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SpeedRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_organization_speed_schedules_organizations__slug__speed_schedules_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeedScheduleOut"][];
                 };
             };
             /** @description Validation Error */
