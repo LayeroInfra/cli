@@ -11341,6 +11341,7 @@ export interface components {
             plan: string;
             /** Projects */
             projects: components["schemas"]["UsageProjectOut"][];
+            split?: components["schemas"]["UsageSplitOut"] | null;
             /**
              * To Day
              * Format: date
@@ -11407,6 +11408,20 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /**
+         * UsageProjectSeriesOut
+         * @description Дневной ряд одного показателя у одного проекта — для графика «По проектам».
+         */
+        UsageProjectSeriesOut: {
+            /** Name */
+            name: string | null;
+            /** Points */
+            points: components["schemas"]["UsagePoint"][];
+            /** Project Id */
+            project_id: string;
+            /** Slug */
+            slug: string | null;
+        };
         /** UsageQuotaState */
         UsageQuotaState: {
             /** Action */
@@ -11444,6 +11459,17 @@ export interface components {
             state: string;
             /** Used */
             used: number;
+        };
+        /**
+         * UsageSplitOut
+         * @description Показатель `code` по проектам за окно. Что не разложилось по проектам
+         *     (Data API без адреса сайта), — разница с рядом организации в `metrics`.
+         */
+        UsageSplitOut: {
+            /** Code */
+            code: string;
+            /** Projects */
+            projects: components["schemas"]["UsageProjectSeriesOut"][];
         };
         /** UsernameCheckOut */
         UsernameCheckOut: {
@@ -20337,6 +20363,8 @@ export interface operations {
             query?: {
                 from?: string | null;
                 to?: string | null;
+                /** @description Код показателя: вернуть его дневные ряды по проектам */
+                split?: string | null;
             };
             header?: {
                 authorization?: string | null;
