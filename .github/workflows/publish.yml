@@ -70,7 +70,8 @@ jobs:
         id: guard
         run: |
           LOCAL=$(node -p "require('./package.json').version")
-          REMOTE=$(npm view layero version 2>/dev/null || echo none)
+          # Спрашиваем эту версию, а не `latest`: у -alpha своего `latest` нет.
+          REMOTE=$(npm view "layero@$LOCAL" version 2>/dev/null || echo none)
           echo "local=$LOCAL remote=$REMOTE"
           if [ "$LOCAL" = "$REMOTE" ]; then
             echo "publish=false" >> "$GITHUB_OUTPUT"
@@ -89,7 +90,17 @@ jobs:
             echo "::notice::NPM_TOKEN задан — публикация по токену (запасной путь), не по OIDC"
             npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
           fi
-          npm publish   # без токена — OIDC (Trusted Publishing); prepublishOnly = tsc
+          # Версия с суффиксом (0.12.0-alpha.1) уходит под свой дист-тег (`alpha`),
+          # а `latest`, который ставит `npx layero@latest`, не трогает. Новые
+          # методы до запуска живут только там: пользователи их не видят.
+          case "$(node -p "require('./package.json').version")" in
+            *-*)
+              PRE=$(node -p "require('./package.json').version.split('-')[1].split('.')[0]")
+              echo "::notice::пред-релиз — дист-тег $PRE, latest не меняется"
+              npm publish --tag "$PRE" ;;
+            *)
+              npm publish ;;   # без токена — OIDC (Trusted Publishing); prepublishOnly = tsc
+          esac
 
       # 🚨 СПРАШИВАЕМ ПРО ЭТУ ВЕРСИЮ, А НЕ ПРО `latest`, И ЖДЁМ ДОЛЬШЕ.
       # 06.09.2026 публикация 0.9.4 ПРОШЛА, а шаг проверки объявил её провалом:
