@@ -368,6 +368,12 @@ Full reference: <https://docs.layero.ru/cli/json-events>
 `node_modules`, `.git`, `dist`, `build`, `.next`, `.env*`, `.DS_Store`, and
 the rule files themselves. Maximum archive size is 500 MB.
 
+Env files (`.env`, `.env.*`) stay out even if `.gitignore` un-ignores them
+(`!.env.example`, `!.env`): those rules are written for git, not for a
+deploy. To upload an env file on purpose, name it in `.layeroignore`:
+`!.env.production`. Broad negations like `!*` do not bring env files back,
+and nothing brings back `.git`, `.layero` or the rule files.
+
 ## Config
 
 - Auth token: `~/.layero/config.json` (chmod 600). Claim tokens of temporary

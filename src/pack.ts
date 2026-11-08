@@ -63,11 +63,53 @@ const FORCE_INCLUDE_LOCKFILES = [
   "npm-shrinkwrap.json",
 ];
 
-async function buildIgnore(cwd: string): Promise<Ignore> {
+// Env files carry secrets. In the `ignore` package the last matching rule
+// wins, so a `.gitignore` written for git — `!.env.example`, or `!.env` in a
+// monorepo that commits a shared one — used to pull env files back into the
+// archive. A static site without a build serves the archive as-is, so that
+// `.env` ended up readable at the site's address.
+//
+// The exclusion is therefore re-applied after each user layer. The only way
+// back in is an explicit negation in `.layeroignore` that names an env file
+// (`!.env.production`): a deliberate, Layero-specific choice. `.gitignore`
+// never overrides it, and neither do broad `.layeroignore` negations such as
+// `!*`.
+//
+// The same broad negation would also have pulled back the other things that
+// must never reach a site: VCS metadata (remote credentials live in
+// `.git/config`), the CLI's own `.layero/` (claim tokens) and the rule files
+// themselves. They get the same treatment, with no way back in at all.
+const ENV_EXCLUDE = [".env", ".env.*"];
+const ALWAYS_EXCLUDE = [
+  ...ENV_EXCLUDE,
+  ".git",
+  ".svn",
+  ".hg",
+  ".layero",
+  ".gitignore",
+  ".layeroignore",
+];
+
+/** Negations from `.layeroignore` that explicitly name an env file. */
+function explicitEnvNegations(lines: string[]): string[] {
+  return lines.filter((l) => l.startsWith("!") && l.includes(".env"));
+}
+
+async function userLayers(cwd: string): Promise<Ignore> {
+  const gitignore = await readIgnoreFile(path.join(cwd, ".gitignore"));
+  const layeroignore = await readIgnoreFile(path.join(cwd, ".layeroignore"));
   const ig = ignore();
   ig.add(DEFAULT_IGNORE);
-  ig.add(await readIgnoreFile(path.join(cwd, ".gitignore")));
-  ig.add(await readIgnoreFile(path.join(cwd, ".layeroignore")));
+  ig.add(gitignore);
+  ig.add(ALWAYS_EXCLUDE);
+  ig.add(layeroignore);
+  ig.add(ALWAYS_EXCLUDE);
+  ig.add(explicitEnvNegations(layeroignore));
+  return ig;
+}
+
+async function buildIgnore(cwd: string): Promise<Ignore> {
+  const ig = await userLayers(cwd);
   // Negations last so they win over any ignore rule above.
   ig.add(FORCE_INCLUDE_LOCKFILES.map((f) => `!/${f}`));
   return ig;
@@ -121,10 +163,7 @@ export interface PackResult {
  * negations, so it reflects exactly what the user's .gitignore/.layeroignore
  * would have excluded. */
 async function detectForcedLockfiles(cwd: string): Promise<string[]> {
-  const probe = ignore();
-  probe.add(DEFAULT_IGNORE);
-  probe.add(await readIgnoreFile(path.join(cwd, ".gitignore")));
-  probe.add(await readIgnoreFile(path.join(cwd, ".layeroignore")));
+  const probe = await userLayers(cwd);
   const forced: string[] = [];
   for (const lf of FORCE_INCLUDE_LOCKFILES) {
     if (!probe.ignores(lf)) continue; // not ignored → nothing forced
