@@ -66,8 +66,9 @@ const FORCE_INCLUDE_LOCKFILES = [
 // Env files carry secrets. In the `ignore` package the last matching rule
 // wins, so a `.gitignore` written for git — `!.env.example`, or `!.env` in a
 // monorepo that commits a shared one — used to pull env files back into the
-// archive. A static site without a build serves the archive as-is, so that
-// `.env` ended up readable at the site's address.
+// archive. The builder strips `.env*` before publishing, so they never reached
+// the site, but the secrets still landed in the platform's source storage and
+// the build context (checked on prod 08.11.2026).
 //
 // The exclusion is therefore re-applied after each user layer. The only way
 // back in is an explicit negation in `.layeroignore` that names an env file
