@@ -421,6 +421,10 @@ export type Event =
       deploy_id: string;
     } & EventCommon)
   | ({ event: "promoted"; url: string; deploy_id: string } & EventCommon)
+  // `layero source`: ZIP с тем, из чего собран деплой (T-20261108-4).
+  // `source_link` — только ссылка (`--url`), живёт `expires_in` секунд.
+  | ({ event: "source_downloaded"; deploy_id: string; path: string; bytes: number } & EventCommon)
+  | ({ event: "source_link"; deploy_id: string; url: string; filename: string; expires_in: number } & EventCommon)
   // Проба метода Data API (T-20260911-9). Отказ шлюза — 401, 403, 404 — это
   // результат пробы и приходит этим событием с кодом выхода 0. `not_rolled_back`
   // — запись прошла, откат ждали, а шлюз его не подтвердил: следом придёт
@@ -739,6 +743,13 @@ function renderHuman(event: Event): void {
     case "promoted":
       process.stdout.write(`✓ Published apex → ${event.url}\n`);
       break;
+    case "source_downloaded":
+      process.stdout.write(`✓ исходники сохранены: ${event.path} (${formatBytes(event.bytes)})\n`);
+      break;
+    case "source_link":
+      process.stdout.write(`${event.url}\n`);
+      process.stderr.write(`ссылка действует ${Math.round(event.expires_in / 60)} мин, файл ${event.filename}\n`);
+      break;
     case "me":
       process.stdout.write(`id:       ${event.id}\n`);
       process.stdout.write(`username: ${event.username ?? "(не задано)"}\n`);
@@ -891,6 +902,12 @@ function renderHuman(event: Event): void {
 // remediation hint. The CLI's top-level catch turns this into an
 // `event: "error"` line in JSON mode and a coloured stderr block in
 // human mode, then exits non-zero.
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} Б`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1).replace(".", ",")} КБ`;
+  return `${(n / 1024 / 1024).toFixed(1).replace(".", ",")} МБ`;
+}
+
 export class LayeroError extends Error {
   constructor(
     public readonly code: string,

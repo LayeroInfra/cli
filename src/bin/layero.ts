@@ -14,6 +14,7 @@ import { tokenCreateCmd, tokenListCmd, tokenRevokeCmd, tokenSetCmd } from "../co
 import { deployCmd } from "../commands/deploy.js";
 import { deploysListCmd, rollbackCmd } from "../commands/deploys.js";
 import { promoteCmd } from "../commands/promote.js";
+import { sourceCmd } from "../commands/source.js";
 import { hooksCreateCmd, hooksDeleteCmd, hooksListCmd } from "../commands/hooks.js";
 import { loginCmd } from "../commands/login.js";
 import { orgsListCmd } from "../commands/orgs.js";
@@ -310,6 +311,30 @@ async function main(): Promise<void> {
     )
     .action(async (deploy, opts) => {
       await promoteCmd(deploy, opts);
+    });
+
+  program
+    .command("source [deploy]")
+    .description(
+      "Download what a deploy was built from as a ZIP: the sources uploaded by " +
+        "`layero deploy`, or the files of a published site. `.env*` files are " +
+        "left out. Without [deploy] — the deploy served on the project address. " +
+        "Deploys built from a repository have no stored sources: the commit link is shown instead.",
+    )
+    .option("--project <id_or_slug>", "project (default: the one linked in .layero/project.json)")
+    .option("--out <file>", "where to save the ZIP (default: <project>-<sha>.zip in the current folder)")
+    .option("--url", "print a 5-minute download link instead of saving the file")
+    .option("--force", "overwrite the file if it exists")
+    .addHelpText(
+      "after",
+      "\nExamples:\n" +
+        "  $ layero source                      # ZIP of the deploy on the project address\n" +
+        "  $ layero source a3f9c2b              # a specific deploy by commit sha or id\n" +
+        "  $ layero source --out site.zip       # choose the file name\n" +
+        "  $ layero source --url                # just the link, e.g. for curl",
+    )
+    .action(async (deploy, opts) => {
+      await sourceCmd(deploy, opts);
     });
 
   program

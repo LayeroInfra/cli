@@ -912,6 +912,22 @@ export class ApiClient {
     );
   }
 
+  /** Свежие деплои всех окружений проекта одним запросом (до ста). */
+  listAllProjectDeploys(projectId: string): Promise<DeployOut[]> {
+    return this.request<DeployOut[]>(
+      "GET",
+      `/projects/${projectId}/deploys?all_environments=true`,
+    );
+  }
+
+  /** Короткая ссылка на ZIP с тем, из чего собран деплой (T-20261108-4). */
+  getDeploySource(
+    projectId: string,
+    deployId: string,
+  ): Promise<{ url: string; filename: string; expires_in: number }> {
+    return this.request("GET", `/projects/${projectId}/deploys/${deployId}/source`);
+  }
+
   rollbackProject(
     projectId: string,
     input: { branch?: string; deploy_id?: string },

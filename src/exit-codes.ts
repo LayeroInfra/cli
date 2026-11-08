@@ -38,6 +38,7 @@ const NOT_FOUND = new Set([
   "branch_without_env",
   "no_deploy",
   "no_deploys",
+  "source_not_kept",
   "no_runs",
   "data_key_unknown",
 ]);
@@ -75,6 +76,8 @@ const INVALID_INPUT = new Set([
   "data_probe_schema",
   "data_probe_expect",
   "address_required",
+  "source_in_repository",
+  "file_exists",
 ]);
 
 const REMOTE = new Set([
