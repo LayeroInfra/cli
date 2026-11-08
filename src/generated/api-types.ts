@@ -5458,6 +5458,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/deploys/{deploy_id}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Deploy Source
+         * @description Короткая ссылка на ZIP с тем, из чего собран деплой.
+         *
+         *     Отдаём ровно загруженное: архив из терминала или файлы из чата. Переменные
+         *     окружения и файлы платформы в него не попадают — их там никогда не было.
+         *     JSON, а не редирект: панель ходит через XHR с токеном, а XHR чужой origin не
+         *     скачает. `?redirect=1` — 302 для curl и прямых ссылок.
+         *
+         *     Соединение пула держим только на проверках: перепаковка в ZIP при первом
+         *     скачивании идёт секунды, и держать слот всё это время нельзя.
+         */
+        get: operations["deploy_source_projects__project_id__deploys__deploy_id__source_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/detect": {
         parameters: {
             query?: never;
@@ -8018,6 +8046,10 @@ export interface components {
             } | null;
             /** Servable */
             servable?: boolean | null;
+            /** Source Download */
+            source_download?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Source Type
              * @default github
@@ -8172,6 +8204,15 @@ export interface components {
             session_id: string;
             /** Status */
             status: string;
+        };
+        /** DeploySourceOut */
+        DeploySourceOut: {
+            /** Expires In */
+            expires_in: number;
+            /** Filename */
+            filename: string;
+            /** Url */
+            url: string;
         };
         /** DevLoginIn */
         DevLoginIn: {
@@ -21254,6 +21295,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeployOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deploy_source_projects__project_id__deploys__deploy_id__source_get: {
+        parameters: {
+            query?: {
+                redirect?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+                deploy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploySourceOut"];
                 };
             };
             /** @description Validation Error */
