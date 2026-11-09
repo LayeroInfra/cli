@@ -47,6 +47,23 @@ jobs:
       - name: layero-detection не отстаёт от спеки
         run: python3 check-detection-version.py
 
+  # Упаковка на Windows: пути с обратными слэшами, жёсткие ссылки NTFS.
+  # Это дополнение к полному сьюту выше, а не замена ему: здесь только то, что
+  # ведёт себя по-разному на разных системах. Повод — SUP-473 (09.11.2026):
+  # на Windows `layero deploy` молча выходил с кодом 0, не дойдя до загрузки.
+  pack-windows:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: vitest (упаковка)
+        run: npx vitest run test/pack_hardlinks.test.ts test/pack_env.test.ts
+
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 5

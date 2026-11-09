@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
-import { promises as fs, createReadStream } from "node:fs";
+import { promises as fs, createReadStream, type Stats } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { create as tarCreate } from "tar";
 import ignore, { Ignore } from "ignore";
+import { LayeroError } from "./agent.js";
 
 const MAX_BYTES = 500 * 1024 * 1024;
 
@@ -139,6 +140,122 @@ async function walk(cwd: string, ig: Ignore): Promise<string[]> {
   return out;
 }
 
+// --- Hard links and the silent exit (SUP-473, 09.11.2026)
+//
+// tar 7.5.22 — the latest release — deadlocks its async packer on files
+// whose link count is above one (https://github.com/isaacs/node-tar/issues/460,
+// fix in PR #461, not released). With `create({ file })` the promise then
+// never settles, the event loop drains and Node exits with code 0: the
+// deploy stopped after «Setup complete» with no error and a 10-byte archive
+// in the temp folder. A user hit it on Windows three times in a row.
+//
+// Fix: we stat every file ourselves and hand tar the stats with `nlink`
+// set to 1. tar's hard-link logic — the deferral that deadlocks, and the
+// Link entries — is keyed on `nlink > 1`, so it never engages and each
+// file goes into the archive in full. That is what the build needs anyway:
+// a Link entry pointing outside the folder would be unusable, and on
+// Windows distinct files can share a rounded inode number
+// (isaacs/node-tar#431) and lose their content to a bogus Link.
+//
+// tar looks up its stat cache by the absolute path, with forward slashes on
+// Windows (its `normalizeWindowsPath`). The cache below folds both slash
+// forms into one key, so the lookup hits whichever form tar uses. If it
+// still missed, tar would stat the file itself and the old behaviour would
+// return; the guard further down turns that into an error, not a silent exit.
+
+/** Stat cache that, on Windows, treats `C:\a\b` and `C:/a/b` as one key.
+ * Elsewhere a backslash is a legal file-name character, so keys stay as is. */
+export class SlashAgnosticStatCache extends Map<string, Stats> {
+  constructor(private readonly fold: boolean = process.platform === "win32") {
+    super();
+  }
+  private key(p: string): string {
+    return this.fold ? p.replace(/\\/g, "/") : p;
+  }
+  override get(p: string): Stats | undefined {
+    return super.get(this.key(p));
+  }
+  override set(p: string, st: Stats): this {
+    return super.set(this.key(p), st);
+  }
+  override has(p: string): boolean {
+    return super.has(this.key(p));
+  }
+  override delete(p: string): boolean {
+    return super.delete(this.key(p));
+  }
+}
+
+/** Stats for every file with `nlink` forced to 1, keyed for tar. */
+export async function statsWithoutHardlinks(
+  cwd: string,
+  files: string[],
+): Promise<SlashAgnosticStatCache> {
+  const cache = new SlashAgnosticStatCache();
+  for (const rel of files) {
+    const abs = path.resolve(cwd, rel);
+    const st = await fs.lstat(abs);
+    if (st.isFile() && st.nlink > 1) {
+      Object.defineProperty(st, "nlink", { value: 1, writable: true, configurable: true, enumerable: true });
+    }
+    cache.set(abs, st);
+  }
+  return cache;
+}
+
+/** Fail loudly if packing stops making progress and the event loop drains.
+ *
+ * Node emits `beforeExit` when there is nothing left to wait for. While a
+ * pack is in flight that can only mean the packer is stuck with no pending
+ * I/O; without this the CLI would exit with 0 and print nothing. Rejecting
+ * here schedules more work, so the process stays alive long enough to
+ * print the error and exit with a failure code. */
+export function guardAgainstSilentStall<T>(work: Promise<T>): Promise<T> {
+  let onDrain: () => void = () => undefined;
+  const drained = new Promise<never>((_, reject) => {
+    onDrain = () =>
+      reject(
+        new LayeroError(
+          "pack_stalled",
+          "упаковка файлов остановилась на середине: архив не собран, на сервер ничего не ушло",
+          "обнови CLI и повтори: npx layero@latest deploy. Если повторится — пришли этот вывод в поддержку",
+        ),
+      );
+    process.once("beforeExit", onDrain);
+  });
+  return Promise.race([work, drained]).finally(() => {
+    process.off("beforeExit", onDrain);
+  });
+}
+
+async function createArchive(
+  cwd: string,
+  files: string[],
+  archivePath: string,
+  prefix: string,
+): Promise<void> {
+  const statCache = await statsWithoutHardlinks(cwd, files);
+  try {
+    await guardAgainstSilentStall(
+      tarCreate(
+        {
+          file: archivePath,
+          gzip: { level: 6 },
+          cwd,
+          portable: true,
+          prefix,
+          // The option type is tar's own; a Map of fs.Stats is what it stores.
+          statCache: statCache as never,
+        },
+        files,
+      ),
+    );
+  } catch (err) {
+    await fs.unlink(archivePath).catch(() => undefined);
+    throw err;
+  }
+}
+
 async function sha256OfFile(p: string): Promise<string> {
   const hash = createHash("sha256");
   const stream = createReadStream(p);
@@ -224,16 +341,7 @@ export async function packDirectory(
   const safeName = projectName.replace(/[^a-zA-Z0-9._-]/g, "_");
   const archivePath = path.join(tmpdir(), `layero-${safeName}-prebuilt-${stamp}.tgz`);
   const rootName = `layero-${safeName}-prebuilt-${stamp}`;
-  await tarCreate(
-    {
-      file: archivePath,
-      gzip: { level: 6 },
-      cwd: targetDir,
-      portable: true,
-      prefix: rootName,
-    },
-    files,
-  );
+  await createArchive(targetDir, files, archivePath, rootName);
   const fst = await fs.stat(archivePath);
   if (fst.size > MAX_BYTES) {
     await fs.unlink(archivePath).catch(() => undefined);
@@ -267,16 +375,7 @@ export async function packCwd(
   // contract on the builder side, which strips one root prefix.
   const rootName = `layero-${safeName}-${stamp}`;
 
-  await tarCreate(
-    {
-      file: archivePath,
-      gzip: { level: 6 },
-      cwd,
-      portable: true,
-      prefix: rootName,
-    },
-    files,
-  );
+  await createArchive(cwd, files, archivePath, rootName);
 
   const stat = await fs.stat(archivePath);
   if (stat.size > MAX_BYTES) {
