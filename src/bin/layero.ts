@@ -47,6 +47,7 @@ import {
 } from "../commands/domains.js";
 import { LayeroError, detectMode, emit } from "../agent.js";
 import { ApiClient, ApiError } from "../api.js";
+import { asAccountStateError } from "../account-errors.js";
 import { loadConfig } from "../config.js";
 import { usernameSetCmd } from "../username.js";
 import { notifyIfOutdated } from "../update-notifier.js";
@@ -726,125 +727,6 @@ async function main(): Promise<void> {
   // AFTER the command, so the nag never delays real work — and on stderr, so
   // `--json` stdout stays parseable. Bounded + never-throwing by construction.
   await notifyIfOutdated(VERSION);
-}
-
-/**
- * Ответы API, которые означают НОРМАЛЬНОЕ состояние аккаунта, а не поломку.
- *
- * До 02.08.2026 их не разбирал никто, и они доезжали до пользователя как
- * `code: "internal"` с советом «сообщите о баге»:
- *
- *   Error: internal
- *     API GET /auth/me → 401: {"detail":"Invalid token"}
- *     → re-run with --debug for a stack trace, or report at …/contacts/
- *
- * 401 здесь — не редкость, а расписание: TTL токена 168 часов, то есть КАЖДЫЙ
- * пользователь CLI упирается в это раз в неделю. На момент проверки токен был
- * протухшим у 66 из 115 человек, деплоивших через CLI за месяц. Ни один из них
- * не получил единственную нужную подсказку — «выполните layero login».
- *
- * 402 — лимит тарифа (например, `max_projects` на free). Тоже обычное дело, а
- * не сбой платформы: чинится сменой тарифа или удалением проекта, и текст
- * ошибки обязан говорить именно это.
- */
-function asAccountStateError(err: unknown): LayeroError | null {
-  if (!(err instanceof ApiError)) return null;
-
-  if (err.status === 401) {
-    return new LayeroError(
-      "auth_expired",
-      "Вход больше не действует — токен протух или сессия отозвана.",
-      "выполните `layero login`",
-    );
-  }
-
-  if (err.status === 402) {
-    let detail: { feature?: string; limit?: number; observed?: number; message?: string } = {};
-    try {
-      const parsed = JSON.parse(err.body) as { detail?: typeof detail };
-      detail = parsed.detail ?? {};
-    } catch {
-      /* тело не JSON — обойдёмся общим текстом */
-    }
-    const limits: Record<string, string> = {
-      max_projects: "проектов",
-      custom_domains: "своих доменов",
-      team_orgs: "командных организаций",
-    };
-    const what = detail.feature ? limits[detail.feature] ?? detail.feature : null;
-    const counts =
-      typeof detail.limit === "number" && typeof detail.observed === "number"
-        ? ` (${detail.observed} при лимите ${detail.limit})`
-        : "";
-    return new LayeroError(
-      "plan_limit",
-      what
-        ? `Тариф не позволяет больше ${what}${counts}.`
-        // Сервер прислал готовую причину («Замер скорости доступен на тарифе
-        // Pro.») — она точнее общего текста.
-        : typeof detail.message === "string" && detail.message
-          ? detail.message
-          : "Действие недоступно на текущем тарифе.",
-      "смените тариф на app.layero.ru/billing или освободите место, удалив ненужное",
-    );
-  }
-
-  // 🚨 Понятный отказ сервера не имеет права превращаться в нашу поломку.
-  // 409 с `reason: reserved` и текстом «имя зарезервировано платформой»
-  // печатался как `code: internal` с советом «re-run with --debug for a stack
-  // trace» — человек шёл искать стек вместо того, чтобы сменить имя.
-  //
-  // Разбираем ЛЮБОЙ 4xx с телом, а не отдельные коды: заплатка на один код
-  // означала бы, что следующий понятный отказ снова станет «внутренней
-  // ошибкой». 5xx сюда не попадает намеренно — это как раз наша авария.
-  if (err.status >= 400 && err.status < 500) {
-    const detail = detailOf(err.body);
-    if (detail) {
-      return new LayeroError(
-        detail.code ?? `http_${err.status}`,
-        detail.message,
-        // Общий совет — последний: причина и лекарство чаще всего уже в тексте
-        // отказа (подсказки SQL про роли и Авторизацию, T-20261025-9), и
-        // «исправьте запрос» уводил агента от них.
-        detail.next_action ?? detail.hint ?? nextActionFor(err.status, detail.message) ??
-          "прочитайте message: в нём причина отказа сервера; поправьте команду и повторите",
-      );
-    }
-  }
-
-  return null;
-}
-
-/**
- * Достаёт человеческую часть отказа из тела ответа.
- *
- * FastAPI кладёт её в `detail` — либо строкой, либо объектом с `code`,
- * `reason` и `message`. Обе формы живые, и обе должны доезжать до человека.
- */
-function detailOf(
-  body: string,
-): { code?: string; message: string; next_action?: string; hint?: string } | null {
-  let parsed: any;
-  try {
-    parsed = JSON.parse(body);
-  } catch {
-    return null;
-  }
-  const detail = parsed?.detail ?? parsed;
-  if (typeof detail === "string" && detail.trim()) return { message: detail };
-  if (detail && typeof detail === "object") {
-    const message = detail.message ?? detail.detail ?? detail.reason;
-    if (typeof message === "string" && message.trim()) {
-      return {
-        code: typeof detail.code === "string" ? detail.code : undefined,
-        message,
-        next_action: typeof detail.next_action === "string" ? detail.next_action : undefined,
-        // Шлюз данных кладёт подсказку в `hint` (формат PostgREST).
-        hint: typeof detail.hint === "string" && detail.hint ? detail.hint : undefined,
-      };
-    }
-  }
-  return null;
 }
 
 main().catch((err) => {
