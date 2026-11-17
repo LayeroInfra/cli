@@ -5917,7 +5917,7 @@ export interface paths {
          *     its already-resolved nested dependency, so we get the caller's user_id
          *     for the signed state without an extra auth round-trip.
          *
-         *     Body: `{branch_name: str | None}`. None means default_branch. The
+         *     Body: `{branch_name: str | None}`. None means the production branch. The
          *     chosen branch is baked into the signed state so the callback knows
          *     which env's hostname to register as the counter's `site2` AND which
          *     branch the integration row should track.
