@@ -4581,6 +4581,32 @@ export interface paths {
         patch: operations["update_member_role_organizations__slug__members__user_id__patch"];
         trace?: never;
     };
+    "/organizations/{slug}/members/{user_id}/project-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Member Project Access
+         * @description Доступ участника к проектам. Видят владельцы команды и сам участник.
+         */
+        get: operations["get_member_project_access_organizations__slug__members__user_id__project_access_get"];
+        /**
+         * Set Member Project Access
+         * @description Задать уровень на все проекты и исключения (заменяют прежние целиком).
+         *     Только владельцы. Владельцу команды доступ не задаётся — у него все
+         *     проекты; гостю — не выше просмотра.
+         */
+        put: operations["set_member_project_access_organizations__slug__members__user_id__project_access_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/overage": {
         parameters: {
             query?: never;
@@ -9364,6 +9390,48 @@ export interface components {
         ProductionBranchIn: {
             /** Branch */
             branch: string;
+        };
+        /** ProjectAccessIn */
+        ProjectAccessIn: {
+            /**
+             * Default Level
+             * @enum {string}
+             */
+            default_level: "none" | "view" | "edit";
+            /** Exceptions */
+            exceptions?: components["schemas"]["ProjectAccessItem"][];
+        };
+        /** ProjectAccessItem */
+        ProjectAccessItem: {
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "none" | "view" | "edit";
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Slug */
+            slug?: string | null;
+        };
+        /** ProjectAccessOut */
+        ProjectAccessOut: {
+            /**
+             * Default Level
+             * @enum {string}
+             */
+            default_level: "none" | "view" | "edit";
+            /** Exceptions */
+            exceptions: components["schemas"]["ProjectAccessItem"][];
+            /** Role */
+            role: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
         };
         /** ProjectAddressIn */
         ProjectAddressIn: {
@@ -19563,6 +19631,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_member_project_access_organizations__slug__members__user_id__project_access_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectAccessOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_member_project_access_organizations__slug__members__user_id__project_access_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectAccessIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectAccessOut"];
                 };
             };
             /** @description Validation Error */
