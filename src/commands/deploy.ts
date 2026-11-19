@@ -37,7 +37,7 @@ interface DeployOptions {
   project?: string;
   yes?: boolean;
   prod?: boolean;
-  // V071: promote the resulting deploy to production after a successful
+  // Promote the resulting deploy to production after a successful
   // build. Distinct from --prod (which targets the default branch and
   // relies on auto_promote_default_branch on the backend). --promote
   // explicitly pins the apex regardless of branch / auto-promote setting.

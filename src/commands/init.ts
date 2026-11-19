@@ -75,7 +75,7 @@ clickable link and keep waiting; the CLI polls every 2 s. No localhost
 callback: the browser may be on another machine. In CI use
 \`LAYERO_TOKEN=… npx layero@latest deploy --project <slug> --json --yes\`.
 No account at all? \`npx layero@latest deploy --claim\` publishes to a
-temporary project for 72 hours and prints a \`claim_url\` for a human to
+temporary project for 1 hour and prints a \`claim_url\` for a human to
 take it over.
 
 Key JSON events: \`detected\` (framework, \`confident\`, \`hint\`), \`project_created\` /

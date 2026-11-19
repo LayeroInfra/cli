@@ -29,7 +29,7 @@ vi.mock("../src/config.js", () => ({
 }));
 vi.mock("../src/project-config.js", () => ({ loadProjectConfig }));
 
-import { rollbackCmd } from "../src/commands/deploys.js";
+import { rollbackCmd, rollbackRefusal } from "../src/commands/deploys.js";
 import { LayeroError } from "../src/agent.js";
 import { exitCodeFor } from "../src/exit-codes.js";
 
@@ -67,5 +67,32 @@ describe("rollback на уже активную сборку", () => {
     const err = await rollbackCmd({ yes: true }).catch((e) => e);
     expect(err).not.toBeInstanceOf(LayeroError);
     expect(err.message).toMatch(/rollback failed \(400\)/);
+  });
+});
+
+describe("rollbackRefusal — причина отказа от бэкенда, человеческим текстом", () => {
+  const body = (detail: string) => JSON.stringify({ detail });
+
+  it("сборка не готова — выбрать готовую", () => {
+    const e = rollbackRefusal(body("deploy is in 'failed' state, only 'ready' deploys can be rolled back to"));
+    expect(e.code).toBe("rollback_unsupported");
+    expect(e.message).toContain("не завершилась успешно");
+  });
+
+  it("результат удалён по окну хранения — пересобрать", () => {
+    const e = rollbackRefusal(body("deploy artifact has been purged (outside the retention window); it can no longer be rolled back to"));
+    expect(e.message).toContain("уже не хранится");
+    expect(e.next_action).toContain("layero deploy");
+  });
+
+  it("нет результата сборки", () => {
+    const e = rollbackRefusal(body("deploy has no artifact (neither an S3 bundle nor an image)"));
+    expect(e.message).toContain("нет сохранённого результата");
+  });
+
+  it("🚨 про рантайм больше не врём, незнакомую причину показываем как есть", () => {
+    const e = rollbackRefusal(body("something new"));
+    expect(e.message).toContain("something new");
+    expect(e.message + e.next_action).not.toMatch(/SSR|Streamlit|Gradio/);
   });
 });

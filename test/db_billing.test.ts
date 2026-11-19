@@ -85,12 +85,15 @@ describe("срок оплаты в списке", () => {
     expect(billingLine({ ...base, placement: "sandbox" })).toBeNull();
   });
 
-  it("оплаченная — цена и дата следующего списания", () => {
+  it("работающая — цена и почасовое списание с баланса, без даты", () => {
+    // С 15.11 база на балансе: даты списания нет, даже если сервер её прислал.
     const line = billingLine({ ...base, billing: {
       status: "active", price_month_kopecks: 90000,
       paid_until: iso(24 * DAY), next_charge_at: iso(21 * DAY) } });
     expect(line).toContain("900");
-    expect(line).toContain("спишем");
+    expect(line).toContain("с баланса каждый час");
+    expect(line).not.toContain("спишем");
+    expect(line).not.toContain("оплачено по");
   });
 
   it("🚨 у закрытого доступа — про снос, а не про списание", () => {

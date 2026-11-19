@@ -189,24 +189,17 @@ export async function rollbackCmd(opts: RollbackOptions): Promise<void> {
     console.log(chalk.dim("  CDN cache purged; new requests serve the rolled-back artifact."));
   } catch (err) {
     if (err instanceof ApiError) {
-      // 409 «not in a rollback-eligible state» — это НЕ сбой платформы, а
-      // ожидаемое ограничение, и подавать его кодом `internal` (то есть
-      // «сообщите о проблеме») нельзя: человек читает это в момент, когда у
-      // него уже что-то сломалось на проде.
+      // 409 — цель отката не годится. Это НЕ сбой платформы, а ожидаемое
+      // ограничение, и подавать его кодом `internal` (то есть «сообщите о
+      // проблеме») нельзя: человек читает это в момент, когда у него уже
+      // что-то сломалось на проде.
       //
-      // Две причины дают один и тот же ответ API. Runtime-проекты (SSR,
-      // Streamlit, Gradio) не откатываются вообще: их артефакт лежит в
-      // реестре образов, а проверка пригодности требует s3_path. У статики
-      // артефакт мог быть вычищен по ретенции. Различить их здесь нечем,
-      // поэтому называем оба и даём общий выход — пересборку коммита.
-      if (err.status === 409 && err.body.includes("rollback-eligible")) {
-        throw new LayeroError(
-          "rollback_unsupported",
-          "этот деплой нельзя переактивировать: у него нет раздаваемого артефакта",
-          "runtime-проекты (SSR, Streamlit, Gradio) откатывать пока нельзя, " +
-            "а у статики артефакт мог быть вычищен по ретенции — " +
-            "пересобери нужный коммит через `layero deploy`",
-        );
+      // С 21.08 бэкенд называет причину сам (`rollback_eligibility.py`):
+      // сборка не готова, у неё нет результата или результат уже удалён по
+      // окну хранения. Откат рантайм-приложений с тех пор работает, поэтому
+      // про «SSR откатывать нельзя» больше не говорим.
+      if (err.status === 409) {
+        throw rollbackRefusal(err.body);
       }
       // 400 «target deploy is already the active one» — тоже штатный отказ:
       // цель отката уже раздаётся (типичный случай — второй `rollback`
@@ -222,4 +215,46 @@ export async function rollbackCmd(opts: RollbackOptions): Promise<void> {
     }
     throw err;
   }
+}
+
+
+/**
+ * Отказ отката (409) — человеческим текстом по причине, которую назвал бэкенд.
+ * Незнакомую причину показываем как есть: молча подменить её общей фразой —
+ * ровно то, что раньше прятало настоящую причину.
+ */
+export function rollbackRefusal(body: string): LayeroError {
+  let detail = "";
+  try {
+    const parsed = JSON.parse(body) as { detail?: unknown };
+    if (typeof parsed?.detail === "string") detail = parsed.detail;
+  } catch {
+    detail = body.slice(0, 200);
+  }
+  if (detail.includes("only 'ready' deploys")) {
+    return new LayeroError(
+      "rollback_unsupported",
+      "на эту сборку откатиться нельзя: она не завершилась успешно",
+      "выбери готовую сборку в `layero deploys list` и укажи её: `layero rollback --deploy <id>`",
+    );
+  }
+  if (detail.includes("purged")) {
+    return new LayeroError(
+      "rollback_unsupported",
+      "на эту сборку откатиться нельзя: она уже не хранится",
+      "пересобери нужный коммит через `layero deploy` или выбери более свежую сборку в `layero deploys list`",
+    );
+  }
+  if (detail.includes("no artifact")) {
+    return new LayeroError(
+      "rollback_unsupported",
+      "на эту сборку откатиться нельзя: у неё нет сохранённого результата",
+      "пересобери нужный коммит через `layero deploy`",
+    );
+  }
+  return new LayeroError(
+    "rollback_unsupported",
+    detail ? `на эту сборку откатиться нельзя: ${detail}` : "на эту сборку откатиться нельзя",
+    "выбери другую готовую сборку в `layero deploys list` или пересобери коммит через `layero deploy`",
+  );
 }

@@ -299,7 +299,7 @@ async function main(): Promise<void> {
   program
     .command("promote [deploy]")
     .description(
-      "Pin the project apex to a specific deploy (V071 production-pointer). " +
+      "Make a ready deploy the one served at the project's main address. " +
         "Without [deploy] picks the latest ready build on --branch (defaults to the 'cli' pseudo-branch).",
     )
     .option("--project <id_or_slug>", "project (default: the one linked in .layero/project.json)")

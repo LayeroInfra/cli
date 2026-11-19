@@ -939,7 +939,7 @@ export class ApiClient {
     );
   }
 
-  // V071 production-pointer: pin apex to a specific deploy. `source` is
+  // Production pointer: pin apex to a specific deploy. `source` is
   // recorded in promote_events and lets us split CLI vs UI adoption later.
   promoteDeploy(
     projectId: string,
@@ -953,7 +953,7 @@ export class ApiClient {
   }
 
   // Clear projects.production_deploy_id — apex resumes following latest
-  // ready deploy of default_branch (or sole-env, see V071 host_resolver).
+  // ready deploy of default_branch (or the sole environment, see the backend host resolver).
   unpinProduction(projectId: string): Promise<ProjectSummary> {
     return this.request<ProjectSummary>(
       "POST",
