@@ -4581,32 +4581,6 @@ export interface paths {
         patch: operations["update_member_role_organizations__slug__members__user_id__patch"];
         trace?: never;
     };
-    "/organizations/{slug}/members/{user_id}/project-access": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Member Project Access
-         * @description Доступ участника к проектам. Видят владельцы команды и сам участник.
-         */
-        get: operations["get_member_project_access_organizations__slug__members__user_id__project_access_get"];
-        /**
-         * Set Member Project Access
-         * @description Задать уровень на все проекты и исключения (заменяют прежние целиком).
-         *     Только владельцы. Владельцу команды доступ не задаётся — у него все
-         *     проекты; гостю — не выше просмотра.
-         */
-        put: operations["set_member_project_access_organizations__slug__members__user_id__project_access_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/organizations/{slug}/overage": {
         parameters: {
             query?: never;
@@ -4955,31 +4929,6 @@ export interface paths {
         get: operations["list_organization_speed_schedules_organizations__slug__speed_schedules_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/organizations/{slug}/team/seats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Team Seats
-         * @description Платные места команды: сколько есть, сколько занято, когда продление.
-         */
-        get: operations["get_team_seats_organizations__slug__team_seats_get"];
-        put?: never;
-        /**
-         * Change Team Seats
-         * @description Добавить места (остаток до даты мест — с баланса команды сразу) или
-         *     снять свободные (без возврата: место оплачено до даты).
-         */
-        post: operations["change_team_seats_organizations__slug__team_seats_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9431,48 +9380,6 @@ export interface components {
             /** Branch */
             branch: string;
         };
-        /** ProjectAccessIn */
-        ProjectAccessIn: {
-            /**
-             * Default Level
-             * @enum {string}
-             */
-            default_level: "none" | "view" | "edit";
-            /** Exceptions */
-            exceptions?: components["schemas"]["ProjectAccessItem"][];
-        };
-        /** ProjectAccessItem */
-        ProjectAccessItem: {
-            /**
-             * Level
-             * @enum {string}
-             */
-            level: "none" | "view" | "edit";
-            /**
-             * Project Id
-             * Format: uuid
-             */
-            project_id: string;
-            /** Slug */
-            slug?: string | null;
-        };
-        /** ProjectAccessOut */
-        ProjectAccessOut: {
-            /**
-             * Default Level
-             * @enum {string}
-             */
-            default_level: "none" | "view" | "edit";
-            /** Exceptions */
-            exceptions: components["schemas"]["ProjectAccessItem"][];
-            /** Role */
-            role: string;
-            /**
-             * User Id
-             * Format: uuid
-             */
-            user_id: string;
-        };
         /** ProjectAddressIn */
         ProjectAddressIn: {
             /** Label */
@@ -11246,32 +11153,6 @@ export interface components {
             apply: boolean;
             /** Dump */
             dump: string;
-        };
-        /** TeamSeatsIn */
-        TeamSeatsIn: {
-            /**
-             * Add
-             * @default 0
-             */
-            add: number;
-            /**
-             * Remove
-             * @default 0
-             */
-            remove: number;
-        };
-        /** TeamSeatsOut */
-        TeamSeatsOut: {
-            /** Add One Kopecks */
-            add_one_kopecks: number | null;
-            /** Next Date */
-            next_date: string | null;
-            /** Occupied */
-            occupied: number;
-            /** Paid Seats */
-            paid_seats: number;
-            /** Unit Kopecks */
-            unit_kopecks: number;
         };
         /**
          * TransferInitIn
@@ -19720,78 +19601,6 @@ export interface operations {
             };
         };
     };
-    get_member_project_access_organizations__slug__members__user_id__project_access_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                slug: string;
-                user_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectAccessOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    set_member_project_access_organizations__slug__members__user_id__project_access_put: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                slug: string;
-                user_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProjectAccessIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectAccessOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     organization_overage_organizations__slug__overage_get: {
         parameters: {
             query?: never;
@@ -20587,76 +20396,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SpeedScheduleOut"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_team_seats_organizations__slug__team_seats_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TeamSeatsOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    change_team_seats_organizations__slug__team_seats_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TeamSeatsIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TeamSeatsOut"];
                 };
             };
             /** @description Validation Error */
