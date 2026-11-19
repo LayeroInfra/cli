@@ -59,9 +59,9 @@ ALLOW_MARKERS = (
 # честного падения (см. комментарий в main).
 SURFACES = (
     "layero-docs/docs/cli/json-events.md",
-    "layero-docs/docs/cli/agents.md",
+    "layero-docs/docs/agents/index.md",
     "layero-docs/i18n/en/docusaurus-plugin-content-docs/current/cli/json-events.md",
-    "layero-docs/i18n/en/docusaurus-plugin-content-docs/current/cli/agents.md",
+    "layero-docs/i18n/en/docusaurus-plugin-content-docs/current/agents/index.md",
     "frontend/landing/llms.txt",
     "frontend/landing/llms-full.txt",
     "frontend/landing/cursorrules",
