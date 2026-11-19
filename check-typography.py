@@ -53,7 +53,7 @@ STRICT = (
     # 05.08.2026: вычищена целиком при добавлении раздела о переезде домена
     # с другого хостинга. Страница длинная и её читают, когда что-то уже не
     # получилось, — пусть остаётся чистой.
-    "layero-docs/docs/deploys/custom-domains.md",
+    "layero-docs/docs/addresses/custom-domains.md",
     # 10.08.2026: файл маленький и целиком состоит из подписей под полем —
     # ровно та поверхность, ради которой проверка писалась. Заведён чистым,
     # пусть таким и остаётся.
@@ -165,7 +165,7 @@ SURFACES = (
     "core/infra/status-page/index.html",
     "core/backend/app/services/public_status.py",
     "frontend/landing/index.html",
-    "layero-docs/docs/deploys/custom-domains.md",
+    "layero-docs/docs/addresses/custom-domains.md",
     # Тексты, которые человек читает, когда у него что-то не получилось.
     "core/backend/app/api/routes",
     "core/backend/app/services/deploy_error.py",
