@@ -478,6 +478,36 @@ export type Event =
       event: "organizations";
       organizations: Array<{ id: string; slug: string; kind: string; role: string }>;
     } & EventCommon)
+  // ── Команда (alpha, core docs/TEAMS.md) ──
+  | ({
+      event: "team";
+      organization: string;
+      members: Array<{ email: string | null; username: string | null; role: string;
+        access: { default_level: string; all: boolean; exceptions: Array<{ project: string; level: string }> } }>;
+      invites: Array<{ email: string; role: string; expires_at: string }>;
+      seats: { paid: number; occupied: number; unit_kopecks: number; next_date: string | null;
+        add_one_kopecks: number | null } | null;
+    } & EventCommon)
+  | ({ event: "team_invited"; organization: string; email: string; role: string } & EventCommon)
+  | ({ event: "team_role_changed"; organization: string; email: string; role: string } & EventCommon)
+  | ({ event: "team_member_removed"; organization: string; email: string; invite: boolean } & EventCommon)
+  | ({
+      event: "team_access";
+      organization: string;
+      email: string;
+      default_level: string;
+      exceptions: Array<{ project: string; level: string }>;
+    } & EventCommon)
+  | ({
+      event: "team_seats";
+      organization: string;
+      paid: number;
+      occupied: number;
+      unit_kopecks: number;
+      next_date: string | null;
+      added: number;
+      removed: number;
+    } & EventCommon)
   | ({
       event: "hooks";
       project: string;
@@ -768,6 +798,50 @@ function renderHuman(event: Event): void {
         const tag = p.source_type === "cli" ? "[cli]" : "[git]";
         process.stdout.write(`${tag} ${p.slug}  ${p.id}  ${p.url}\n`);
       }
+      break;
+    case "team": {
+      const ROLE: Record<string, string> = { owner: "владелец", developer: "разработчик", guest: "гость" };
+      const LEVEL: Record<string, string> = { none: "нет доступа", view: "просмотр", edit: "редактирование" };
+      process.stdout.write(`Команда ${event.organization}\n`);
+      if (event.seats) {
+        process.stdout.write(
+          `  Платные места: ${event.seats.occupied} из ${event.seats.paid} занято` +
+            `${event.seats.next_date ? `, продление ${event.seats.next_date.slice(0, 10)}` : ""}\n`,
+        );
+      }
+      for (const m of event.members) {
+        const access = m.access.all ? "все проекты"
+          : `${LEVEL[m.access.default_level] ?? m.access.default_level} на все` +
+            (m.access.exceptions.length ? `, кроме ${m.access.exceptions.map((e) => `${e.project}=${e.level}`).join(", ")}` : "");
+        process.stdout.write(`  ${(m.email ?? m.username ?? "").padEnd(32)} ${(ROLE[m.role] ?? m.role).padEnd(12)} ${access}\n`);
+      }
+      for (const i of event.invites) {
+        process.stdout.write(`  ${i.email.padEnd(32)} ${(ROLE[i.role] ?? i.role).padEnd(12)} ждёт ответа на приглашение\n`);
+      }
+      break;
+    }
+    case "team_invited":
+      process.stdout.write(`✓ Приглашение отправлено: ${event.email} (${event.role})\n`);
+      break;
+    case "team_role_changed":
+      process.stdout.write(`✓ ${event.email}: роль ${event.role}\n`);
+      break;
+    case "team_member_removed":
+      process.stdout.write(event.invite ? `✓ Приглашение ${event.email} отозвано\n` : `✓ ${event.email} больше не в команде\n`);
+      break;
+    case "team_access":
+      process.stdout.write(
+        `${event.email}: ${event.default_level} на все проекты` +
+          `${event.exceptions.length ? `, кроме ${event.exceptions.map((e) => `${e.project}=${e.level}`).join(", ")}` : ""}\n`,
+      );
+      break;
+    case "team_seats":
+      if (event.added) process.stdout.write(`✓ Добавлено мест: ${event.added} — остаток до даты продления списан с баланса команды\n`);
+      if (event.removed) process.stdout.write(`✓ Снято мест: ${event.removed}\n`);
+      process.stdout.write(
+        `Платные места: ${event.occupied} из ${event.paid} занято, ${Math.round(event.unit_kopecks / 100)} ₽ в месяц за место` +
+          `${event.next_date ? `, продление ${event.next_date.slice(0, 10)}` : ""}\n`,
+      );
       break;
     case "organizations":
       if (event.organizations.length === 0) {

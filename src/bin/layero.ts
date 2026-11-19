@@ -18,6 +18,7 @@ import { sourceCmd } from "../commands/source.js";
 import { hooksCreateCmd, hooksDeleteCmd, hooksListCmd } from "../commands/hooks.js";
 import { loginCmd } from "../commands/login.js";
 import { orgsListCmd } from "../commands/orgs.js";
+import { teamAccessCmd, teamInviteCmd, teamListCmd, teamRemoveCmd, teamRoleCmd, teamSeatsCmd } from "../commands/team.js";
 import { initCmd } from "../commands/init.js";
 import { diagnoseCmd, logsCmd } from "../commands/diagnose.js";
 import { perfCheckCmd, perfShowCmd } from "../commands/perf.js";
@@ -237,6 +238,46 @@ async function main(): Promise<void> {
     .command("list")
     .description("All organizations you are a member of.")
     .action(orgsListCmd);
+
+  // ── Команда (alpha, core docs/TEAMS.md) ──
+  const team = program
+    .command("team")
+    .description("Team members: roles (owner, developer, guest), project access and paid seats.");
+  team
+    .command("list")
+    .description("Members, pending invites and paid seats.")
+    .option("--org <slug>", "organization (default: personal)")
+    .action(async (opts) => teamListCmd(opts));
+  team
+    .command("invite <email>")
+    .description("Invite by email. Developer and owner need a free paid seat; a guest is free.")
+    .option("--role <role>", "owner | developer | guest", "developer")
+    .option("--org <slug>", "organization (default: personal)")
+    .action(async (email: string, opts) => teamInviteCmd(email, opts));
+  team
+    .command("role <email> <role>")
+    .description("Change a member's role: owner | developer | guest.")
+    .option("--org <slug>", "organization (default: personal)")
+    .action(async (email: string, role: string, opts) => teamRoleCmd(email, role, opts));
+  team
+    .command("remove <email>")
+    .description("Remove a member or revoke a pending invite. The seat stays with the team.")
+    .option("--org <slug>", "organization (default: personal)")
+    .action(async (email: string, opts) => teamRemoveCmd(email, opts));
+  team
+    .command("access <email>")
+    .description("Show or set project access: a level for all projects (incl. new ones) and per-project exceptions.")
+    .option("--all <level>", "none | view | edit — for all projects")
+    .option("--project <slug=level>", "exception for one project; repeatable", (v: string, prev: string[] = []) => [...prev, v])
+    .option("--org <slug>", "organization (default: personal)")
+    .action(async (email: string, opts) => teamAccessCmd(email, opts));
+  team
+    .command("seats")
+    .description("Show paid seats, or add (the rest of the month is charged to the team balance now) / remove free ones.")
+    .option("--add <n>", "add N seats")
+    .option("--remove <n>", "remove N free seats")
+    .option("--org <slug>", "organization (default: personal)")
+    .action(async (opts) => teamSeatsCmd(opts));
 
   const deploys = program
     .command("deploys")

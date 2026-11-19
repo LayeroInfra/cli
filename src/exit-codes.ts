@@ -41,6 +41,7 @@ const NOT_FOUND = new Set([
   "source_not_kept",
   "no_runs",
   "data_key_unknown",
+  "member_not_found",
 ]);
 
 const INVALID_INPUT = new Set([

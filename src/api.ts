@@ -312,6 +312,8 @@ export class ApiClient {
       github_login: string | null;
       my_role: "admin" | "member";
       kind: "personal" | "team";
+      /** Команда на новых правах (alpha): роли, места, доступ к проектам. */
+      team_rights?: boolean;
     }>
   > {
     return this.request("GET", "/organizations");
@@ -1141,6 +1143,91 @@ export class ApiClient {
   getClaimStatus(code: string): Promise<ClaimStatusOut> {
     return this.request<ClaimStatusOut>("GET", `/claimable/status?code=${encodeURIComponent(code)}`);
   }
+
+  // ── Команда (alpha: ручки доступа и мест скрыты из публичной схемы core
+  //    до запуска команд — типы здесь рукописные, см. AGENTS.md) ──────────
+
+  listTeamMembers(slug: string): Promise<TeamMember[]> {
+    return this.request<TeamMember[]>("GET", `/organizations/${encodeURIComponent(slug)}/members`);
+  }
+
+  listTeamInvites(slug: string): Promise<TeamInvite[]> {
+    return this.request<TeamInvite[]>("GET", `/organizations/${encodeURIComponent(slug)}/invites`);
+  }
+
+  createTeamInvite(slug: string, email: string, role: TeamApiRole): Promise<TeamInvite> {
+    return this.request<TeamInvite>("POST", `/organizations/${encodeURIComponent(slug)}/invites`, { email, role });
+  }
+
+  revokeTeamInvite(slug: string, inviteId: string): Promise<void> {
+    return this.request<void>("DELETE", `/organizations/${encodeURIComponent(slug)}/invites/${encodeURIComponent(inviteId)}`);
+  }
+
+  updateTeamMemberRole(slug: string, userId: string, role: TeamApiRole): Promise<TeamMember> {
+    return this.request<TeamMember>("PATCH", `/organizations/${encodeURIComponent(slug)}/members/${userId}`, { role });
+  }
+
+  removeTeamMember(slug: string, userId: string): Promise<void> {
+    return this.request<void>("DELETE", `/organizations/${encodeURIComponent(slug)}/members/${userId}`);
+  }
+
+  getTeamProjectAccess(slug: string, userId: string): Promise<TeamProjectAccess> {
+    return this.request<TeamProjectAccess>(
+      "GET", `/organizations/${encodeURIComponent(slug)}/members/${userId}/project-access`);
+  }
+
+  setTeamProjectAccess(
+    slug: string, userId: string,
+    body: { default_level: TeamLevel; exceptions: Array<{ project_id: string; level: TeamLevel }> },
+  ): Promise<TeamProjectAccess> {
+    return this.request<TeamProjectAccess>(
+      "PUT", `/organizations/${encodeURIComponent(slug)}/members/${userId}/project-access`, body);
+  }
+
+  getTeamSeats(slug: string): Promise<TeamSeats> {
+    return this.request<TeamSeats>("GET", `/organizations/${encodeURIComponent(slug)}/team/seats`);
+  }
+
+  changeTeamSeats(slug: string, change: { add?: number; remove?: number }): Promise<TeamSeats> {
+    return this.request<TeamSeats>("POST", `/organizations/${encodeURIComponent(slug)}/team/seats`, change);
+  }
+}
+
+/** Роль в API: `admin` — владелец, `editor` (и прежний `member`) — разработчик, `viewer` — гость. */
+export type TeamApiRole = "admin" | "editor" | "viewer" | "member";
+export type TeamLevel = "none" | "view" | "edit";
+
+export interface TeamMember {
+  user_id: string;
+  email: string | null;
+  username: string | null;
+  role: TeamApiRole;
+  added_at: string | null;
+  /** Команда на новых правах; у владельца нет — у него все проекты. */
+  project_access?: { default_level: TeamLevel; exceptions: Array<{ project_id: string; slug?: string | null; level: TeamLevel }> };
+}
+
+export interface TeamInvite {
+  id: string;
+  email: string;
+  role: TeamApiRole;
+  status: string;
+  expires_at: string;
+}
+
+export interface TeamProjectAccess {
+  user_id: string;
+  role: TeamApiRole;
+  default_level: TeamLevel;
+  exceptions: Array<{ project_id: string; slug?: string | null; level: TeamLevel }>;
+}
+
+export interface TeamSeats {
+  paid_seats: number;
+  occupied: number;
+  unit_kopecks: number;
+  next_date: string | null;
+  add_one_kopecks: number | null;
 }
 
 export async function uploadArchive(
