@@ -47,4 +47,16 @@ describe("planLimitError", () => {
     expect(e?.code).toBe("plan_limit");
     expect(e?.message).toBe("Сборки по тарифу закончились.");
   });
+
+  it("показывает готовый ответ сервера: фразу со ссылкой и что делать агенту", () => {
+    const e = planLimitError(body({
+      feature: "custom_domains", suggested_plan: "pro",
+      message: "Свои домены доступны на тарифе Pro",
+      user_message: "Свои домены доступны на тарифе Pro, у организации acme сейчас Free. Попробуйте Pro 7 дней бесплатно: https://app.layero.ru/orgs/acme/billing?subscribe=month",
+      next_action: "Расскажите пользователю, что это доступно на тарифе Pro: пробный период 7 дней бесплатно, оформить можно по ссылке https://app.layero.ru/orgs/acme/billing?subscribe=month. Не повторяйте действие, пока подписка не оформлена.",
+    }));
+    expect(e.code).toBe("plan_limit");
+    expect(e.message).toContain("Попробуйте Pro 7 дней бесплатно: https://app.layero.ru/orgs/acme/billing?subscribe=month");
+    expect(e.next_action).toContain("Не повторяйте действие");
+  });
 });

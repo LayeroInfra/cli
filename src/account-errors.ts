@@ -134,12 +134,20 @@ export function planLimitError(body: string): LayeroError {
     message?: string;
     suggested_plan?: string | null;
     suggested_action?: string | null;
+    user_message?: string;
+    next_action?: string;
   } = {};
   try {
     const parsed = JSON.parse(body) as { detail?: typeof detail };
     if (parsed.detail && typeof parsed.detail === "object") detail = parsed.detail;
   } catch {
     /* тело не JSON — обойдёмся общим текстом */
+  }
+  // С 19.11.2026 сервер сам собирает ответ (core billing/paywall.py,
+  // T-20261104-5): что упёрлось, доступен ли пробный период, прямая ссылка на
+  // оформление и что делать агенту. Текст — в одном месте, на сервере.
+  if (typeof detail.user_message === "string" && detail.user_message.trim()) {
+    return new LayeroError("plan_limit", detail.user_message, detail.next_action ?? "");
   }
   const named = detail.feature ? LIMIT_NAMES[detail.feature] : undefined;
   const counts =
