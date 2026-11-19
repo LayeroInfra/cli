@@ -578,7 +578,7 @@ export type Event =
       claim_url: string | null;
     } & EventCommon)
   | ({ event: "claim_accept"; code: string; claim_url: string; opened: boolean } & EventCommon)
-  | ({ event: "error"; code: string; next_action: string; message: string } & EventCommon);
+  | ({ event: "error"; code: string; next_action: string; message: string; docs_feedback?: string } & EventCommon);
 
 export function emit(event: Event): void {
   const mode = detectMode();

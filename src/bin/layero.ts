@@ -8,7 +8,10 @@ import { projectsCreateCmd, projectsDeleteCmd, projectsListCmd } from "../comman
 import { sourcesConnectCmd, sourcesListCmd, sourcesReposCmd } from "../commands/sources.js";
 import { envsListCmd } from "../commands/envs.js";
 import { claimAcceptCmd, claimStatusCmd } from "../commands/claim.js";
-import { exitCodeFor } from "../exit-codes.js";
+import { EXIT_INVALID_INPUT, EXIT_NOT_FOUND, exitCodeFor } from "../exit-codes.js";
+
+// Правила отчёта агента о проблеме в документации (core/docs/DOCS-FEEDBACK.md).
+const DOCS_FEEDBACK_URL = "https://docs.layero.ru/agents/feedback.md";
 import { linkCmd } from "../commands/link.js";
 import { tokenCreateCmd, tokenListCmd, tokenRevokeCmd, tokenSetCmd } from "../commands/token.js";
 import { deployCmd } from "../commands/deploy.js";
@@ -748,6 +751,13 @@ main().catch((err) => {
       code: err.code,
       next_action: err.next_action,
       message: err.message,
+      // «Не найдено» и «неверный ввод» часто значат, что агент сделал то, что
+      // написано в документации, а она разошлась с платформой: ссылка на
+      // правила отчёта — ровно в этот момент (core/docs/DOCS-FEEDBACK.md).
+      // Вход, лимиты и удалённые сбои к докам отношения не имеют.
+      ...(exitCode === EXIT_NOT_FOUND || exitCode === EXIT_INVALID_INPUT
+        ? { docs_feedback: DOCS_FEEDBACK_URL }
+        : {}),
     });
   } else {
     exitCode = exitCodeFor("internal");
