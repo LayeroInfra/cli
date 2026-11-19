@@ -48,6 +48,26 @@ describe("add", () => {
     await domainsAddCmd("https://shop.example.com/page?x=1", { json: true });
     expect(addDomain).toHaveBeenCalledWith("p1", "https://shop.example.com/page?x=1");
   });
+
+  it("на Free домен сохранён на паузе: агенту — пометка сервера и что делать", async () => {
+    addDomain.mockResolvedValue({
+      id: "d1", domain: "example.com", ssl_status: "dns_pending", verified: false, is_suspended: true,
+      notice: "Домен example.com добавлен и заработает после оформления Pro.",
+      next_action: "Расскажите пользователю: домен сохранён и включится сам после оформления Pro.",
+      upgrade_url: "https://app.layero.ru/orgs/acme/billing?subscribe=month",
+    });
+    const out: string[] = [];
+    const spy = vi.spyOn(process.stdout, "write").mockImplementation((s: string | Uint8Array) => {
+      out.push(String(s));
+      return true;
+    });
+    await domainsAddCmd("example.com", { json: true });
+    spy.mockRestore();
+    const ev = JSON.parse(out.find((l) => l.includes("domain_added")) ?? "{}");
+    expect(ev.notice).toContain("заработает после оформления Pro");
+    expect(ev.next_action).toContain("включится сам");
+    expect(ev.upgrade_url).toContain("subscribe=month");
+  });
 });
 
 describe("verify", () => {
