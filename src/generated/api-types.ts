@@ -8307,6 +8307,8 @@ export interface components {
         DomainOut: {
             /** Acme Challenge Token */
             acme_challenge_token?: string | null;
+            /** Agent Hint */
+            agent_hint?: string | null;
             /** Domain */
             domain: string;
             /** Expected A Ip */
@@ -8323,14 +8325,25 @@ export interface components {
              * @default false
              */
             is_primary: boolean;
+            /**
+             * Is Suspended
+             * @default false
+             */
+            is_suspended: boolean;
             /** Kind */
             kind: string;
             /** Last Verification Error */
             last_verification_error?: string | null;
+            /** Next Action */
+            next_action?: string | null;
             /** Next Check At */
             next_check_at?: string | null;
+            /** Notice */
+            notice?: string | null;
             /** Ownership Token */
             ownership_token?: string | null;
+            /** Plan Required */
+            plan_required?: string | null;
             /**
              * Project Id
              * Format: uuid
@@ -8342,6 +8355,8 @@ export interface components {
             ssl_status: string;
             /** Target Environment Id */
             target_environment_id?: string | null;
+            /** Upgrade Url */
+            upgrade_url?: string | null;
             /** Verified */
             verified: boolean;
             /**
@@ -9713,6 +9728,8 @@ export interface components {
         };
         /** ProjectOut */
         ProjectOut: {
+            /** Agent Hint */
+            agent_hint?: string | null;
             /**
              * Apex Cdn Ready
              * @default false
@@ -9843,8 +9860,12 @@ export interface components {
             my_role: string;
             /** Name */
             name: string;
+            /** Next Action */
+            next_action?: string | null;
             /** Node Version */
             node_version?: string | null;
+            /** Notice */
+            notice?: string | null;
             organization: components["schemas"]["OrganizationInline"];
             /** Output Dir */
             output_dir?: string | null;
@@ -9906,6 +9927,8 @@ export interface components {
             runtime_memory_advisory?: string | null;
             /** Runtime Memory Advisory At */
             runtime_memory_advisory_at?: string | null;
+            /** Skipped Features */
+            skipped_features?: string[] | null;
             /** Slug */
             slug: string;
             /** Source Provider */
@@ -9922,6 +9945,8 @@ export interface components {
              * @default active
              */
             status: string;
+            /** Upgrade Url */
+            upgrade_url?: string | null;
         };
         /**
          * ProjectPresetOut

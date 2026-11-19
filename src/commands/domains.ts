@@ -122,19 +122,28 @@ export async function domainsAddCmd(domain: string, opts: DomainOptions): Promis
       domain_id: created.id,
       ssl_status: created.ssl_status,
       records: instr.records,
+      // Free: домен сохранён на паузе и включится сам после оформления Pro
+      // (мягкий пейвол сервера, T-20261104-5) — фраза и что делать агенту.
+      ...(created.is_suspended ? { notice: created.notice ?? undefined, upgrade_url: created.upgrade_url ?? undefined } : {}),
       // Ждать готовности здесь бессмысленно: DNS распространяется минутами,
       // а платформа сама перепроверяет фоном.
-      next_action: "ask_user_to_add_dns_then_verify",
+      next_action: (created.is_suspended && created.next_action) || "ask_user_to_add_dns_then_verify",
     });
     return;
   }
 
   console.log(chalk.green(`домен ${created.domain} добавлен к проекту "${project.slug}"`));
+  if (created.is_suspended && created.notice) console.log(chalk.yellow(created.notice));
   console.log(`\n${chalk.bold("впиши эти записи у своего регистратора:")}\n`);
   for (const r of instr.records) {
     const opt = r.optional ? chalk.dim(" (необязательно)") : "";
     console.log(`  ${chalk.bold(r.type)}  ${r.name}${opt}`);
     for (const v of r.values) console.log(`       → ${v}`);
+  }
+  if (created.is_suspended) {
+    // На паузе проверка недоступна: домен включится сам после оформления Pro.
+    console.log(chalk.dim("\nDNS расходится от нескольких минут до часа — записи можно добавить уже сейчас."));
+    return;
   }
   console.log(
     chalk.dim(
