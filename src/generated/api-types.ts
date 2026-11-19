@@ -4961,6 +4961,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{slug}/team/seats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Team Seats
+         * @description Платные места команды: сколько есть, сколько занято, когда продление.
+         */
+        get: operations["get_team_seats_organizations__slug__team_seats_get"];
+        put?: never;
+        /**
+         * Change Team Seats
+         * @description Добавить места (остаток до даты мест — с баланса команды сразу) или
+         *     снять свободные (без возврата: место оплачено до даты).
+         */
+        post: operations["change_team_seats_organizations__slug__team_seats_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{slug}/usage": {
         parameters: {
             query?: never;
@@ -11196,6 +11221,32 @@ export interface components {
             apply: boolean;
             /** Dump */
             dump: string;
+        };
+        /** TeamSeatsIn */
+        TeamSeatsIn: {
+            /**
+             * Add
+             * @default 0
+             */
+            add: number;
+            /**
+             * Remove
+             * @default 0
+             */
+            remove: number;
+        };
+        /** TeamSeatsOut */
+        TeamSeatsOut: {
+            /** Add One Kopecks */
+            add_one_kopecks: number | null;
+            /** Next Date */
+            next_date: string | null;
+            /** Occupied */
+            occupied: number;
+            /** Paid Seats */
+            paid_seats: number;
+            /** Unit Kopecks */
+            unit_kopecks: number;
         };
         /**
          * TransferInitIn
@@ -20511,6 +20562,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SpeedScheduleOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_team_seats_organizations__slug__team_seats_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamSeatsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_team_seats_organizations__slug__team_seats_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamSeatsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamSeatsOut"];
                 };
             };
             /** @description Validation Error */
