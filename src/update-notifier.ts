@@ -116,8 +116,12 @@ export function updateNotice(current: string, latest: string | null): string | n
   if (compareVersions(current, latest) >= 0) return null;
   return (
     `\n  Доступна новая версия Layero CLI: ${current} → ${latest}\n` +
-    `  Обновиться:  npm i -g layero@latest\n` +
-    `  Старые версии не получают исправлений сборки и деплоя.\n`
+    // Не «npm i -g»: глобальная установка запрещена правилами Layero
+    // (AGENTS.md, навык, доки) — она и пиннит человека на старой версии.
+    `  Запускайте через npx layero@latest — так всегда берётся последняя.\n` +
+    `  Установлен в проект: npm install -D layero@latest\n` +
+    `  Старые версии не получают исправлений сборки и деплоя.\n` +
+    `  Не показывать это сообщение: LAYERO_NO_UPDATE_CHECK=1\n`
   );
 }
 

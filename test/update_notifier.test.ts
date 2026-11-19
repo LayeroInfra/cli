@@ -44,7 +44,11 @@ describe("updateNotice", () => {
     expect(notice).toBeTruthy();
     expect(notice).toContain("0.5.3");
     expect(notice).toContain("0.8.11");
-    expect(notice).toContain("npm i -g layero@latest");
+    expect(notice).toContain("npx layero@latest");
+    expect(notice).toContain("npm install -D layero@latest");
+    expect(notice).toContain("LAYERO_NO_UPDATE_CHECK=1");
+    // Глобальная установка запрещена правилами Layero — не советовать её.
+    expect(notice).not.toMatch(/npm\s+(i|install)\s+(-g|--global)/);
   });
 
   it("stays silent when current", () => {
