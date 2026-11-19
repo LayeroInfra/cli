@@ -1,5 +1,4 @@
-import { ApiClient, type TeamApiRole } from "../api.js";
-import { teamRole } from "./team.js";
+import { ApiClient } from "../api.js";
 import { loadConfig } from "../config.js";
 import { LayeroError, emit } from "../agent.js";
 
@@ -21,8 +20,6 @@ export async function orgsListCmd(): Promise<void> {
   const orgs = await api.listOrganizations();
   emit({
     event: "organizations",
-    // Роли для людей — как в панели (core docs/TEAMS.md): владелец,
-    // разработчик, гость; в API — admin, editor/member, viewer.
-    organizations: orgs.map((o) => ({ id: o.id, slug: o.slug, kind: o.kind, role: teamRole(o.my_role as TeamApiRole) })),
+    organizations: orgs.map((o) => ({ id: o.id, slug: o.slug, kind: o.kind, role: o.my_role })),
   });
 }

@@ -849,7 +849,9 @@ function renderHuman(event: Event): void {
         break;
       }
       for (const o of event.organizations) {
-        process.stdout.write(`  ${o.slug.padEnd(20)} ${o.kind}  (${o.role})\n`);
+        // Роль для людей — как в панели; в JSON `role` прежний (контракт).
+        const human: Record<string, string> = { admin: "владелец", editor: "разработчик", member: "разработчик", viewer: "гость" };
+        process.stdout.write(`  ${o.slug.padEnd(20)} ${o.kind}  (${human[o.role] ?? o.role})\n`);
       }
       break;
     case "hooks":
