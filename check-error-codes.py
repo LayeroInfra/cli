@@ -58,9 +58,9 @@ ALLOW_MARKERS = (
 # ОТКАЗ, а не пропуск: список выверен, и молча уменьшившийся охват опаснее
 # честного падения (см. комментарий в main).
 SURFACES = (
-    "layero-docs/docs/cli/json-events.md",
+    "layero-docs/docs/agents/json-events.md",
     "layero-docs/docs/agents/index.md",
-    "layero-docs/i18n/en/docusaurus-plugin-content-docs/current/cli/json-events.md",
+    "layero-docs/i18n/en/docusaurus-plugin-content-docs/current/agents/json-events.md",
     "layero-docs/i18n/en/docusaurus-plugin-content-docs/current/agents/index.md",
     "frontend/landing/llms.txt",
     "frontend/landing/llms-full.txt",
@@ -145,7 +145,7 @@ def main() -> int:
     # Сверяем с одним справочником (страница JSON-событий), а не со всеми
     # десятью поверхностями: llms.txt и правила для агентов перечисляют коды
     # выборочно, и требовать от них полноты неправильно.
-    reference = root / "layero-docs/docs/cli/json-events.md"
+    reference = root / "layero-docs/docs/agents/json-events.md"
     if reference.is_file():
         doc = reference.read_text(encoding="utf-8", errors="ignore")
         undocumented = sorted(
@@ -190,7 +190,7 @@ def main() -> int:
                 "WHY:  проверка была односторонней и ловила только мёртвые коды.\n"
                 "      28.07 добавили `rollback_unsupported` — и она смолчала:\n"
                 "      новый код нигде не описан, а претензий нет.\n"
-                "FIX:  опишите код в layero-docs/docs/cli/json-events.md — обратным\n"
+                "FIX:  опишите код в layero-docs/docs/agents/json-events.md — обратным\n"
                 "      кавычками, `так`. Сверяется только этот справочник: llms.txt\n"
                 "      и правила для агентов перечисляют коды выборочно, и требовать\n"
                 "      от них полноты неправильно."
